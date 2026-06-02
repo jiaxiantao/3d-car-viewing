@@ -79,7 +79,20 @@ function getSourceMaterialName(mesh: THREE.Mesh) {
     .join(" ");
 }
 
-type ShowroomMaterial = THREE.MeshStandardMaterial | THREE.MeshPhysicalMaterial;
+type ShowroomMaterial =
+  | THREE.MeshStandardMaterial
+  | THREE.MeshPhysicalMaterial
+  | THREE.MeshPhongMaterial
+  | THREE.MeshLambertMaterial;
+
+function isShowroomCompatibleMaterial(material: THREE.Material): material is ShowroomMaterial {
+  return (
+    material instanceof THREE.MeshStandardMaterial ||
+    material instanceof THREE.MeshPhysicalMaterial ||
+    material instanceof THREE.MeshPhongMaterial ||
+    material instanceof THREE.MeshLambertMaterial
+  );
+}
 
 const DOOR_EXCLUDE =
   /(tail[_\s-]?lamp|door[_\s-]?int|door_int|interior|boot|lock|carpet|icon|speaker|seat|rubber|clamp|wind|windsh|glass_red|hl_cover|technology|primeam)/i;
@@ -126,10 +139,7 @@ export function ensureShowroomMaterial(
   let selectedIndex = -1;
   for (let index = 0; index < sources.length; index += 1) {
     const entry = sources[index];
-    if (
-      !(entry instanceof THREE.MeshStandardMaterial) &&
-      !(entry instanceof THREE.MeshPhysicalMaterial)
-    ) {
+    if (!isShowroomCompatibleMaterial(entry)) {
       continue;
     }
     if (!preferMaterialName || preferMaterialName(entry.name ?? "")) {
@@ -142,10 +152,7 @@ export function ensureShowroomMaterial(
   }
 
   const source = sources[selectedIndex];
-  if (
-    !(source instanceof THREE.MeshStandardMaterial) &&
-    !(source instanceof THREE.MeshPhysicalMaterial)
-  ) {
+  if (!isShowroomCompatibleMaterial(source)) {
     return null;
   }
   const cloned = source.clone();
@@ -179,10 +186,7 @@ export function ensureShowroomPaintMaterial(mesh: THREE.Mesh): ShowroomMaterial 
     return cached;
   }
   const source = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-  if (
-    !(source instanceof THREE.MeshStandardMaterial) &&
-    !(source instanceof THREE.MeshPhysicalMaterial)
-  ) {
+  if (!isShowroomCompatibleMaterial(source)) {
     return null;
   }
   const cloned = source.clone();
