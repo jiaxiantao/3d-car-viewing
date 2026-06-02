@@ -20,7 +20,6 @@ import { normalizeMarketModel } from "@/lib/normalize-market-model";
 import { getOrbitDistanceLimits, type ShowroomCameraPreset } from "@/lib/showroom-camera";
 import {
   SHOWROOM_GROUND_Y,
-  resolveHeadlightSpotPositions,
   SHOWROOM_SCENE_LIGHTING,
   ShowroomHeadlightSpotlights,
   ShowroomImageBasedLighting,
@@ -177,38 +176,6 @@ function ShowroomAccentLights({
         distance={2.2}
         color="#f8fafc"
       />
-    </>
-  );
-}
-
-function AssetHeadlightLensGlow({
-  lightsOn,
-  rig,
-}: {
-  lightsOn: boolean;
-  rig: AssetCarRig | null;
-}) {
-  const positions = useMemo(() => {
-    if (!rig) {
-      return [] as THREE.Vector3[];
-    }
-    const [left, right] = resolveHeadlightSpotPositions(rig.bounds, rig.headLightPositions);
-    // Showroom forward is -X; offset glow slightly in front of lamp lens.
-    return [left.clone().add(new THREE.Vector3(-0.04, 0, 0)), right.clone().add(new THREE.Vector3(-0.04, 0, 0))];
-  }, [rig]);
-
-  if (!lightsOn || !rig?.capabilities.headLights || positions.length !== 2) {
-    return null;
-  }
-
-  return (
-    <>
-      {positions.map((position, index) => (
-        <mesh key={`asset-headlight-glow-${index}`} position={position.toArray()}>
-          <sphereGeometry args={[0.085, 18, 18]} />
-          <meshBasicMaterial color="#fff8d6" toneMapped={false} />
-        </mesh>
-      ))}
     </>
   );
 }
@@ -1793,7 +1760,6 @@ export function CarShowroomScene({
           color="#94a3b8"
         />
         <ShowroomHeadlightSpotlights lightsOn={state.lightsOn} rig={assetRig} />
-        <AssetHeadlightLensGlow lightsOn={state.lightsOn} rig={assetRig} />
         <pointLight
           position={[-4, 2, -3]}
           intensity={SHOWROOM_SCENE_LIGHTING.fillPoint}
