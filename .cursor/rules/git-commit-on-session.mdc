@@ -1,0 +1,19 @@
+---
+description: 每次对话有代码改动时提交并推送到 GitHub 远程仓库
+alwaysApply: true
+---
+
+# Git 提交与推送约定
+
+远程仓库：`git@github.com:jiaxiantao/3d-car-viewing.git`（`origin` / `main`）
+
+当本次对话中对仓库产生了代码或配置改动时，在回复用户前完成：
+
+1. 并行执行 `git status`、`git diff`、`git log -1 --oneline`。
+2. 不要提交 `.env` 或含密钥的文件；`.env.example` 可以提交。
+3. 有改动时：`git add`（相关文件）→ `git commit`（HEREDOC 写清「为什么」）→ `git push origin main`（或当前分支）。
+4. 若无改动但此前有未推送的 commit，仍执行 `git push origin main`。
+5. 若无任何可提交改动且已同步远程，不要空提交。
+6. 不要使用 `git push --force` 到 `main`，除非用户明确要求。
+
+在最终回复中简短告知：commit hash（如有）、分支、push 是否成功。
