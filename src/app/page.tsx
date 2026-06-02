@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { AssetRigCapabilities, CarCameraPreset } from "@/components/car-showroom-scene";
 import { Button } from "@/components/ui/button";
@@ -11,22 +11,16 @@ const marketCategoryOptions = [
     key: "suv",
     label: "SUV",
     primaryUrl: "/models/market/suv-mainstream.glb",
-    fallbackUrl: "/models/cars/car-concept.glb",
-    fallbackName: "CarConcept",
   },
   {
     key: "sedan",
     label: "小轿车",
     primaryUrl: "/models/market/2023_bmw_m2_coupe.glb",
-    fallbackUrl: "/models/cars/toy-car.glb",
-    fallbackName: "ToyCar",
   },
   {
     key: "offroad",
     label: "越野车",
     primaryUrl: "/models/market/offroad-mainstream.glb",
-    fallbackUrl: "/models/cars/cesium-milk-truck.glb",
-    fallbackName: "CesiumTruck",
   },
 ] as const;
 
@@ -81,10 +75,10 @@ export default function HomePage() {
     (typeof marketCategoryOptions)[number]["key"]
   >("suv");
   const [selectedModelUrl, setSelectedModelUrl] = useState<string>(
-    marketCategoryOptions[0].fallbackUrl,
+    marketCategoryOptions[0].primaryUrl,
   );
   const [selectedModelLabel, setSelectedModelLabel] = useState<string>(
-    `${marketCategoryOptions[0].label}（回退：${marketCategoryOptions[0].fallbackName}）`,
+    `${marketCategoryOptions[0].label}（主流实车模型）`,
   );
   const [speedKph, setSpeedKph] = useState(28);
   const [braking, setBraking] = useState(false);
@@ -96,41 +90,21 @@ export default function HomePage() {
     if (!category) {
       return;
     }
-    let active = true;
-
-    const resolveModelUrl = async () => {
-      for (const url of [category.primaryUrl, category.fallbackUrl]) {
-        try {
-          const response = await fetch(url, { method: "HEAD", cache: "no-store" });
-          if (response.ok) {
-            return url;
-          }
-        } catch {
-          // try next candidate
-        }
-      }
-      return category.fallbackUrl;
-    };
-
-    void resolveModelUrl().then((url) => {
-      if (!active) {
-        return;
-      }
-      setSelectedModelUrl(url);
-      setSelectedModelLabel(
-        url === category.primaryUrl
-          ? `${category.label}（主流实车模型）`
-          : `${category.label}（回退：${category.fallbackName}）`,
-      );
-    });
-
-    return () => {
-      active = false;
-    };
+    setSelectedModelUrl(category.primaryUrl);
+    setSelectedModelLabel(`${category.label}（主流实车模型）`);
   }, [selectedCategory]);
 
   const activeCategory =
     marketCategoryOptions.find((item) => item.key === selectedCategory) ?? marketCategoryOptions[0];
+
+  const handleAssetRigCapabilities = useCallback(
+    (capabilities: AssetRigCapabilities | null) => {
+      setAssetRigCaps(capabilities);
+    },
+    [],
+  );
+
+  const assetModelLoading = useAssetModel && assetRigCaps === null;
 
   const selectedPaint = useMemo(
     () => paintOptions.find((paint) => paint.id === selectedPaintId) ?? paintOptions[0],
@@ -142,15 +116,19 @@ export default function HomePage() {
       return true;
     }
     if (!assetRigCaps) {
-      return true;
+      return false;
     }
     return assetRigCaps[key];
   };
 
-  const interactionHint = (key: keyof AssetRigCapabilities) =>
-    supportsInteraction(key)
+  const interactionHint = (key: keyof AssetRigCapabilities) => {
+    if (assetModelLoading) {
+      return "车模加载中，请稍候…";
+    }
+    return supportsInteraction(key)
       ? undefined
       : "当前 GLB 车身为合并整体，未包含可独立活动的该部件，无法开合。";
+  };
 
   const unsupportedInteractionLabels = useMemo(() => {
     if (!useAssetModel || !assetRigCaps) {
@@ -276,8 +254,7 @@ export default function HomePage() {
         autoTour={autoTour}
         useAssetModel={useAssetModel}
         modelUrl={selectedModelUrl}
-        modelFallbackUrl={activeCategory.fallbackUrl}
-        onAssetRigCapabilities={setAssetRigCaps}
+        onAssetRigCapabilities={handleAssetRigCapabilities}
         onToggleLeftDoor={() => setLeftDoorOpen((value) => !value)}
         onToggleRightDoor={() => setRightDoorOpen((value) => !value)}
         onToggleTrunk={() => setTrunkOpen((value) => !value)}

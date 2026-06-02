@@ -46,6 +46,8 @@ export type AssetCarRig = {
    */
   frontWheels: THREE.Object3D[];
   rearWheels: THREE.Object3D[];
+  /** Effective rolling radius for wheel spin speed (meters, post-normalize). */
+  wheelRollRadius: number;
   /** Human-readable summary for UI / debugging. */
   capabilities: {
     leftDoor: boolean;
@@ -603,8 +605,10 @@ function findWheelNodes(root: THREE.Object3D, profile: MarketRigProfile | null) 
     }
   }
 
+  const rollRadii: number[] = [];
   for (const [key, unit] of quadrantBest) {
     const isFront = key.startsWith("F");
+    rollRadii.push(Math.max(unit.size.y, Math.min(unit.size.x, unit.size.z)) * 0.5);
     // Axle is the thinner horizontal axis (lateral Z after normalize, fallback X).
     const worldAxis =
       unit.size.z <= unit.size.x
@@ -617,7 +621,12 @@ function findWheelNodes(root: THREE.Object3D, profile: MarketRigProfile | null) 
     }
   }
 
-  return { frontWheels, rearWheels };
+  const wheelRollRadius =
+    rollRadii.length > 0
+      ? rollRadii.reduce((sum, value) => sum + value, 0) / rollRadii.length
+      : 0.27;
+
+  return { frontWheels, rearWheels, wheelRollRadius };
 }
 
 export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): AssetCarRig {
@@ -789,6 +798,7 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
 
   let frontWheels: THREE.Object3D[] = [];
   let rearWheels: THREE.Object3D[] = [];
+  let wheelRollRadius = 0.27;
 
   // Only ever spin the GLB's own wheel meshes — never inject synthetic rollers.
   if (!profile?.bakedWheels) {
@@ -796,6 +806,7 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
     const realWheels = findWheelNodes(root, profile);
     frontWheels = realWheels.frontWheels;
     rearWheels = realWheels.rearWheels;
+    wheelRollRadius = realWheels.wheelRollRadius;
   }
 
   if (hazardMaterials.length === 0 && tailLightMaterials.length > 0) {
@@ -815,6 +826,7 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
     hazardMaterials,
     frontWheels,
     rearWheels,
+    wheelRollRadius,
     capabilities: {
       leftDoor: Boolean(leftDoorPivot),
       rightDoor: Boolean(rightDoorPivot),

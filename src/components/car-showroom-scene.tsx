@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas, type ThreeEvent, useFrame } from "@react-three/fiber";
-import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
+import { Html, OrbitControls, PerspectiveCamera } from "@react-three/drei";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -17,6 +17,12 @@ import {
   type AssetCarRig,
 } from "@/lib/asset-car-rig";
 import { normalizeMarketModel } from "@/lib/normalize-market-model";
+import {
+  getOrbitDistanceLimits,
+  resolveShowroomCameraPose,
+  sampleAutoTourPose,
+  type ShowroomCameraPreset,
+} from "@/lib/showroom-camera";
 import {
   SHOWROOM_GROUND_Y,
   SHOWROOM_SCENE_LIGHTING,
@@ -103,6 +109,8 @@ const WHEEL_MOUNT_Y = -0.06 - BODY_GROUND_CLEARANCE;
 const CAR_BASE_Y =
   SHOWROOM_GROUND_Y + WHEEL_RADIUS - WHEEL_MOUNT_Y + WHEEL_TOUCH_CLEARANCE;
 const ENGINE_IGNITION_DURATION = 0.9;
+/** Keep overlay visible long enough to perceive when GLB is cached locally. */
+const MIN_LOADING_OVERLAY_MS = 480;
 
 const interactivePointerHandlers = {
   onPointerOver: (event: ThreeEvent<PointerEvent>) => {
@@ -389,13 +397,7 @@ function GeometricWheel({
   );
 }
 
-export type CarCameraPreset =
-  | "overview"
-  | "front"
-  | "side-left"
-  | "side-right"
-  | "rear"
-  | "cockpit";
+export type CarCameraPreset = ShowroomCameraPreset;
 
 type CarShowroomState = {
   leftDoorOpen: boolean;
@@ -424,6 +426,7 @@ type CarShowroomSceneProps = {
   autoTour: boolean;
   useAssetModel: boolean;
   modelUrl?: string;
+  modelAlternateUrls?: string[];
   modelFallbackUrl?: string;
   onAssetRigCapabilities?: (capabilities: AssetRigCapabilities | null) => void;
   onToggleLeftDoor: () => void;
@@ -447,7 +450,11 @@ function disposeLoadedScene(root: THREE.Object3D) {
   });
 }
 
-async function loadGltfScene(loader: GLTFLoader, url: string) {
+async function loadGltfScene(
+  loader: GLTFLoader,
+  url: string,
+  onProgress?: (ratio: number) => void,
+) {
   return new Promise<THREE.Object3D>((resolve, reject) => {
     loader.load(
       url,
@@ -460,12 +467,23 @@ async function loadGltfScene(loader: GLTFLoader, url: string) {
             mesh.receiveShadow = true;
           }
         });
+        onProgress?.(0.94);
         normalizeMarketModel(loadedScene);
         const rig = discoverAssetCarRig(loadedScene, url);
         loadedScene.userData.showroomRig = rig;
+        onProgress?.(1);
         resolve(loadedScene);
       },
-      undefined,
+      (event) => {
+        if (event.lengthComputable && event.total > 0) {
+          onProgress?.(Math.min(0.92, event.loaded / event.total));
+          return;
+        }
+        if (event.loaded > 0) {
+          // Some static hosts omit Content-Length; approximate from bytes loaded.
+          onProgress?.(Math.min(0.75, event.loaded / 48_000_000));
+        }
+      },
       reject,
     );
   });
@@ -751,7 +769,8 @@ function AssetModel({
       delta,
     );
     // Roll all four real wheels forward together while the engine is running.
-    const angularSpeed = velocityRef.current / WHEEL_RADIUS;
+    const wheelRadius = Math.max(rig.wheelRollRadius, 0.12);
+    const angularSpeed = velocityRef.current / wheelRadius;
     wheelSpinAngleRef.current += delta * angularSpeed;
     const spinAngle = wheelSpinAngleRef.current;
 
@@ -839,61 +858,18 @@ function AssetModel({
   );
 }
 
-function getCameraPose(preset: CarCameraPreset) {
-  if (preset === "front") {
-    return {
-      position: new THREE.Vector3(-5.6, 1.8, 0),
-      target: new THREE.Vector3(-0.8, 0.5, 0),
-    };
-  }
-  if (preset === "side-left") {
-    return {
-      position: new THREE.Vector3(0.2, 1.9, 6.3),
-      target: new THREE.Vector3(0.1, 0.45, 0),
-    };
-  }
-  if (preset === "side-right") {
-    return {
-      position: new THREE.Vector3(0.2, 1.9, -6.3),
-      target: new THREE.Vector3(0.1, 0.45, 0),
-    };
-  }
-  if (preset === "rear") {
-    return {
-      position: new THREE.Vector3(5.9, 1.9, 0),
-      target: new THREE.Vector3(1.2, 0.6, 0),
-    };
-  }
-  if (preset === "cockpit") {
-    return {
-      // Cockpit pivot is anchored near the driver's head position so drag
-      // rotation spins around the driver seat instead of the windshield.
-      position: new THREE.Vector3(
-        CABIN_CENTER_X - 0.35,
-        CABIN_CENTER_Y + 0.52,
-        STEERING_COLUMN_Z + 0.24,
-      ),
-      target: new THREE.Vector3(
-        STEERING_COLUMN_X - 0.08,
-        STEERING_COLUMN_Y + 0.12,
-        STEERING_COLUMN_Z,
-      ),
-    };
-  }
-  return {
-    position: new THREE.Vector3(5.2, 2.4, 4.6),
-    target: new THREE.Vector3(0, CABIN_CENTER_Y, 0),
-  };
-}
-
 function CameraRig({
   preset,
   autoTour,
   controlsRef,
+  framingBounds,
+  framingBoundsKey,
 }: {
   preset: CarCameraPreset;
   autoTour: boolean;
   controlsRef: { current: OrbitControlsLike | null | undefined };
+  framingBounds: THREE.Box3 | null;
+  framingBoundsKey: string;
 }) {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   const fromPositionRef = useRef(new THREE.Vector3(5.2, 2.4, 4.6));
@@ -902,31 +878,46 @@ function CameraRig({
   const toTargetRef = useRef(new THREE.Vector3(0, 0.45, 0));
   const transitionProgressRef = useRef(1);
   const prevPresetRef = useRef<CarCameraPreset | null>(null);
+  const prevFramingBoundsKeyRef = useRef(framingBoundsKey);
   const prevAutoTourRef = useRef(autoTour);
+  const tourPositionRef = useRef(new THREE.Vector3());
+  const tourTargetRef = useRef(new THREE.Vector3());
+  const lerpPositionRef = useRef(new THREE.Vector3());
+  const lerpTargetRef = useRef(new THREE.Vector3());
 
-  useEffect(() => {
-    if (autoTour) {
-      prevPresetRef.current = preset;
-      return;
-    }
-    if (prevPresetRef.current === preset) {
-      return;
-    }
+  const beginTransitionToPreset = (nextPreset: CarCameraPreset) => {
     const camera = cameraRef.current;
     if (!camera) {
-      prevPresetRef.current = preset;
       return;
     }
     const controls = controlsRef.current;
     const currentTarget = controls?.target.clone() ?? toTargetRef.current.clone();
     fromPositionRef.current.copy(camera.position);
     fromTargetRef.current.copy(currentTarget);
-    const nextPose = getCameraPose(preset);
+    const nextPose = resolveShowroomCameraPose(nextPreset, framingBounds);
     toPositionRef.current.copy(nextPose.position);
     toTargetRef.current.copy(nextPose.target);
     transitionProgressRef.current = 0;
+  };
+
+  useEffect(() => {
+    if (autoTour) {
+      prevPresetRef.current = preset;
+      prevFramingBoundsKeyRef.current = framingBoundsKey;
+      return;
+    }
+
+    const presetChanged = prevPresetRef.current !== preset;
+    const boundsChanged = prevFramingBoundsKeyRef.current !== framingBoundsKey;
     prevPresetRef.current = preset;
-  }, [autoTour, controlsRef, preset]);
+    prevFramingBoundsKeyRef.current = framingBoundsKey;
+
+    if (!presetChanged && !boundsChanged) {
+      return;
+    }
+
+    beginTransitionToPreset(preset);
+  }, [autoTour, framingBoundsKey, preset]);
 
   useEffect(() => {
     const wasAutoTour = prevAutoTourRef.current;
@@ -934,19 +925,8 @@ function CameraRig({
     if (autoTour || !wasAutoTour) {
       return;
     }
-    const camera = cameraRef.current;
-    if (!camera) {
-      return;
-    }
-    const controls = controlsRef.current;
-    const currentTarget = controls?.target.clone() ?? toTargetRef.current.clone();
-    const nextPose = getCameraPose(preset);
-    fromPositionRef.current.copy(camera.position);
-    fromTargetRef.current.copy(currentTarget);
-    toPositionRef.current.copy(nextPose.position);
-    toTargetRef.current.copy(nextPose.target);
-    transitionProgressRef.current = 0;
-  }, [autoTour, controlsRef, preset]);
+    beginTransitionToPreset(preset);
+  }, [autoTour, framingBoundsKey, preset]);
 
   useFrame((renderState, delta) => {
     if (!cameraRef.current) {
@@ -954,21 +934,21 @@ function CameraRig({
     }
     const controls = controlsRef.current;
     if (autoTour) {
-      const t = renderState.clock.elapsedTime * 0.22;
-      const radius = 6.3;
-      const targetY = 0.7 + Math.sin(t * 2) * 0.12;
-      const target = new THREE.Vector3(0, CABIN_CENTER_Y, 0);
-      const position = new THREE.Vector3(
-        Math.cos(t) * radius,
-        2 + targetY,
-        Math.sin(t) * radius,
+      sampleAutoTourPose(
+        framingBounds,
+        renderState.clock.elapsedTime,
+        tourPositionRef.current,
+        tourTargetRef.current,
       );
-      cameraRef.current.position.lerp(position, THREE.MathUtils.clamp(delta * 2, 0, 1));
+      cameraRef.current.position.lerp(
+        tourPositionRef.current,
+        THREE.MathUtils.clamp(delta * 2, 0, 1),
+      );
       if (controls) {
-        controls.target.copy(target);
+        controls.target.copy(tourTargetRef.current);
         controls.update();
       } else {
-        cameraRef.current.lookAt(target);
+        cameraRef.current.lookAt(tourTargetRef.current);
       }
       return;
     }
@@ -976,22 +956,14 @@ function CameraRig({
     if (transitionProgressRef.current < 1) {
       transitionProgressRef.current = Math.min(1, transitionProgressRef.current + delta * 2.3);
       const alpha = THREE.MathUtils.smootherstep(transitionProgressRef.current, 0, 1);
-      const nextPosition = new THREE.Vector3().lerpVectors(
-        fromPositionRef.current,
-        toPositionRef.current,
-        alpha,
-      );
-      const nextTarget = new THREE.Vector3().lerpVectors(
-        fromTargetRef.current,
-        toTargetRef.current,
-        alpha,
-      );
-      cameraRef.current.position.copy(nextPosition);
+      lerpPositionRef.current.lerpVectors(fromPositionRef.current, toPositionRef.current, alpha);
+      lerpTargetRef.current.lerpVectors(fromTargetRef.current, toTargetRef.current, alpha);
+      cameraRef.current.position.copy(lerpPositionRef.current);
       if (controls) {
-        controls.target.copy(nextTarget);
+        controls.target.copy(lerpTargetRef.current);
         controls.update();
       } else {
-        cameraRef.current.lookAt(nextTarget);
+        cameraRef.current.lookAt(lerpTargetRef.current);
       }
     }
   });
@@ -1508,12 +1480,126 @@ function CarModel({
   );
 }
 
+const LOADER_OVERLAY_STYLES = `
+@keyframes showroom-loader-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes showroom-loader-bar-indeterminate {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(320%); }
+}
+`;
+
+function ShowroomAssetLoadingOverlay({
+  visible,
+  displayProgress,
+}: {
+  visible: boolean;
+  displayProgress: number;
+}) {
+  if (!visible) {
+    return null;
+  }
+
+  const percent = Math.round(Math.min(100, Math.max(displayProgress, 0.08) * 100));
+  const showIndeterminateBar = displayProgress < 0.2;
+
+  return (
+    <Html
+      fullscreen
+      zIndexRange={[200, 0]}
+      style={{
+        pointerEvents: "none",
+      }}
+    >
+      <style dangerouslySetInnerHTML={{ __html: LOADER_OVERLAY_STYLES }} />
+      <div
+        style={{
+          display: "flex",
+          width: "100%",
+          height: "100%",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "rgba(2, 6, 23, 0.5)",
+          backdropFilter: "blur(2px)",
+        }}
+      >
+        <div
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+          style={{
+            display: "flex",
+            minWidth: 220,
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 16,
+            borderRadius: 16,
+            border: "1px solid rgba(34, 211, 238, 0.25)",
+            background: "rgba(2, 6, 23, 0.92)",
+            padding: "24px 32px",
+            boxShadow: "0 12px 40px rgba(0, 0, 0, 0.45)",
+          }}
+        >
+          <div
+            aria-hidden
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: "50%",
+              border: "2px solid rgba(34, 211, 238, 0.25)",
+              borderTopColor: "rgb(34, 211, 238)",
+              animation: "showroom-loader-spin 0.75s linear infinite",
+            }}
+          />
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: "#f1f5f9" }}>
+            正在切换车型…
+          </p>
+          <div
+            style={{
+              width: "100%",
+              height: 6,
+              overflow: "hidden",
+              borderRadius: 999,
+              background: "rgb(30, 41, 59)",
+            }}
+          >
+            {showIndeterminateBar ? (
+              <div
+                style={{
+                  width: "38%",
+                  height: "100%",
+                  borderRadius: 999,
+                  background: "rgb(34, 211, 238)",
+                  animation: "showroom-loader-bar-indeterminate 1.15s ease-in-out infinite",
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: `${percent}%`,
+                  height: "100%",
+                  borderRadius: 999,
+                  background: "rgb(34, 211, 238)",
+                  transition: "width 160ms ease-out",
+                }}
+              />
+            )}
+          </div>
+          <p style={{ margin: 0, fontSize: 12, color: "#94a3b8" }}>{percent}%</p>
+        </div>
+      </div>
+    </Html>
+  );
+}
+
 export function CarShowroomScene({
   state,
   cameraPreset,
   autoTour,
   useAssetModel,
-  modelUrl = "/models/car-showroom.glb",
+  modelUrl = "/models/market/suv-mainstream.glb",
+  modelAlternateUrls,
   modelFallbackUrl,
   onAssetRigCapabilities,
   onToggleLeftDoor,
@@ -1524,19 +1610,90 @@ export function CarShowroomScene({
   const [assetRig, setAssetRig] = useState<AssetCarRig | null>(null);
   const [assetLoadState, setAssetLoadState] = useState<AssetLoadState>("idle");
   const [useGeometricFallback, setUseGeometricFallback] = useState(false);
+  const [loadProgress, setLoadProgress] = useState(0);
   const controlsRef = useRef(null);
+  const displayedRootRef = useRef<THREE.Object3D | null>(null);
 
   const environmentIntensity =
     state.lightsOn && (!useAssetModel || assetRig?.capabilities.headLights)
       ? SHOWROOM_SCENE_LIGHTING.environmentIntensity.headlightsOn
       : SHOWROOM_SCENE_LIGHTING.environmentIntensity.base;
 
+  const isAssetLoading = useAssetModel && assetLoadState === "loading";
+  const [loadingOverlayVisible, setLoadingOverlayVisible] = useState(false);
+  const [displayedLoadProgress, setDisplayedLoadProgress] = useState(0);
+  const loadingShownAtRef = useRef(0);
+  const networkLoadProgressRef = useRef(0);
+  networkLoadProgressRef.current = loadProgress;
+
+  useEffect(() => {
+    if (isAssetLoading) {
+      loadingShownAtRef.current = Date.now();
+      setLoadingOverlayVisible(true);
+      return;
+    }
+    const elapsed = Date.now() - loadingShownAtRef.current;
+    const remaining = Math.max(0, MIN_LOADING_OVERLAY_MS - elapsed);
+    const timer = window.setTimeout(() => setLoadingOverlayVisible(false), remaining);
+    return () => window.clearTimeout(timer);
+  }, [isAssetLoading]);
+
+  useEffect(() => {
+    if (!loadingOverlayVisible) {
+      setDisplayedLoadProgress(0);
+      return;
+    }
+
+    setDisplayedLoadProgress(Math.max(0.08, networkLoadProgressRef.current));
+    const timer = window.setInterval(() => {
+      setDisplayedLoadProgress((prev) => {
+        const network = networkLoadProgressRef.current;
+        const synthetic = Math.min(0.92, prev + 0.028);
+        const fromNetwork = network > 0 ? network * 0.96 : 0;
+        return Math.max(prev, synthetic, fromNetwork);
+      });
+    }, 90);
+
+    return () => window.clearInterval(timer);
+  }, [loadingOverlayVisible]);
+
   const showGeometricCar = !useAssetModel || useGeometricFallback;
   const showAssetCar =
-    useAssetModel && !useGeometricFallback && assetLoadState === "ready" && assetScene && assetRig;
+    useAssetModel && !useGeometricFallback && assetScene && assetRig;
+
+  const framingBounds = showAssetCar && assetRig ? assetRig.bounds : null;
+  const framingBoundsKey = useMemo(() => {
+    if (!framingBounds || framingBounds.isEmpty()) {
+      return "";
+    }
+    return [
+      framingBounds.min.x,
+      framingBounds.min.y,
+      framingBounds.min.z,
+      framingBounds.max.x,
+      framingBounds.max.y,
+      framingBounds.max.z,
+    ]
+      .map((value) => value.toFixed(2))
+      .join("|");
+  }, [framingBounds]);
+
+  const orbitLimits = useMemo(
+    () => getOrbitDistanceLimits(framingBounds),
+    [framingBoundsKey, framingBounds],
+  );
+
+  const modelUrlChainKey = useMemo(
+    () => [modelUrl, ...(modelAlternateUrls ?? []), modelFallbackUrl ?? ""].join("\0"),
+    [modelAlternateUrls, modelFallbackUrl, modelUrl],
+  );
 
   useEffect(() => {
     if (!useAssetModel) {
+      if (displayedRootRef.current) {
+        disposeLoadedScene(displayedRootRef.current);
+        displayedRootRef.current = null;
+      }
       setAssetLoadState("idle");
       setUseGeometricFallback(false);
       setAssetScene(null);
@@ -1546,16 +1703,14 @@ export function CarShowroomScene({
     }
 
     let active = true;
-    let loadedRoot: THREE.Object3D | null = null;
     const loader = new GLTFLoader();
-    const candidateUrls = [modelUrl, modelFallbackUrl].filter(
+    const candidateUrls = [modelUrl, ...(modelAlternateUrls ?? []), modelFallbackUrl].filter(
       (url, index, urls): url is string => Boolean(url) && urls.indexOf(url) === index,
     );
 
     setAssetLoadState("loading");
+    setLoadProgress(0);
     setUseGeometricFallback(false);
-    setAssetScene(null);
-    setAssetRig(null);
     onAssetRigCapabilities?.(null);
 
     const tryLoad = async (index: number) => {
@@ -1563,21 +1718,44 @@ export function CarShowroomScene({
         return;
       }
       if (index >= candidateUrls.length) {
+        if (displayedRootRef.current) {
+          disposeLoadedScene(displayedRootRef.current);
+          displayedRootRef.current = null;
+        }
+        setAssetScene(null);
+        setAssetRig(null);
         setAssetLoadState("error");
         setUseGeometricFallback(true);
-        onAssetRigCapabilities?.(null);
+        onAssetRigCapabilities?.({
+          leftDoor: true,
+          rightDoor: true,
+          trunk: true,
+          sunroof: true,
+          headLights: true,
+          tailLights: true,
+          wheels: true,
+          wheelsSynthetic: false,
+        });
         return;
       }
 
       const url = candidateUrls[index];
       try {
-        const loadedScene = await loadGltfScene(loader, url);
+        const loadedScene = await loadGltfScene(loader, url, (ratio) => {
+          if (active) {
+            setLoadProgress(ratio);
+          }
+        });
         if (!active) {
           disposeLoadedScene(loadedScene);
           return;
         }
-        loadedRoot = loadedScene;
+        if (displayedRootRef.current && displayedRootRef.current !== loadedScene) {
+          disposeLoadedScene(displayedRootRef.current);
+        }
+        displayedRootRef.current = loadedScene;
         const rig = loadedScene.userData.showroomRig as AssetCarRig;
+        setLoadProgress(1);
         setAssetRig(rig);
         setAssetScene(loadedScene);
         setAssetLoadState("ready");
@@ -1591,24 +1769,11 @@ export function CarShowroomScene({
 
     return () => {
       active = false;
-      if (loadedRoot) {
-        disposeLoadedScene(loadedRoot);
-      }
-      setAssetScene(null);
-      setAssetRig(null);
-      setAssetLoadState("idle");
-      setUseGeometricFallback(false);
-      onAssetRigCapabilities?.(null);
     };
-  }, [modelFallbackUrl, modelUrl, onAssetRigCapabilities, useAssetModel]);
+  }, [modelUrlChainKey, onAssetRigCapabilities, useAssetModel]);
 
   return (
     <div className="relative h-[520px] w-full overflow-hidden rounded-4xl border border-white/10 bg-slate-950/80">
-      {useAssetModel && assetLoadState === "loading" ? (
-        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-slate-950/75 text-sm text-slate-400">
-          正在加载 GLB 车模…
-        </div>
-      ) : null}
       {useAssetModel && assetLoadState === "error" ? (
         <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center px-4">
           <p className="rounded-full border border-amber-400/30 bg-amber-950/80 px-3 py-1 text-xs text-amber-100">
@@ -1616,8 +1781,14 @@ export function CarShowroomScene({
           </p>
         </div>
       ) : null}
-      <Canvas className="h-full w-full" shadows={{ type: THREE.PCFShadowMap }} dpr={[1, 2]}>
-        <CameraRig preset={cameraPreset} autoTour={autoTour} controlsRef={controlsRef} />
+      <Canvas className="h-full w-full" shadows={{ type: THREE.PCFShadowMap }} dpr={[1, 1.5]}>
+        <CameraRig
+          preset={cameraPreset}
+          autoTour={autoTour}
+          controlsRef={controlsRef}
+          framingBounds={framingBounds}
+          framingBoundsKey={framingBoundsKey}
+        />
         <color attach="background" args={["#070d18"]} />
         <ShowroomImageBasedLighting intensity={environmentIntensity} />
         <hemisphereLight
@@ -1648,8 +1819,8 @@ export function CarShowroomScene({
               : SHOWROOM_SCENE_LIGHTING.directional.base
           }
           castShadow
-          shadow-mapSize-height={2048}
-          shadow-mapSize-width={2048}
+          shadow-mapSize-height={1024}
+          shadow-mapSize-width={1024}
         />
         <directionalLight
           position={[-3, 4, -2]}
@@ -1692,10 +1863,15 @@ export function CarShowroomScene({
           ref={controlsRef}
           enablePan={false}
           enableRotate={!autoTour}
-          minDistance={3.8}
-          maxDistance={9}
+          minDistance={orbitLimits.minDistance}
+          maxDistance={orbitLimits.maxDistance}
           minPolarAngle={0.6}
           maxPolarAngle={1.5}
+        />
+
+        <ShowroomAssetLoadingOverlay
+          visible={loadingOverlayVisible}
+          displayProgress={displayedLoadProgress}
         />
       </Canvas>
     </div>

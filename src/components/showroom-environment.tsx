@@ -189,8 +189,8 @@ export function ShowroomReflectiveFloor({
       <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, SHOWROOM_GROUND_Y, 0]}>
         <circleGeometry args={[8, 64]} />
         <MeshReflectorMaterial
-          blur={[floorLit ? 420 : 280, 120]}
-          resolution={floorLit ? 768 : 512}
+          blur={[floorLit ? 360 : 240, 100]}
+          resolution={floorLit ? 640 : 384}
           mixBlur={floorLit ? 1.1 : 0.85}
           mixStrength={floorLit ? 1.65 : 0.62}
           roughness={floorLit ? 0.3 : SHOWROOM_FLOOR_ROUGHNESS}

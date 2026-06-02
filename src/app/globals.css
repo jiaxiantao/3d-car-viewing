@@ -35,3 +35,13 @@ a {
   background: rgba(103, 232, 249, 0.3);
   color: white;
 }
+
+@keyframes showroom-loader-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.showroom-loader-spin {
+  animation: showroom-loader-spin 0.75s linear infinite;
+}
