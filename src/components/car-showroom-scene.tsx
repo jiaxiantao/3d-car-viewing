@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas, type ThreeEvent, useFrame } from "@react-three/fiber";
-import { Environment, OrbitControls, PerspectiveCamera } from "@react-three/drei";
+import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -21,6 +21,7 @@ import {
   SHOWROOM_GROUND_Y,
   SHOWROOM_SCENE_LIGHTING,
   ShowroomHeadlightSpotlights,
+  ShowroomImageBasedLighting,
   ShowroomReflectiveFloor,
 } from "@/components/showroom-environment";
 
@@ -415,17 +416,60 @@ type CarShowroomState = {
 
 export type AssetRigCapabilities = AssetCarRig["capabilities"];
 
+type AssetLoadState = "idle" | "loading" | "ready" | "error";
+
 type CarShowroomSceneProps = {
   state: CarShowroomState;
   cameraPreset: CarCameraPreset;
   autoTour: boolean;
   useAssetModel: boolean;
   modelUrl?: string;
+  modelFallbackUrl?: string;
   onAssetRigCapabilities?: (capabilities: AssetRigCapabilities | null) => void;
   onToggleLeftDoor: () => void;
   onToggleRightDoor: () => void;
   onToggleTrunk: () => void;
 };
+
+function disposeLoadedScene(root: THREE.Object3D) {
+  root.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    if (!mesh.isMesh) {
+      return;
+    }
+    mesh.geometry?.dispose();
+    const material = mesh.material;
+    if (Array.isArray(material)) {
+      material.forEach((entry) => entry.dispose());
+    } else {
+      material?.dispose();
+    }
+  });
+}
+
+async function loadGltfScene(loader: GLTFLoader, url: string) {
+  return new Promise<THREE.Object3D>((resolve, reject) => {
+    loader.load(
+      url,
+      (gltf) => {
+        const loadedScene = gltf.scene.clone(true);
+        loadedScene.traverse((child) => {
+          const mesh = child as THREE.Mesh;
+          if (mesh.isMesh) {
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+          }
+        });
+        normalizeMarketModel(loadedScene);
+        const rig = discoverAssetCarRig(loadedScene, url);
+        loadedScene.userData.showroomRig = rig;
+        resolve(loadedScene);
+      },
+      undefined,
+      reject,
+    );
+  });
+}
 
 type CarModelProps = {
   state: CarShowroomState;
@@ -1470,6 +1514,7 @@ export function CarShowroomScene({
   autoTour,
   useAssetModel,
   modelUrl = "/models/car-showroom.glb",
+  modelFallbackUrl,
   onAssetRigCapabilities,
   onToggleLeftDoor,
   onToggleRightDoor,
@@ -1477,86 +1522,104 @@ export function CarShowroomScene({
 }: CarShowroomSceneProps) {
   const [assetScene, setAssetScene] = useState<THREE.Object3D | null>(null);
   const [assetRig, setAssetRig] = useState<AssetCarRig | null>(null);
+  const [assetLoadState, setAssetLoadState] = useState<AssetLoadState>("idle");
+  const [useGeometricFallback, setUseGeometricFallback] = useState(false);
   const controlsRef = useRef(null);
+
+  const environmentIntensity =
+    state.lightsOn && (!useAssetModel || assetRig?.capabilities.headLights)
+      ? SHOWROOM_SCENE_LIGHTING.environmentIntensity.headlightsOn
+      : SHOWROOM_SCENE_LIGHTING.environmentIntensity.base;
+
+  const showGeometricCar = !useAssetModel || useGeometricFallback;
+  const showAssetCar =
+    useAssetModel && !useGeometricFallback && assetLoadState === "ready" && assetScene && assetRig;
 
   useEffect(() => {
     if (!useAssetModel) {
+      setAssetLoadState("idle");
+      setUseGeometricFallback(false);
+      setAssetScene(null);
+      setAssetRig(null);
+      onAssetRigCapabilities?.(null);
       return;
     }
 
     let active = true;
     let loadedRoot: THREE.Object3D | null = null;
     const loader = new GLTFLoader();
-    loader.load(
-      modelUrl,
-      (gltf) => {
+    const candidateUrls = [modelUrl, modelFallbackUrl].filter(
+      (url, index, urls): url is string => Boolean(url) && urls.indexOf(url) === index,
+    );
+
+    setAssetLoadState("loading");
+    setUseGeometricFallback(false);
+    setAssetScene(null);
+    setAssetRig(null);
+    onAssetRigCapabilities?.(null);
+
+    const tryLoad = async (index: number) => {
+      if (!active) {
+        return;
+      }
+      if (index >= candidateUrls.length) {
+        setAssetLoadState("error");
+        setUseGeometricFallback(true);
+        onAssetRigCapabilities?.(null);
+        return;
+      }
+
+      const url = candidateUrls[index];
+      try {
+        const loadedScene = await loadGltfScene(loader, url);
         if (!active) {
+          disposeLoadedScene(loadedScene);
           return;
         }
-        const loadedScene = gltf.scene.clone(true);
         loadedRoot = loadedScene;
-        loadedScene.traverse((child) => {
-          const mesh = child as THREE.Mesh;
-          if (mesh.isMesh) {
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-          }
-        });
-
-        normalizeMarketModel(loadedScene);
-        const rig = discoverAssetCarRig(loadedScene, modelUrl);
-        loadedScene.userData.showroomRig = rig;
-
+        const rig = loadedScene.userData.showroomRig as AssetCarRig;
         setAssetRig(rig);
         setAssetScene(loadedScene);
+        setAssetLoadState("ready");
         onAssetRigCapabilities?.(rig.capabilities);
-      },
-      undefined,
-      () => {
-        if (active) {
-          setAssetScene(null);
-          setAssetRig(null);
-          onAssetRigCapabilities?.(null);
-        }
-      },
-    );
+      } catch {
+        await tryLoad(index + 1);
+      }
+    };
+
+    void tryLoad(0);
 
     return () => {
       active = false;
       if (loadedRoot) {
-        loadedRoot.traverse((child) => {
-          const mesh = child as THREE.Mesh;
-          if (mesh.isMesh) {
-            mesh.geometry?.dispose();
-            const material = mesh.material;
-            if (Array.isArray(material)) {
-              material.forEach((entry) => entry.dispose());
-            } else {
-              material?.dispose();
-            }
-          }
-        });
+        disposeLoadedScene(loadedRoot);
       }
       setAssetScene(null);
       setAssetRig(null);
+      setAssetLoadState("idle");
+      setUseGeometricFallback(false);
       onAssetRigCapabilities?.(null);
     };
-  }, [modelUrl, onAssetRigCapabilities, useAssetModel]);
+  }, [modelFallbackUrl, modelUrl, onAssetRigCapabilities, useAssetModel]);
 
   return (
-    <div className="h-[520px] overflow-hidden rounded-4xl border border-white/10 bg-slate-950/80">
-      <Canvas shadows={{ type: THREE.PCFShadowMap }}>
+    <div className="relative h-[520px] w-full overflow-hidden rounded-4xl border border-white/10 bg-slate-950/80">
+      {useAssetModel && assetLoadState === "loading" ? (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-slate-950/75 text-sm text-slate-400">
+          正在加载 GLB 车模…
+        </div>
+      ) : null}
+      {useAssetModel && assetLoadState === "error" ? (
+        <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center px-4">
+          <p className="rounded-full border border-amber-400/30 bg-amber-950/80 px-3 py-1 text-xs text-amber-100">
+            GLB 加载失败，已切换为几何体车模
+          </p>
+        </div>
+      ) : null}
+      <Canvas className="h-full w-full" shadows={{ type: THREE.PCFShadowMap }} dpr={[1, 2]}>
         <CameraRig preset={cameraPreset} autoTour={autoTour} controlsRef={controlsRef} />
         <color attach="background" args={["#070d18"]} />
-        <Environment
-          preset={SHOWROOM_SCENE_LIGHTING.environmentPreset}
-          environmentIntensity={
-            state.lightsOn &&
-            (!useAssetModel || assetRig?.capabilities.headLights)
-              ? SHOWROOM_SCENE_LIGHTING.environmentIntensity.headlightsOn
-              : SHOWROOM_SCENE_LIGHTING.environmentIntensity.base
-          }
-        />
+        <ShowroomImageBasedLighting intensity={environmentIntensity} />
         <hemisphereLight
           args={[
             SHOWROOM_SCENE_LIGHTING.hemisphere.sky,
@@ -1574,8 +1637,8 @@ export function CarShowroomScene({
         <ShowroomAccentLights
           lightsOn={state.lightsOn}
           cameraPreset={cameraPreset}
-          useAssetModel={useAssetModel && Boolean(assetScene)}
-          assetScene={assetScene}
+          useAssetModel={Boolean(showAssetCar)}
+          assetScene={showAssetCar ? assetScene : null}
         />
         <directionalLight
           position={[5, 8, 3]}
@@ -1600,7 +1663,7 @@ export function CarShowroomScene({
           color="#93c5fd"
         />
 
-        {useAssetModel && assetScene && assetRig ? (
+        {showAssetCar ? (
           <AssetModel
             object={assetScene}
             rig={assetRig}
@@ -1609,7 +1672,7 @@ export function CarShowroomScene({
             onToggleRightDoor={onToggleRightDoor}
             onToggleTrunk={onToggleTrunk}
           />
-        ) : !useAssetModel ? (
+        ) : showGeometricCar ? (
           <CarModel
             state={state}
             onToggleLeftDoor={onToggleLeftDoor}

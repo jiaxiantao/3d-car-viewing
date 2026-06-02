@@ -97,24 +97,40 @@ export default function HomePage() {
       return;
     }
     let active = true;
-    void fetch(category.primaryUrl, { method: "HEAD" })
-      .then((response) => (response.ok ? category.primaryUrl : category.fallbackUrl))
-      .catch(() => category.fallbackUrl)
-      .then((url) => {
-        if (!active) {
-          return;
+
+    const resolveModelUrl = async () => {
+      for (const url of [category.primaryUrl, category.fallbackUrl]) {
+        try {
+          const response = await fetch(url, { method: "HEAD", cache: "no-store" });
+          if (response.ok) {
+            return url;
+          }
+        } catch {
+          // try next candidate
         }
-        setSelectedModelUrl(url);
-        setSelectedModelLabel(
-          url === category.primaryUrl
-            ? `${category.label}（主流实车模型）`
-            : `${category.label}（回退：${category.fallbackName}）`,
-        );
-      });
+      }
+      return category.fallbackUrl;
+    };
+
+    void resolveModelUrl().then((url) => {
+      if (!active) {
+        return;
+      }
+      setSelectedModelUrl(url);
+      setSelectedModelLabel(
+        url === category.primaryUrl
+          ? `${category.label}（主流实车模型）`
+          : `${category.label}（回退：${category.fallbackName}）`,
+      );
+    });
+
     return () => {
       active = false;
     };
   }, [selectedCategory]);
+
+  const activeCategory =
+    marketCategoryOptions.find((item) => item.key === selectedCategory) ?? marketCategoryOptions[0];
 
   const selectedPaint = useMemo(
     () => paintOptions.find((paint) => paint.id === selectedPaintId) ?? paintOptions[0],
@@ -260,6 +276,7 @@ export default function HomePage() {
         autoTour={autoTour}
         useAssetModel={useAssetModel}
         modelUrl={selectedModelUrl}
+        modelFallbackUrl={activeCategory.fallbackUrl}
         onAssetRigCapabilities={setAssetRigCaps}
         onToggleLeftDoor={() => setLeftDoorOpen((value) => !value)}
         onToggleRightDoor={() => setRightDoorOpen((value) => !value)}

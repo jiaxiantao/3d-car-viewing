@@ -1,8 +1,10 @@
 "use client";
 
 import { ContactShadows, MeshReflectorMaterial } from "@react-three/drei";
+import { useThree } from "@react-three/fiber";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import type { AssetCarRig } from "@/lib/asset-car-rig";
 import { MARKET_MODEL_GROUND_Y } from "@/lib/normalize-market-model";
 
@@ -13,7 +15,6 @@ const SHOWROOM_FLOOR_METALNESS = 0.22;
 
 /** Scene-wide lighting — balanced between night (too dark) and city max (too bright). */
 export const SHOWROOM_SCENE_LIGHTING = {
-  environmentPreset: "city" as const,
   environmentIntensity: { base: 0.72, headlightsOn: 0.88 },
   ambient: { base: 0.58, headlightsOn: 0.52 },
   directional: { base: 1.35, headlightsOn: 1.12 },
@@ -123,6 +124,31 @@ function HeadlightSpot({
       <object3D ref={targetRef} position={targetPosition.toArray()} />
     </>
   );
+}
+
+/** Offline IBL — avoids drei Environment CDN HDR fetches that can fail and blank the canvas. */
+export function ShowroomImageBasedLighting({ intensity }: { intensity: number }) {
+  const { gl, scene } = useThree();
+
+  useLayoutEffect(() => {
+    const pmremGenerator = new THREE.PMREMGenerator(gl);
+    pmremGenerator.compileEquirectangularShader();
+    const room = new RoomEnvironment();
+    const renderTarget = pmremGenerator.fromScene(room, 0.04);
+    scene.environment = renderTarget.texture;
+    return () => {
+      scene.environment = null;
+      renderTarget.dispose();
+      room.dispose();
+      pmremGenerator.dispose();
+    };
+  }, [gl, scene]);
+
+  useLayoutEffect(() => {
+    scene.environmentIntensity = intensity;
+  }, [intensity, scene]);
+
+  return null;
 }
 
 export function ShowroomHeadlightSpotlights({
