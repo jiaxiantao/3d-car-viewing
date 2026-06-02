@@ -26,6 +26,24 @@ export const SHOWROOM_TAIL_LAMP_COLOR = 0xc81e1e;
 
 export type ShowroomSpinAxis = "x" | "y" | "z";
 
+export type AssetRigDebugPart = {
+  key:
+    | "leftDoor"
+    | "rightDoor"
+    | "trunk"
+    | "sunroof"
+    | "headLights"
+    | "tailLights"
+    | "hazardLights"
+    | "paint"
+    | "frontWheels"
+    | "rearWheels";
+  label: string;
+  interactive: boolean;
+  count: number;
+  items: string[];
+};
+
 export type AssetCarRig = {
   bounds: THREE.Box3;
   leftDoorPivot: THREE.Group | null;
@@ -59,6 +77,10 @@ export type AssetCarRig = {
     wheels: boolean;
     /** True when corner rollers are procedural (body has no separable wheel meshes). */
     wheelsSynthetic: boolean;
+  };
+  debug: {
+    profileId: string | null;
+    parts: AssetRigDebugPart[];
   };
 };
 
@@ -688,6 +710,10 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
   const leftDoorMeshes: THREE.Mesh[] = [];
   const rightDoorMeshes: THREE.Mesh[] = [];
   const trunkMeshes: THREE.Mesh[] = [];
+  const headLightDebugItems = new Set<string>();
+  const tailLightDebugItems = new Set<string>();
+  const hazardDebugItems = new Set<string>();
+  const paintDebugItems = new Set<string>();
 
   const depth = Math.max(size.x, 0.001);
   const width = Math.max(size.z, 0.001);
@@ -719,6 +745,7 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
       const material = ensureShowroomPaintMaterial(mesh);
       if (material) {
         paintMaterials.push(material);
+        paintDebugItems.add(`${name} :: ${materialName || "(no-material-name)"}`);
       }
       continue;
     }
@@ -754,6 +781,7 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
           applyShowroomHeadlampLens(material);
         }
         headLightMaterials.push(material);
+        headLightDebugItems.add(`${name} :: ${materialName || "(no-material-name)"}`);
         // Full-width lamp bars span the bumper; anchor at the front face (showroom forward = -X).
         if (meshSize.z > width * 0.32) {
           if (headLightPositions.length < 2) {
@@ -799,12 +827,14 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
       }
       applyShowroomTailLamp(material);
       tailLightMaterials.push(material);
+      tailLightDebugItems.add(`${name} :: ${materialName || "(no-material-name)"}`);
       if (
         profileHazardLight ||
         isHazardPart(label) ||
         /emiss|red_cover|red_glass/i.test(label)
       ) {
         hazardMaterials.push(material);
+        hazardDebugItems.add(`${name} :: ${materialName || "(no-material-name)"}`);
       }
       continue;
     }
@@ -864,6 +894,9 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
       applyShowroomHeadlampLens(material);
       headLightMaterials.push(material);
       headLightPositions.push(entry.center.clone());
+      headLightDebugItems.add(
+        `${entry.name} :: ${entry.materialName || "(no-material-name)"} [fallback]`,
+      );
       if (headLightMaterials.length >= 4) {
         break;
       }
@@ -890,7 +923,86 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
 
   if (hazardMaterials.length === 0 && tailLightMaterials.length > 0) {
     hazardMaterials.push(...tailLightMaterials.slice(0, 6));
+    for (const item of tailLightDebugItems) {
+      hazardDebugItems.add(`${item} [from-tail-fallback]`);
+    }
   }
+
+  const uniqueNames = (nodes: THREE.Object3D[]) =>
+    [...new Set(nodes.map((node) => hierarchicalName(node)).filter(Boolean))];
+
+  const debugParts: AssetRigDebugPart[] = [
+    {
+      key: "leftDoor",
+      label: "左前门",
+      interactive: Boolean(leftDoorPivot),
+      count: leftDoorMeshes.length,
+      items: uniqueNames(leftDoorMeshes),
+    },
+    {
+      key: "rightDoor",
+      label: "右前门",
+      interactive: Boolean(rightDoorPivot),
+      count: rightDoorMeshes.length,
+      items: uniqueNames(rightDoorMeshes),
+    },
+    {
+      key: "trunk",
+      label: "后备箱",
+      interactive: Boolean(trunkPivot),
+      count: trunkMeshes.length,
+      items: uniqueNames(trunkMeshes),
+    },
+    {
+      key: "sunroof",
+      label: "天窗",
+      interactive: sunroofNodes.length > 0,
+      count: sunroofNodes.length,
+      items: uniqueNames(sunroofNodes),
+    },
+    {
+      key: "headLights",
+      label: "前大灯",
+      interactive: headLightMaterials.length > 0,
+      count: headLightMaterials.length,
+      items: [...headLightDebugItems],
+    },
+    {
+      key: "tailLights",
+      label: "尾灯",
+      interactive: tailLightMaterials.length > 0,
+      count: tailLightMaterials.length,
+      items: [...tailLightDebugItems],
+    },
+    {
+      key: "hazardLights",
+      label: "双闪",
+      interactive: hazardMaterials.length > 0,
+      count: hazardMaterials.length,
+      items: [...hazardDebugItems],
+    },
+    {
+      key: "paint",
+      label: "车漆材质",
+      interactive: paintMaterials.length > 0,
+      count: paintMaterials.length,
+      items: [...paintDebugItems],
+    },
+    {
+      key: "frontWheels",
+      label: "前轮",
+      interactive: frontWheels.length > 0,
+      count: frontWheels.length,
+      items: uniqueNames(frontWheels),
+    },
+    {
+      key: "rearWheels",
+      label: "后轮",
+      interactive: rearWheels.length > 0,
+      count: rearWheels.length,
+      items: uniqueNames(rearWheels),
+    },
+  ];
 
   return {
     bounds,
@@ -915,6 +1027,10 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
       tailLights: tailLightMaterials.length > 0,
       wheels: frontWheels.length + rearWheels.length > 0,
       wheelsSynthetic: false,
+    },
+    debug: {
+      profileId: profile?.id ?? null,
+      parts: debugParts,
     },
   };
 }

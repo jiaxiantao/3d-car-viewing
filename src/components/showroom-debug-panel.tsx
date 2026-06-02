@@ -34,6 +34,7 @@ export function ShowroomDebugPanel({ assetRig }: ShowroomDebugPanelProps) {
   }
 
   const caps = assetRig?.capabilities;
+  const debug = assetRig?.debug;
 
   return (
     <Html
@@ -58,6 +59,7 @@ export function ShowroomDebugPanel({ assetRig }: ShowroomDebugPanelProps) {
           color: "#e5e7eb",
           boxShadow: "0 10px 30px rgba(15, 23, 42, 0.85)",
           minWidth: 170,
+          maxWidth: 460,
         }}
       >
         <div
@@ -98,14 +100,15 @@ export function ShowroomDebugPanel({ assetRig }: ShowroomDebugPanelProps) {
           </div>
         </div>
         {caps ? (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "auto auto",
-              columnGap: 8,
-              rowGap: 2,
-            }}
-          >
+          <>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "auto auto",
+                columnGap: 8,
+                rowGap: 2,
+              }}
+            >
             <span style={{ opacity: 0.7 }}>Doors</span>
             <span style={{ fontVariantNumeric: "tabular-nums" }}>
               L:{caps.leftDoor ? "✓" : "—"} · R:{caps.rightDoor ? "✓" : "—"}
@@ -122,7 +125,66 @@ export function ShowroomDebugPanel({ assetRig }: ShowroomDebugPanelProps) {
             <span>
               real:{caps.wheels ? "✓" : "—"} / synth:{caps.wheelsSynthetic ? "✓" : "—"}
             </span>
-          </div>
+            </div>
+            {debug ? (
+              <div style={{ marginTop: 8, borderTop: "1px solid rgba(148,163,184,0.22)", paddingTop: 8 }}>
+                <div style={{ opacity: 0.72, marginBottom: 6 }}>
+                  Profile: <span style={{ color: "#cbd5e1" }}>{debug.profileId ?? "unknown"}</span>
+                </div>
+                <div
+                  style={{
+                    maxHeight: 260,
+                    overflow: "auto",
+                    paddingRight: 4,
+                    display: "grid",
+                    rowGap: 8,
+                  }}
+                >
+                  {debug.parts.map((part) => (
+                    <div
+                      key={part.key}
+                      style={{
+                        border: "1px solid rgba(148,163,184,0.2)",
+                        borderRadius: 6,
+                        padding: "6px 7px",
+                        background: "rgba(15,23,42,0.36)",
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                        <span style={{ color: "#cbd5e1" }}>{part.label}</span>
+                        <span style={{ opacity: 0.78, fontVariantNumeric: "tabular-nums" }}>
+                          {part.interactive ? "可交互 ✓" : "不可交互 —"} · {part.count}
+                        </span>
+                      </div>
+                      {part.items.length > 0 ? (
+                        <div style={{ marginTop: 4, display: "grid", rowGap: 2 }}>
+                          {part.items.slice(0, 8).map((item) => (
+                            <div
+                              key={item}
+                              title={item}
+                              style={{
+                                opacity: 0.84,
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}
+                            >
+                              • {item}
+                            </div>
+                          ))}
+                          {part.items.length > 8 ? (
+                            <div style={{ opacity: 0.6 }}>... 还有 {part.items.length - 8} 项</div>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <div style={{ marginTop: 4, opacity: 0.58 }}>未命中</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </>
         ) : (
           <div style={{ opacity: 0.7 }}>Asset rig: scanning…</div>
         )}
