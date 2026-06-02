@@ -1,7 +1,7 @@
 "use client";
 
-import { Canvas, type ThreeEvent, useFrame } from "@react-three/fiber";
-import { Html, OrbitControls } from "@react-three/drei";
+import { Canvas, type ThreeEvent, useFrame, useThree } from "@react-three/fiber";
+import { AdaptiveDpr, AdaptiveEvents, Html, OrbitControls } from "@react-three/drei";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -20,12 +20,15 @@ import { normalizeMarketModel } from "@/lib/normalize-market-model";
 import { getOrbitDistanceLimits, type ShowroomCameraPreset } from "@/lib/showroom-camera";
 import {
   SHOWROOM_GROUND_Y,
-  SHOWROOM_SCENE_LIGHTING,
   ShowroomHeadlightSpotlights,
   ShowroomImageBasedLighting,
   ShowroomReflectiveFloor,
 } from "@/components/showroom-environment";
 import { CameraRig } from "@/components/car-showroom-camera";
+import {
+  SHOWROOM_SCENE_MODES,
+  type ShowroomSceneMode,
+} from "@/lib/showroom-scene-modes";
 
 export type OrbitControlsLike = {
   target: THREE.Vector3;
@@ -114,13 +117,22 @@ const sharedGltfLoader = new GLTFLoader();
 const gltfSceneCache = new Map<string, THREE.Object3D>();
 const GLTF_SCENE_CACHE_LIMIT = 6;
 
+/** Track active hover count so rapid mount/unmount cycles don't leak `cursor: pointer`. */
+let activeHoverCount = 0;
+function applyHoverCursor(delta: 1 | -1) {
+  activeHoverCount = Math.max(0, activeHoverCount + delta);
+  if (typeof document === "undefined") {
+    return;
+  }
+  document.body.style.cursor = activeHoverCount > 0 ? "pointer" : "";
+}
 const interactivePointerHandlers = {
   onPointerOver: (event: ThreeEvent<PointerEvent>) => {
     event.stopPropagation();
-    document.body.style.cursor = "pointer";
+    applyHoverCursor(1);
   },
   onPointerOut: () => {
-    document.body.style.cursor = "";
+    applyHoverCursor(-1);
   },
 };
 
@@ -421,6 +433,12 @@ type CarShowroomState = {
 export type AssetRigCapabilities = AssetCarRig["capabilities"];
 export type AssetRigDebug = AssetCarRig["debug"];
 
+export type ShowroomSceneHandle = {
+  captureScreenshot: () => Promise<Blob | null>;
+  requestFullscreen: () => Promise<void>;
+  exitFullscreen: () => Promise<void>;
+};
+
 type AssetLoadState = "idle" | "loading" | "ready" | "error";
 
 type CarShowroomSceneProps = {
@@ -431,12 +449,63 @@ type CarShowroomSceneProps = {
   modelUrl?: string;
   modelAlternateUrls?: string[];
   modelFallbackUrl?: string;
+  sceneMode?: ShowroomSceneMode;
   onAssetRigCapabilities?: (capabilities: AssetRigCapabilities | null) => void;
   onAssetRigDebug?: (debug: AssetRigDebug | null) => void;
   onToggleLeftDoor: () => void;
   onToggleRightDoor: () => void;
   onToggleTrunk: () => void;
+  /** Imperative handle for screenshot / fullscreen actions. */
+  controlHandleRef?: React.RefObject<ShowroomSceneHandle | null>;
 };
+
+/** Bridge that registers an imperative handle once `gl` is ready. */
+function ShowroomSceneControlBridge({
+  handleRef,
+  containerRef,
+}: {
+  handleRef: React.RefObject<ShowroomSceneHandle | null> | undefined;
+  containerRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  const { gl, scene, camera, advance, invalidate } = useThree();
+  useEffect(() => {
+    if (!handleRef) {
+      return;
+    }
+    const handle: ShowroomSceneHandle = {
+      captureScreenshot: async () => {
+        // Force a render on demand so toBlob captures the latest frame.
+        try {
+          invalidate();
+          advance(performance.now() / 1000);
+        } catch {
+          gl.render(scene, camera);
+        }
+        return new Promise<Blob | null>((resolve) => {
+          gl.domElement.toBlob((blob) => resolve(blob), "image/png");
+        });
+      },
+      requestFullscreen: async () => {
+        const target = containerRef.current ?? gl.domElement;
+        if (target?.requestFullscreen) {
+          await target.requestFullscreen();
+        }
+      },
+      exitFullscreen: async () => {
+        if (document.fullscreenElement) {
+          await document.exitFullscreen();
+        }
+      },
+    };
+    handleRef.current = handle;
+    return () => {
+      if (handleRef.current === handle) {
+        handleRef.current = null;
+      }
+    };
+  }, [advance, camera, containerRef, gl, handleRef, invalidate, scene]);
+  return null;
+}
 
 function disposeLoadedScene(root: THREE.Object3D) {
   root.traverse((child) => {
@@ -840,10 +909,12 @@ function AssetModel({
         : SHOWROOM_HEADLAMP_INTENSITY.on
       : 0;
     const ignitionHeadlightBoost = headLit ? ignitionPulse * 2.2 : 0;
-    const tailLit = state.lightsOn || hazardActive;
+    // Brake adds a strong red emissive on top of marker / hazard so it reads even in daylight.
+    const brakeBoost = state.braking ? SHOWROOM_HAZARD_INTENSITY.tailMax * 0.85 : 0;
+    const tailLit = state.lightsOn || hazardActive || state.braking;
     const tailIntensity = state.lightsOn
-      ? 1.1 + hazardPulse * SHOWROOM_HAZARD_INTENSITY.withHeadlights
-      : hazardPulse * SHOWROOM_HAZARD_INTENSITY.on;
+      ? 1.1 + hazardPulse * SHOWROOM_HAZARD_INTENSITY.withHeadlights + brakeBoost
+      : hazardPulse * SHOWROOM_HAZARD_INTENSITY.on + brakeBoost;
     boostShowroomMaterialEmissive(
       rig.headLightMaterials,
       headLit,
@@ -1145,9 +1216,10 @@ function CarModel({
     const frontIntensity = state.lightsOn ? (state.engineOn ? 2.6 : 2.1) : 0.2;
     const ignitionHeadlightBoost = state.lightsOn ? ignitionPulse * 1.9 : 0;
     const { tailMax, tailMin, withHeadlights, on } = SHOWROOM_HAZARD_INTENSITY;
+    const brakeBoost = state.braking ? tailMax * 0.85 : 0;
     const rearIntensity = state.lightsOn
-      ? THREE.MathUtils.clamp(0.4 + hazardPulse * withHeadlights, tailMin, tailMax)
-      : THREE.MathUtils.clamp(hazardPulse * on, 0, tailMax);
+      ? THREE.MathUtils.clamp(0.4 + hazardPulse * withHeadlights + brakeBoost, tailMin, tailMax)
+      : THREE.MathUtils.clamp(hazardPulse * on + brakeBoost, 0, tailMax);
     for (const lightRef of [leftHeadLightRef, rightHeadLightRef]) {
       if (!lightRef.current) {
         continue;
@@ -1520,11 +1592,13 @@ export function CarShowroomScene({
   modelUrl = "/models/market/suv-mainstream.glb",
   modelAlternateUrls,
   modelFallbackUrl,
+  sceneMode = "studio",
   onAssetRigCapabilities,
   onAssetRigDebug,
   onToggleLeftDoor,
   onToggleRightDoor,
   onToggleTrunk,
+  controlHandleRef,
 }: CarShowroomSceneProps) {
   const [assetScene, setAssetScene] = useState<THREE.Object3D | null>(null);
   const [assetRig, setAssetRig] = useState<AssetCarRig | null>(null);
@@ -1533,11 +1607,32 @@ export function CarShowroomScene({
   const [loadProgress, setLoadProgress] = useState(0);
   const controlsRef = useRef(null);
   const displayedRootRef = useRef<THREE.Object3D | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
+  const sceneConfig = SHOWROOM_SCENE_MODES[sceneMode];
   const environmentIntensity =
     state.lightsOn && (!useAssetModel || assetRig?.capabilities.headLights)
-      ? SHOWROOM_SCENE_LIGHTING.environmentIntensity.headlightsOn
-      : SHOWROOM_SCENE_LIGHTING.environmentIntensity.base;
+      ? sceneConfig.environmentIntensity.headlightsOn
+      : sceneConfig.environmentIntensity.base;
+  const ambientIntensity =
+    state.lightsOn && (!useAssetModel || assetRig?.capabilities.headLights)
+      ? sceneConfig.ambient.headlightsOn
+      : sceneConfig.ambient.base;
+  const directionalIntensity =
+    state.lightsOn && (!useAssetModel || assetRig?.capabilities.headLights)
+      ? sceneConfig.directional.headlightsOn
+      : sceneConfig.directional.base;
+
+  // Reset `cursor: pointer` when the canvas unmounts (e.g. switching pages mid-hover).
+  useEffect(
+    () => () => {
+      if (typeof document !== "undefined") {
+        document.body.style.cursor = "";
+      }
+      activeHoverCount = 0;
+    },
+    [],
+  );
 
   const isAssetLoading = useAssetModel && assetLoadState === "loading";
   const [overlayHoldUntil, setOverlayHoldUntil] = useState(0);
@@ -1710,7 +1805,10 @@ export function CarShowroomScene({
   }, [modelUrlChainKey, onAssetRigCapabilities, onAssetRigDebug, useAssetModel]);
 
   return (
-    <div className="relative h-[520px] w-full overflow-hidden rounded-4xl border border-white/10 bg-slate-950/80">
+    <div
+      ref={containerRef}
+      className="relative h-[60vh] min-h-[420px] w-full overflow-hidden rounded-4xl border border-white/10 bg-slate-950/80 sm:h-[520px]"
+    >
       {useAssetModel && assetLoadState === "error" ? (
         <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center px-4">
           <p className="rounded-full border border-amber-400/30 bg-amber-950/80 px-3 py-1 text-xs text-amber-100">
@@ -1718,7 +1816,15 @@ export function CarShowroomScene({
           </p>
         </div>
       ) : null}
-      <Canvas className="h-full w-full" shadows={{ type: THREE.PCFShadowMap }} dpr={[1, 1.5]}>
+      <Canvas
+        className="h-full w-full"
+        shadows={{ type: THREE.PCFShadowMap }}
+        dpr={[1, 1.75]}
+        gl={{ preserveDrawingBuffer: true, antialias: true }}
+      >
+        <ShowroomSceneControlBridge handleRef={controlHandleRef} containerRef={containerRef} />
+        <AdaptiveDpr pixelated={false} />
+        <AdaptiveEvents />
         <CameraRig
           preset={cameraPreset}
           autoTour={autoTour}
@@ -1726,22 +1832,18 @@ export function CarShowroomScene({
           framingBounds={framingBounds}
           framingBoundsKey={framingBoundsKey}
         />
-        <color attach="background" args={["#070d18"]} />
+        <color attach="background" args={[sceneConfig.background]} />
+        {sceneConfig.fog ? (
+          <fog
+            attach="fog"
+            args={[sceneConfig.fog.color, sceneConfig.fog.near, sceneConfig.fog.far]}
+          />
+        ) : null}
         <ShowroomImageBasedLighting intensity={environmentIntensity} />
         <hemisphereLight
-          args={[
-            SHOWROOM_SCENE_LIGHTING.hemisphere.sky,
-            SHOWROOM_SCENE_LIGHTING.hemisphere.ground,
-            SHOWROOM_SCENE_LIGHTING.hemisphere.intensity,
-          ]}
+          args={[sceneConfig.hemisphere.sky, sceneConfig.hemisphere.ground, sceneConfig.hemisphere.intensity]}
         />
-        <ambientLight
-          intensity={
-            state.lightsOn && (!useAssetModel || assetRig?.capabilities.headLights)
-              ? SHOWROOM_SCENE_LIGHTING.ambient.headlightsOn
-              : SHOWROOM_SCENE_LIGHTING.ambient.base
-          }
-        />
+        <ambientLight intensity={ambientIntensity} />
         <ShowroomAccentLights
           lightsOn={state.lightsOn}
           cameraPreset={cameraPreset}
@@ -1750,24 +1852,25 @@ export function CarShowroomScene({
         />
         <directionalLight
           position={[5, 8, 3]}
-          intensity={
-            state.lightsOn && (!useAssetModel || assetRig?.capabilities.headLights)
-              ? SHOWROOM_SCENE_LIGHTING.directional.headlightsOn
-              : SHOWROOM_SCENE_LIGHTING.directional.base
-          }
+          intensity={directionalIntensity}
+          color={sceneConfig.directionalColor}
           castShadow
           shadow-mapSize-height={1024}
           shadow-mapSize-width={1024}
         />
         <directionalLight
           position={[-3, 4, -2]}
-          intensity={SHOWROOM_SCENE_LIGHTING.rimDirectional}
+          intensity={sceneConfig.rimDirectional}
           color="#94a3b8"
         />
-        <ShowroomHeadlightSpotlights lightsOn={state.lightsOn} rig={assetRig} />
+        <ShowroomHeadlightSpotlights
+          lightsOn={state.lightsOn}
+          rig={assetRig}
+          sceneMode={sceneMode}
+        />
         <pointLight
           position={[-4, 2, -3]}
-          intensity={SHOWROOM_SCENE_LIGHTING.fillPoint}
+          intensity={sceneConfig.fillPoint}
           color="#93c5fd"
         />
 
@@ -1794,12 +1897,15 @@ export function CarShowroomScene({
           headLightsActive={
             useAssetModel ? Boolean(assetRig?.capabilities.headLights) : state.lightsOn
           }
+          sceneMode={sceneMode}
         />
 
         <OrbitControls
           ref={controlsRef}
           enablePan={false}
           enableRotate={!autoTour}
+          enableDamping
+          dampingFactor={0.08}
           minDistance={orbitLimits.minDistance}
           maxDistance={orbitLimits.maxDistance}
           minPolarAngle={0.6}

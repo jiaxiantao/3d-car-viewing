@@ -7,21 +7,20 @@ import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import type { AssetCarRig } from "@/lib/asset-car-rig";
 import { MARKET_MODEL_GROUND_Y } from "@/lib/normalize-market-model";
+import { SHOWROOM_SCENE_MODES, type ShowroomSceneMode } from "@/lib/showroom-scene-modes";
 
 export const SHOWROOM_GROUND_Y = MARKET_MODEL_GROUND_Y;
-export const SHOWROOM_FLOOR_COLOR = "#3d4f63";
-const SHOWROOM_FLOOR_ROUGHNESS = 0.82;
-const SHOWROOM_FLOOR_METALNESS = 0.22;
+export const SHOWROOM_FLOOR_COLOR = SHOWROOM_SCENE_MODES.studio.floorColor;
 
-/** Scene-wide lighting — balanced between night (too dark) and city max (too bright). */
+/** Scene-wide lighting — kept for legacy access; new code prefers `SHOWROOM_SCENE_MODES`. */
 export const SHOWROOM_SCENE_LIGHTING = {
-  environmentIntensity: { base: 0.72, headlightsOn: 0.88 },
-  ambient: { base: 0.58, headlightsOn: 0.52 },
-  directional: { base: 1.35, headlightsOn: 1.12 },
-  hemisphere: { intensity: 0.3, sky: "#cbd5e1", ground: "#1e293b" },
-  fillPoint: 0.32,
-  rimDirectional: 0.28,
-  headlightSpot: 34,
+  environmentIntensity: SHOWROOM_SCENE_MODES.studio.environmentIntensity,
+  ambient: SHOWROOM_SCENE_MODES.studio.ambient,
+  directional: SHOWROOM_SCENE_MODES.studio.directional,
+  hemisphere: SHOWROOM_SCENE_MODES.studio.hemisphere,
+  fillPoint: SHOWROOM_SCENE_MODES.studio.fillPoint,
+  rimDirectional: SHOWROOM_SCENE_MODES.studio.rimDirectional,
+  headlightSpot: SHOWROOM_SCENE_MODES.studio.headlightSpot,
   /** Ground hit point ahead of the grille (showroom forward = -X). */
   headlightForwardOffset: 2.5,
 } as const;
@@ -78,10 +77,12 @@ function HeadlightSpot({
   position,
   bounds,
   active,
+  intensity,
 }: {
   position: THREE.Vector3;
   bounds: THREE.Box3;
   active: boolean;
+  intensity: number;
 }) {
   const lightRef = useRef<THREE.SpotLight>(null);
   const targetRef = useRef<THREE.Object3D>(null);
@@ -113,7 +114,7 @@ function HeadlightSpot({
       <spotLight
         ref={lightRef}
         position={position.toArray()}
-        intensity={active ? SHOWROOM_SCENE_LIGHTING.headlightSpot : 0}
+        intensity={active ? intensity : 0}
         angle={Math.PI / 4.2}
         penumbra={0.55}
         distance={18}
@@ -157,9 +158,11 @@ export function ShowroomImageBasedLighting({ intensity }: { intensity: number })
 export function ShowroomHeadlightSpotlights({
   lightsOn,
   rig,
+  sceneMode = "studio",
 }: {
   lightsOn: boolean;
   rig: AssetCarRig | null;
+  sceneMode?: ShowroomSceneMode;
 }) {
   const bounds = rig?.bounds ?? GEOMETRIC_HEADLIGHT_BOUNDS;
   const [left, right] = useMemo(
@@ -171,10 +174,12 @@ export function ShowroomHeadlightSpotlights({
     return null;
   }
 
+  const intensity = SHOWROOM_SCENE_MODES[sceneMode].headlightSpot;
+
   return (
     <>
-      <HeadlightSpot position={left} bounds={bounds} active />
-      <HeadlightSpot position={right} bounds={bounds} active />
+      <HeadlightSpot position={left} bounds={bounds} active intensity={intensity} />
+      <HeadlightSpot position={right} bounds={bounds} active intensity={intensity} />
     </>
   );
 }
@@ -182,26 +187,35 @@ export function ShowroomHeadlightSpotlights({
 export function ShowroomReflectiveFloor({
   lightsOn,
   headLightsActive,
+  sceneMode = "studio",
+  /** Lower the resolution / blur on small / low-power devices. */
+  performanceTier = "high",
 }: {
   lightsOn: boolean;
   headLightsActive: boolean;
+  sceneMode?: ShowroomSceneMode;
+  performanceTier?: "high" | "medium" | "low";
 }) {
+  const config = SHOWROOM_SCENE_MODES[sceneMode];
   const floorLit = lightsOn && headLightsActive;
+  const tierScale = performanceTier === "low" ? 0.55 : performanceTier === "medium" ? 0.8 : 1;
+  const litResolution = Math.round((floorLit ? 640 : 384) * tierScale);
+  const blurX = Math.round((floorLit ? 360 : 240) * tierScale);
   return (
     <>
       <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, SHOWROOM_GROUND_Y, 0]}>
-        <circleGeometry args={[8, 64]} />
+        <circleGeometry args={[8, performanceTier === "low" ? 32 : 64]} />
         <MeshReflectorMaterial
-          blur={[floorLit ? 360 : 240, 100]}
-          resolution={floorLit ? 640 : 384}
+          blur={[blurX, Math.round(100 * tierScale)]}
+          resolution={Math.max(192, litResolution)}
           mixBlur={floorLit ? 1.1 : 0.85}
           mixStrength={floorLit ? 1.65 : 0.62}
-          roughness={floorLit ? 0.3 : SHOWROOM_FLOOR_ROUGHNESS}
+          roughness={floorLit ? 0.3 : config.floorRoughness}
           depthScale={1.15}
           minDepthThreshold={0.35}
           maxDepthThreshold={1.35}
-          color={SHOWROOM_FLOOR_COLOR}
-          metalness={floorLit ? 0.72 : SHOWROOM_FLOOR_METALNESS}
+          color={config.floorColor}
+          metalness={floorLit ? 0.72 : config.floorMetalness}
           mirror={floorLit ? 0.36 : 0.14}
         />
       </mesh>
