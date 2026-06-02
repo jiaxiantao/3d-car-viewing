@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import type { AssetRigCapabilities, CarCameraPreset } from "@/components/car-showroom-scene";
 import { Button } from "@/components/ui/button";
@@ -74,28 +74,19 @@ export default function HomePage() {
   const [selectedCategory, setSelectedCategory] = useState<
     (typeof marketCategoryOptions)[number]["key"]
   >("suv");
-  const [selectedModelUrl, setSelectedModelUrl] = useState<string>(
-    marketCategoryOptions[0].primaryUrl,
-  );
-  const [selectedModelLabel, setSelectedModelLabel] = useState<string>(
-    `${marketCategoryOptions[0].label}（主流实车模型）`,
-  );
   const [speedKph, setSpeedKph] = useState(28);
   const [braking, setBraking] = useState(false);
   const [assetRigCaps, setAssetRigCaps] = useState<AssetRigCapabilities | null>(null);
   const wheelReadyCategory = marketCategoryOptions.find((item) => item.key === "sedan");
 
-  useEffect(() => {
-    const category = marketCategoryOptions.find((item) => item.key === selectedCategory);
-    if (!category) {
-      return;
-    }
-    setSelectedModelUrl(category.primaryUrl);
-    setSelectedModelLabel(`${category.label}（主流实车模型）`);
-  }, [selectedCategory]);
-
-  const activeCategory =
-    marketCategoryOptions.find((item) => item.key === selectedCategory) ?? marketCategoryOptions[0];
+  const activeCategory = useMemo(
+    () =>
+      marketCategoryOptions.find((item) => item.key === selectedCategory) ??
+      marketCategoryOptions[0],
+    [selectedCategory],
+  );
+  const selectedModelUrl = activeCategory.primaryUrl;
+  const selectedModelLabel = `${activeCategory.label}（主流实车模型）`;
 
   const handleAssetRigCapabilities = useCallback(
     (capabilities: AssetRigCapabilities | null) => {

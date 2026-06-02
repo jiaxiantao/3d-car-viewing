@@ -135,6 +135,8 @@ export function ShowroomImageBasedLighting({ intensity }: { intensity: number })
     pmremGenerator.compileEquirectangularShader();
     const room = new RoomEnvironment();
     const renderTarget = pmremGenerator.fromScene(room, 0.04);
+    // R3F: mutating the Three.js scene for IBL is intentional.
+    // eslint-disable-next-line react-hooks/immutability -- Three.js scene.environment
     scene.environment = renderTarget.texture;
     return () => {
       scene.environment = null;
@@ -145,6 +147,7 @@ export function ShowroomImageBasedLighting({ intensity }: { intensity: number })
   }, [gl, scene]);
 
   useLayoutEffect(() => {
+    // eslint-disable-next-line react-hooks/immutability -- Three.js scene.environmentIntensity
     scene.environmentIntensity = intensity;
   }, [intensity, scene]);
 

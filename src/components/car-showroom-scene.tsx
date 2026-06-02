@@ -2,7 +2,7 @@
 
 import { Canvas, type ThreeEvent, useFrame } from "@react-three/fiber";
 import { Html, OrbitControls, PerspectiveCamera } from "@react-three/drei";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import {
@@ -885,20 +885,23 @@ function CameraRig({
   const lerpPositionRef = useRef(new THREE.Vector3());
   const lerpTargetRef = useRef(new THREE.Vector3());
 
-  const beginTransitionToPreset = (nextPreset: CarCameraPreset) => {
-    const camera = cameraRef.current;
-    if (!camera) {
-      return;
-    }
-    const controls = controlsRef.current;
-    const currentTarget = controls?.target.clone() ?? toTargetRef.current.clone();
-    fromPositionRef.current.copy(camera.position);
-    fromTargetRef.current.copy(currentTarget);
-    const nextPose = resolveShowroomCameraPose(nextPreset, framingBounds);
-    toPositionRef.current.copy(nextPose.position);
-    toTargetRef.current.copy(nextPose.target);
-    transitionProgressRef.current = 0;
-  };
+  const beginTransitionToPreset = useCallback(
+    (nextPreset: CarCameraPreset) => {
+      const camera = cameraRef.current;
+      if (!camera) {
+        return;
+      }
+      const controls = controlsRef.current;
+      const currentTarget = controls?.target.clone() ?? toTargetRef.current.clone();
+      fromPositionRef.current.copy(camera.position);
+      fromTargetRef.current.copy(currentTarget);
+      const nextPose = resolveShowroomCameraPose(nextPreset, framingBounds);
+      toPositionRef.current.copy(nextPose.position);
+      toTargetRef.current.copy(nextPose.target);
+      transitionProgressRef.current = 0;
+    },
+    [controlsRef, framingBounds],
+  );
 
   useEffect(() => {
     if (autoTour) {
@@ -917,7 +920,7 @@ function CameraRig({
     }
 
     beginTransitionToPreset(preset);
-  }, [autoTour, framingBoundsKey, preset]);
+  }, [autoTour, beginTransitionToPreset, framingBoundsKey, preset]);
 
   useEffect(() => {
     const wasAutoTour = prevAutoTourRef.current;
@@ -926,7 +929,7 @@ function CameraRig({
       return;
     }
     beginTransitionToPreset(preset);
-  }, [autoTour, framingBoundsKey, preset]);
+  }, [autoTour, beginTransitionToPreset, preset]);
 
   useFrame((renderState, delta) => {
     if (!cameraRef.current) {
@@ -1620,42 +1623,48 @@ export function CarShowroomScene({
       : SHOWROOM_SCENE_LIGHTING.environmentIntensity.base;
 
   const isAssetLoading = useAssetModel && assetLoadState === "loading";
+  const [overlayHoldUntil, setOverlayHoldUntil] = useState(0);
   const [loadingOverlayVisible, setLoadingOverlayVisible] = useState(false);
   const [displayedLoadProgress, setDisplayedLoadProgress] = useState(0);
-  const loadingShownAtRef = useRef(0);
-  const networkLoadProgressRef = useRef(0);
-  networkLoadProgressRef.current = loadProgress;
 
   useEffect(() => {
     if (isAssetLoading) {
-      loadingShownAtRef.current = Date.now();
-      setLoadingOverlayVisible(true);
-      return;
+      const frame = requestAnimationFrame(() => setLoadingOverlayVisible(true));
+      return () => cancelAnimationFrame(frame);
     }
-    const elapsed = Date.now() - loadingShownAtRef.current;
-    const remaining = Math.max(0, MIN_LOADING_OVERLAY_MS - elapsed);
-    const timer = window.setTimeout(() => setLoadingOverlayVisible(false), remaining);
+
+    const remaining = overlayHoldUntil - Date.now();
+    if (remaining <= 0) {
+      const frame = requestAnimationFrame(() => {
+        setLoadingOverlayVisible(false);
+        setDisplayedLoadProgress(0);
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+
+    const timer = window.setTimeout(() => {
+      setLoadingOverlayVisible(false);
+      setDisplayedLoadProgress(0);
+      setOverlayHoldUntil(0);
+    }, remaining);
     return () => window.clearTimeout(timer);
-  }, [isAssetLoading]);
+  }, [isAssetLoading, overlayHoldUntil]);
 
   useEffect(() => {
     if (!loadingOverlayVisible) {
-      setDisplayedLoadProgress(0);
       return;
     }
 
-    setDisplayedLoadProgress(Math.max(0.08, networkLoadProgressRef.current));
     const timer = window.setInterval(() => {
       setDisplayedLoadProgress((prev) => {
-        const network = networkLoadProgressRef.current;
         const synthetic = Math.min(0.92, prev + 0.028);
-        const fromNetwork = network > 0 ? network * 0.96 : 0;
+        const fromNetwork = loadProgress > 0 ? loadProgress * 0.96 : 0;
         return Math.max(prev, synthetic, fromNetwork);
       });
     }, 90);
 
     return () => window.clearInterval(timer);
-  }, [loadingOverlayVisible]);
+  }, [loadProgress, loadingOverlayVisible]);
 
   const showGeometricCar = !useAssetModel || useGeometricFallback;
   const showAssetCar =
@@ -1678,10 +1687,7 @@ export function CarShowroomScene({
       .join("|");
   }, [framingBounds]);
 
-  const orbitLimits = useMemo(
-    () => getOrbitDistanceLimits(framingBounds),
-    [framingBoundsKey, framingBounds],
-  );
+  const orbitLimits = useMemo(() => getOrbitDistanceLimits(framingBounds), [framingBounds]);
 
   const modelUrlChainKey = useMemo(
     () => [modelUrl, ...(modelAlternateUrls ?? []), modelFallbackUrl ?? ""].join("\0"),
@@ -1694,11 +1700,14 @@ export function CarShowroomScene({
         disposeLoadedScene(displayedRootRef.current);
         displayedRootRef.current = null;
       }
-      setAssetLoadState("idle");
-      setUseGeometricFallback(false);
-      setAssetScene(null);
-      setAssetRig(null);
-      onAssetRigCapabilities?.(null);
+      queueMicrotask(() => {
+        setAssetLoadState("idle");
+        setUseGeometricFallback(false);
+        setAssetScene(null);
+        setAssetRig(null);
+        setOverlayHoldUntil(0);
+        onAssetRigCapabilities?.(null);
+      });
       return;
     }
 
@@ -1708,10 +1717,12 @@ export function CarShowroomScene({
       (url, index, urls): url is string => Boolean(url) && urls.indexOf(url) === index,
     );
 
-    setAssetLoadState("loading");
-    setLoadProgress(0);
-    setUseGeometricFallback(false);
-    onAssetRigCapabilities?.(null);
+    queueMicrotask(() => {
+      setAssetLoadState("loading");
+      setLoadProgress(0);
+      setUseGeometricFallback(false);
+      onAssetRigCapabilities?.(null);
+    });
 
     const tryLoad = async (index: number) => {
       if (!active) {
@@ -1756,6 +1767,7 @@ export function CarShowroomScene({
         displayedRootRef.current = loadedScene;
         const rig = loadedScene.userData.showroomRig as AssetCarRig;
         setLoadProgress(1);
+        setOverlayHoldUntil(Date.now() + MIN_LOADING_OVERLAY_MS);
         setAssetRig(rig);
         setAssetScene(loadedScene);
         setAssetLoadState("ready");
@@ -1770,6 +1782,8 @@ export function CarShowroomScene({
     return () => {
       active = false;
     };
+    // modelUrlChainKey aggregates modelUrl / alternates / fallback to avoid redundant reloads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional chain key
   }, [modelUrlChainKey, onAssetRigCapabilities, useAssetModel]);
 
   return (
