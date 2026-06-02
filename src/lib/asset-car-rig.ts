@@ -835,6 +835,36 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
     }
   }
 
+  // BMW M2 exports can ship with inconsistent lamp material names.
+  // If strict profile matching finds no headlamp material, fall back to
+  // front-positioned lamp-like meshes so the two main headlights still work.
+  if (profile?.id === "bmw-m2" && headLightMaterials.length === 0) {
+    const fallbackHeadlampEntries = entries
+      .filter((entry) => {
+        const label = `${entry.name.toLowerCase()} ${entry.materialName.toLowerCase()}`;
+        const nearFront = entry.center.x <= frontX + depth * 0.08;
+        const sideMounted = Math.abs(entry.center.z - center.z) >= width * 0.12;
+        const lampLike = /light|lamp|project|head|hl|chrome/i.test(label);
+        const notRear = !/tail|rear|brake|stop|red_glass|emissivea/i.test(label);
+        return nearFront && sideMounted && lampLike && notRear;
+      })
+      .sort((a, b) => b.volume - a.volume)
+      .slice(0, 6);
+
+    for (const entry of fallbackHeadlampEntries) {
+      const material = ensureShowroomMaterial(entry.mesh);
+      if (!material) {
+        continue;
+      }
+      applyShowroomHeadlampLens(material);
+      headLightMaterials.push(material);
+      headLightPositions.push(entry.center.clone());
+      if (headLightMaterials.length >= 4) {
+        break;
+      }
+    }
+  }
+
   const leftDoorPivot = createSideDoorPivot(root, leftDoorMeshes, "left");
   const rightDoorPivot = createSideDoorPivot(root, rightDoorMeshes, "right");
   const trunkSorted = trunkMeshes.sort((a, b) => getMeshVolume(b) - getMeshVolume(a)).slice(0, 6);
