@@ -1573,7 +1573,10 @@ export function CarShowroomScene({
 
   const framingBounds = showAssetCar && assetRig ? assetRig.bounds : null;
   const framingBoundsKey = useMemo(() => {
-    if (!framingBounds || framingBounds.isEmpty()) {
+    if (!framingBounds || typeof (framingBounds as THREE.Box3).isEmpty !== "function") {
+      return "";
+    }
+    if ((framingBounds as THREE.Box3).isEmpty()) {
       return "";
     }
     return [
