@@ -111,6 +111,8 @@ const CAR_BASE_Y =
 const ENGINE_IGNITION_DURATION = 0.9;
 /** Keep overlay visible long enough to perceive when GLB is cached locally. */
 const MIN_LOADING_OVERLAY_MS = 480;
+const HAZARD_MIN_EMISSIVE = { minActiveIntensity: 0 };
+const SHOWROOM_TAIL_LAMP_HEX = `#${new THREE.Color(SHOWROOM_TAIL_LAMP_COLOR).getHexString()}`;
 
 const interactivePointerHandlers = {
   onPointerOver: (event: ThreeEvent<PointerEvent>) => {
@@ -822,7 +824,6 @@ function AssetModel({
     const tailIntensity = state.lightsOn
       ? 1.1 + hazardPulse * SHOWROOM_HAZARD_INTENSITY.withHeadlights
       : hazardPulse * SHOWROOM_HAZARD_INTENSITY.on;
-    const hazardMin = { minActiveIntensity: 0 };
     boostShowroomMaterialEmissive(
       rig.headLightMaterials,
       headLit,
@@ -834,14 +835,14 @@ function AssetModel({
       tailLit,
       tailIntensity,
       delta,
-      hazardMin,
+      HAZARD_MIN_EMISSIVE,
     );
     boostShowroomMaterialEmissive(
       rig.hazardMaterials,
       hazardActive,
       hazardPulse * SHOWROOM_HAZARD_INTENSITY.on,
       delta,
-      hazardMin,
+      HAZARD_MIN_EMISSIVE,
     );
   });
 
@@ -1034,6 +1035,9 @@ function CarModel({
   const prevEngineOnRef = useRef(state.engineOn);
   const ignitionTimeRef = useRef(0);
 
+  const bodyTargetColorRef = useRef(new THREE.Color(state.bodyColor));
+  const cabinTargetColorRef = useRef(new THREE.Color(state.bodyColor));
+
   const hiddenHitboxMaterial = useMemo(
     () =>
       new THREE.MeshBasicMaterial({
@@ -1044,6 +1048,25 @@ function CarModel({
       }),
     [],
   );
+
+  useEffect(() => {
+    const primary = new THREE.Color(state.bodyColor);
+    const secondary = state.bodyColorSecondary
+      ? new THREE.Color(state.bodyColorSecondary)
+      : null;
+    const bodyTarget = bodyTargetColorRef.current;
+    if (secondary) {
+      bodyTarget.copy(primary.clone().lerp(secondary, 0.32));
+    } else {
+      bodyTarget.copy(primary);
+    }
+
+    const cabinBase = secondary
+      ? primary.clone().lerp(secondary, 0.72)
+      : primary.clone();
+    const cabinTarget = cabinTargetColorRef.current;
+    cabinTarget.copy(cabinBase.offsetHSL(0, 0.02, 0.08));
+  }, [state.bodyColor, state.bodyColorSecondary]);
 
   useFrame((renderState, delta) => {
     const t = renderState.clock.elapsedTime;
@@ -1210,20 +1233,9 @@ function CarModel({
       );
     }
 
-    const bodyColorPrimary = new THREE.Color(state.bodyColor);
-    const bodyColorSecondary = state.bodyColorSecondary
-      ? new THREE.Color(state.bodyColorSecondary)
-      : null;
-    const bodyColor = bodyColorSecondary
-      ? bodyColorPrimary.clone().lerp(bodyColorSecondary, 0.32)
-      : bodyColorPrimary;
     const colorLerp = THREE.MathUtils.clamp(delta * 4, 0, 1);
-    bodyPaintMaterial.color.lerp(bodyColor, colorLerp);
-    const cabinBase = bodyColorSecondary
-      ? bodyColorPrimary.clone().lerp(bodyColorSecondary, 0.72)
-      : bodyColor.clone();
-    const cabinTarget = cabinBase.offsetHSL(0, 0.02, 0.08);
-    cabinPaintMaterial.color.lerp(cabinTarget, colorLerp);
+    bodyPaintMaterial.color.lerp(bodyTargetColorRef.current, colorLerp);
+    cabinPaintMaterial.color.lerp(cabinTargetColorRef.current, colorLerp);
 
     const frontIntensity = state.lightsOn ? (state.engineOn ? 2.6 : 2.1) : 0.2;
     const ignitionHeadlightBoost = state.lightsOn ? ignitionPulse * 1.9 : 0;
@@ -1231,7 +1243,6 @@ function CarModel({
     const rearIntensity = state.lightsOn
       ? THREE.MathUtils.clamp(0.4 + hazardPulse * withHeadlights, tailMin, tailMax)
       : THREE.MathUtils.clamp(hazardPulse * on, 0, tailMax);
-    const tailEmissive = `#${new THREE.Color(SHOWROOM_TAIL_LAMP_COLOR).getHexString()}`;
     for (const lightRef of [leftHeadLightRef, rightHeadLightRef]) {
       if (!lightRef.current) {
         continue;
@@ -1249,7 +1260,7 @@ function CarModel({
         continue;
       }
       const mat = lightRef.current.material as THREE.MeshStandardMaterial;
-      mat.emissive.set(tailEmissive);
+      mat.emissive.set(SHOWROOM_TAIL_LAMP_HEX);
       mat.emissiveIntensity = THREE.MathUtils.damp(
         mat.emissiveIntensity,
         rearIntensity,
