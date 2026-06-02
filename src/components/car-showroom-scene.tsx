@@ -114,6 +114,9 @@ const MIN_LOADING_OVERLAY_MS = 480;
 const HAZARD_MIN_EMISSIVE = { minActiveIntensity: 0 };
 const SHOWROOM_TAIL_LAMP_HEX = `#${new THREE.Color(SHOWROOM_TAIL_LAMP_COLOR).getHexString()}`;
 
+const sharedGltfLoader = new GLTFLoader();
+const gltfSceneCache = new Map<string, THREE.Object3D>();
+
 const interactivePointerHandlers = {
   onPointerOver: (event: ThreeEvent<PointerEvent>) => {
     event.stopPropagation();
@@ -452,13 +455,16 @@ function disposeLoadedScene(root: THREE.Object3D) {
   });
 }
 
-async function loadGltfScene(
-  loader: GLTFLoader,
-  url: string,
-  onProgress?: (ratio: number) => void,
-) {
+async function loadGltfScene(url: string, onProgress?: (ratio: number) => void) {
+  const cached = gltfSceneCache.get(url);
+  if (cached) {
+    const instance = cached.clone(true);
+    onProgress?.(1);
+    return instance;
+  }
+
   return new Promise<THREE.Object3D>((resolve, reject) => {
-    loader.load(
+    sharedGltfLoader.load(
       url,
       (gltf) => {
         const loadedScene = gltf.scene.clone(true);
@@ -474,6 +480,7 @@ async function loadGltfScene(
         const rig = discoverAssetCarRig(loadedScene, url);
         loadedScene.userData.showroomRig = rig;
         onProgress?.(1);
+        gltfSceneCache.set(url, loadedScene);
         resolve(loadedScene);
       },
       (event) => {
@@ -1723,7 +1730,6 @@ export function CarShowroomScene({
     }
 
     let active = true;
-    const loader = new GLTFLoader();
     const candidateUrls = [modelUrl, ...(modelAlternateUrls ?? []), modelFallbackUrl].filter(
       (url, index, urls): url is string => Boolean(url) && urls.indexOf(url) === index,
     );
@@ -1763,7 +1769,7 @@ export function CarShowroomScene({
 
       const url = candidateUrls[index];
       try {
-        const loadedScene = await loadGltfScene(loader, url, (ratio) => {
+        const loadedScene = await loadGltfScene(url, (ratio) => {
           if (active) {
             setLoadProgress(ratio);
           }
