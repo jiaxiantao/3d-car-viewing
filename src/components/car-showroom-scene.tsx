@@ -457,6 +457,9 @@ async function loadGltfScene(url: string, onProgress?: (ratio: number) => void) 
   const cached = gltfSceneCache.get(url);
   if (cached) {
     const instance = cached.clone(true);
+    // Object3D.clone deep-copies userData as plain JSON, so Box3 methods are lost.
+    // Rebuild rig on each cloned instance to keep runtime helpers like bounds.isEmpty().
+    instance.userData.showroomRig = discoverAssetCarRig(instance, url);
     onProgress?.(1);
     return instance;
   }
