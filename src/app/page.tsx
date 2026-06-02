@@ -3,7 +3,12 @@
 import dynamic from "next/dynamic";
 import { useCallback, useMemo, useState } from "react";
 
-import type { AssetRigCapabilities, CarCameraPreset } from "@/components/car-showroom-scene";
+import { ShowroomDebugPanel } from "@/components/showroom-debug-panel";
+import type {
+  AssetRigCapabilities,
+  AssetRigDebug,
+  CarCameraPreset,
+} from "@/components/car-showroom-scene";
 import { Button } from "@/components/ui/button";
 
 const marketCategoryOptions = [
@@ -41,6 +46,7 @@ const paintOptions: PaintOption[] = [
   { id: "sunset-gradient", label: "日落渐变", primary: "#fb7185", secondary: "#f59e0b" },
   { id: "aurora-gradient", label: "极光渐变", primary: "#06b6d4", secondary: "#8b5cf6" },
 ] as const;
+const IS_DEV = process.env.NODE_ENV !== "production";
 
 const CarShowroomScene = dynamic(
   () => import("@/components/car-showroom-scene").then((mod) => mod.CarShowroomScene),
@@ -77,6 +83,7 @@ export default function HomePage() {
   const [speedKph, setSpeedKph] = useState(28);
   const [braking, setBraking] = useState(false);
   const [assetRigCaps, setAssetRigCaps] = useState<AssetRigCapabilities | null>(null);
+  const [assetRigDebug, setAssetRigDebug] = useState<AssetRigDebug | null>(null);
   const wheelReadyCategory = marketCategoryOptions.find((item) => item.key === "sedan");
 
   const activeCategory = useMemo(
@@ -94,6 +101,9 @@ export default function HomePage() {
     },
     [],
   );
+  const handleAssetRigDebug = useCallback((debug: AssetRigDebug | null) => {
+    setAssetRigDebug(debug);
+  }, []);
 
   const assetModelLoading = useAssetModel && assetRigCaps === null;
 
@@ -246,10 +256,23 @@ export default function HomePage() {
         useAssetModel={useAssetModel}
         modelUrl={selectedModelUrl}
         onAssetRigCapabilities={handleAssetRigCapabilities}
+        onAssetRigDebug={handleAssetRigDebug}
         onToggleLeftDoor={() => setLeftDoorOpen((value) => !value)}
         onToggleRightDoor={() => setRightDoorOpen((value) => !value)}
         onToggleTrunk={() => setTrunkOpen((value) => !value)}
       />
+      {IS_DEV ? (
+        <section className="rounded-3xl border border-white/10 bg-slate-950/60 p-4">
+          <h2 className="mb-3 text-sm font-medium text-slate-200">GLB 解析调试面板</h2>
+          <ShowroomDebugPanel
+            assetRig={
+              assetRigCaps && assetRigDebug
+                ? { capabilities: assetRigCaps, debug: assetRigDebug }
+                : null
+            }
+          />
+        </section>
+      ) : null}
 
       <section className="grid gap-4 rounded-3xl border border-white/10 bg-slate-950/60 p-5">
         <div className="flex flex-wrap items-center gap-3">

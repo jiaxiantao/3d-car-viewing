@@ -1,33 +1,36 @@
-import { Html } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { AssetCarRig } from "@/lib/asset-car-rig";
 
 type ShowroomDebugPanelProps = {
-  assetRig: AssetCarRig | null;
+  assetRig: Pick<AssetCarRig, "capabilities" | "debug"> | null;
 };
 
 export function ShowroomDebugPanel({ assetRig }: ShowroomDebugPanelProps) {
   const [fps, setFps] = useState(0);
   const [open, setOpen] = useState(true);
-  const lastTimeRef = useRef(0);
+  const lastTimeRef = useRef<number>(0);
   const frameCountRef = useRef(0);
 
-  useFrame(({ clock }) => {
-    const elapsed = clock.elapsedTime;
-    if (lastTimeRef.current === 0) {
-      lastTimeRef.current = elapsed;
-      return;
-    }
-    frameCountRef.current += 1;
-    const delta = elapsed - lastTimeRef.current;
-    if (delta >= 0.5) {
-      setFps(frameCountRef.current / delta);
-      frameCountRef.current = 0;
-      lastTimeRef.current = elapsed;
-    }
-  });
+  useEffect(() => {
+    let raf = 0;
+    const tick = (now: number) => {
+      if (lastTimeRef.current === 0) {
+        lastTimeRef.current = now;
+      } else {
+        frameCountRef.current += 1;
+        const deltaMs = now - lastTimeRef.current;
+        if (deltaMs >= 500) {
+          setFps((frameCountRef.current * 1000) / deltaMs);
+          frameCountRef.current = 0;
+          lastTimeRef.current = now;
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   if (!open) {
     return null;
@@ -37,31 +40,10 @@ export function ShowroomDebugPanel({ assetRig }: ShowroomDebugPanelProps) {
   const debug = assetRig?.debug;
 
   return (
-    <Html
-      style={{
-        pointerEvents: "none",
-      }}
-      fullscreen
+    <div
+      className="rounded-xl border border-slate-700/70 bg-slate-950/85 p-3 text-xs text-slate-200 shadow-xl"
+      style={{ fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif" }}
     >
-      <div
-        style={{
-          position: "absolute",
-          top: 12,
-          right: 12,
-          pointerEvents: "auto",
-          fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
-          fontSize: 11,
-          lineHeight: 1.4,
-          padding: "8px 10px",
-          borderRadius: 8,
-          background: "rgba(15, 23, 42, 0.92)",
-          border: "1px solid rgba(148, 163, 184, 0.45)",
-          color: "#e5e7eb",
-          boxShadow: "0 10px 30px rgba(15, 23, 42, 0.85)",
-          minWidth: 170,
-          maxWidth: 460,
-        }}
-      >
         <div
           style={{
             display: "flex",
@@ -188,8 +170,7 @@ export function ShowroomDebugPanel({ assetRig }: ShowroomDebugPanelProps) {
         ) : (
           <div style={{ opacity: 0.7 }}>Asset rig: scanning…</div>
         )}
-      </div>
-    </Html>
+    </div>
   );
 }
 

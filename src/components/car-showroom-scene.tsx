@@ -25,7 +25,6 @@ import {
   ShowroomImageBasedLighting,
   ShowroomReflectiveFloor,
 } from "@/components/showroom-environment";
-import { ShowroomDebugPanel } from "@/components/showroom-debug-panel";
 import { CameraRig } from "@/components/car-showroom-camera";
 
 export type OrbitControlsLike = {
@@ -114,7 +113,6 @@ const SHOWROOM_TAIL_LAMP_HEX = `#${new THREE.Color(SHOWROOM_TAIL_LAMP_COLOR).get
 const sharedGltfLoader = new GLTFLoader();
 const gltfSceneCache = new Map<string, THREE.Object3D>();
 const GLTF_SCENE_CACHE_LIMIT = 6;
-const IS_DEV = process.env.NODE_ENV !== "production";
 
 const interactivePointerHandlers = {
   onPointerOver: (event: ThreeEvent<PointerEvent>) => {
@@ -421,6 +419,7 @@ type CarShowroomState = {
 };
 
 export type AssetRigCapabilities = AssetCarRig["capabilities"];
+export type AssetRigDebug = AssetCarRig["debug"];
 
 type AssetLoadState = "idle" | "loading" | "ready" | "error";
 
@@ -433,6 +432,7 @@ type CarShowroomSceneProps = {
   modelAlternateUrls?: string[];
   modelFallbackUrl?: string;
   onAssetRigCapabilities?: (capabilities: AssetRigCapabilities | null) => void;
+  onAssetRigDebug?: (debug: AssetRigDebug | null) => void;
   onToggleLeftDoor: () => void;
   onToggleRightDoor: () => void;
   onToggleTrunk: () => void;
@@ -1521,6 +1521,7 @@ export function CarShowroomScene({
   modelAlternateUrls,
   modelFallbackUrl,
   onAssetRigCapabilities,
+  onAssetRigDebug,
   onToggleLeftDoor,
   onToggleRightDoor,
   onToggleTrunk,
@@ -1626,6 +1627,7 @@ export function CarShowroomScene({
         setAssetRig(null);
         setOverlayHoldUntil(0);
         onAssetRigCapabilities?.(null);
+        onAssetRigDebug?.(null);
       });
       return;
     }
@@ -1640,6 +1642,7 @@ export function CarShowroomScene({
       setLoadProgress(0);
       setUseGeometricFallback(false);
       onAssetRigCapabilities?.(null);
+      onAssetRigDebug?.(null);
     });
 
     const tryLoad = async (index: number) => {
@@ -1665,6 +1668,7 @@ export function CarShowroomScene({
           wheels: true,
           wheelsSynthetic: false,
         });
+        onAssetRigDebug?.(null);
         return;
       }
 
@@ -1690,6 +1694,7 @@ export function CarShowroomScene({
         setAssetScene(loadedScene);
         setAssetLoadState("ready");
         onAssetRigCapabilities?.(rig.capabilities);
+        onAssetRigDebug?.(rig.debug);
       } catch {
         await tryLoad(index + 1);
       }
@@ -1702,7 +1707,7 @@ export function CarShowroomScene({
     };
     // modelUrlChainKey aggregates modelUrl / alternates / fallback to avoid redundant reloads.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional chain key
-  }, [modelUrlChainKey, onAssetRigCapabilities, useAssetModel]);
+  }, [modelUrlChainKey, onAssetRigCapabilities, onAssetRigDebug, useAssetModel]);
 
   return (
     <div className="relative h-[520px] w-full overflow-hidden rounded-4xl border border-white/10 bg-slate-950/80">
@@ -1800,9 +1805,6 @@ export function CarShowroomScene({
           minPolarAngle={0.6}
           maxPolarAngle={1.5}
         />
-
-        {IS_DEV ? <ShowroomDebugPanel assetRig={assetRig} /> : null}
-
         <ShowroomAssetLoadingOverlay
           visible={loadingOverlayVisible}
           displayProgress={displayedLoadProgress}
