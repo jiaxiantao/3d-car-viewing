@@ -7,6 +7,18 @@
 
 **中文：** 在浏览器中体验 3D 看车：车型切换、部件交互、车漆与环车巡检；支持主流 GLB 车模与几何体回退。
 
+## 效果预览
+
+<p align="center">
+  <img src="public/shows/car-one.png" alt="3D 看车交互舱 — 整车 WebGL 展示与车型切换" width="900" />
+</p>
+
+<p align="center">
+  <img src="public/shows/car-two.png" alt="车门、灯光、车漆、座椅与环车巡检等交互控制" width="440" />
+  &nbsp;
+  <img src="public/shows/car-three.png" alt="SUV 车型 — GLB 部件识别与多机位视角" width="440" />
+</p>
+
 ## 功能特性
 
 - **车型切换**：SUV / 小轿车 / 越野车（`public/models/market/*.glb`）
