@@ -14,9 +14,11 @@
 </p>
 
 <p align="center">
-  <img src="public/shows/car-two.png" alt="车门、灯光、车漆、座椅与环车巡检等交互控制" width="440" />
-  &nbsp;
-  <img src="public/shows/car-three.png" alt="SUV 车型 — GLB 部件识别与多机位视角" width="440" />
+  <img src="public/shows/car-two.png" alt="车门、灯光、车漆、座椅与环车巡检等交互控制" width="900" />
+</p>
+
+<p align="center">
+  <img src="public/shows/car-three.png" alt="SUV 车型 — GLB 部件识别与多机位视角" width="900" />
 </p>
 
 ## 功能特性
