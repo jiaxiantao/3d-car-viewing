@@ -8,7 +8,7 @@ type ShowroomDebugPanelProps = {
 
 export function ShowroomDebugPanel({ assetRig }: ShowroomDebugPanelProps) {
   const [fps, setFps] = useState(0);
-  const [open, setOpen] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const lastTimeRef = useRef<number>(0);
   const frameCountRef = useRef(0);
 
@@ -32,10 +32,6 @@ export function ShowroomDebugPanel({ assetRig }: ShowroomDebugPanelProps) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  if (!open) {
-    return null;
-  }
-
   const caps = assetRig?.capabilities;
   const debug = assetRig?.debug;
 
@@ -44,44 +40,34 @@ export function ShowroomDebugPanel({ assetRig }: ShowroomDebugPanelProps) {
       className="rounded-xl border border-slate-700/70 bg-slate-950/85 p-3 text-xs text-slate-200 shadow-xl"
       style={{ fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif" }}
     >
-        <div
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
           style={{
+            width: "100%",
+            border: "1px solid rgba(148, 163, 184, 0.22)",
+            borderRadius: 8,
+            padding: "6px 8px",
+            background: "rgba(15, 23, 42, 0.45)",
+            color: "inherit",
+            cursor: "pointer",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            marginBottom: 4,
             gap: 8,
+            marginBottom: expanded ? 8 : 0,
           }}
+          aria-expanded={expanded}
         >
           <span style={{ opacity: 0.8 }}>Dev · Showroom</span>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ color: "#22c55e", fontVariantNumeric: "tabular-nums" }}>
               {fps.toFixed(0)} fps
             </span>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              style={{
-                border: "none",
-                padding: 0,
-                margin: 0,
-                width: 18,
-                height: 18,
-                borderRadius: 999,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "rgba(15, 23, 42, 0.9)",
-                color: "#9ca3af",
-                cursor: "pointer",
-              }}
-              aria-label="关闭调试面板"
-            >
-              ×
-            </button>
+            <span style={{ color: "#9ca3af" }}>{expanded ? "收起 ▲" : "展开 ▼"}</span>
           </div>
-        </div>
-        {caps ? (
+        </button>
+        {expanded ? caps ? (
           <>
             <div
               style={{
@@ -169,7 +155,7 @@ export function ShowroomDebugPanel({ assetRig }: ShowroomDebugPanelProps) {
           </>
         ) : (
           <div style={{ opacity: 0.7 }}>Asset rig: scanning…</div>
-        )}
+        ) : null}
     </div>
   );
 }
