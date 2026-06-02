@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Git 提交与推送约定
 
-远程仓库：`git@github.com:jiaxiantao/3d-car-viewing.git`（`origin` / `main`）
+远程仓库：`https://github.com/jiaxiantao/3d-car-viewing.git`（`origin` / `main`）
 
 当本次对话中对仓库产生了代码或配置改动时，在回复用户前完成：
 
