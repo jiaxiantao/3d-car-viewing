@@ -113,6 +113,7 @@ const SHOWROOM_TAIL_LAMP_HEX = `#${new THREE.Color(SHOWROOM_TAIL_LAMP_COLOR).get
 
 const sharedGltfLoader = new GLTFLoader();
 const gltfSceneCache = new Map<string, THREE.Object3D>();
+const GLTF_SCENE_CACHE_LIMIT = 6;
 const IS_DEV = process.env.NODE_ENV !== "production";
 
 const interactivePointerHandlers = {
@@ -468,8 +469,8 @@ async function loadGltfScene(url: string, onProgress?: (ratio: number) => void) 
     sharedGltfLoader.load(
       url,
       (gltf) => {
-        const loadedScene = gltf.scene.clone(true);
-        loadedScene.traverse((child) => {
+        const templateScene = gltf.scene.clone(true);
+        templateScene.traverse((child) => {
           const mesh = child as THREE.Mesh;
           if (mesh.isMesh) {
             mesh.castShadow = true;
@@ -477,11 +478,22 @@ async function loadGltfScene(url: string, onProgress?: (ratio: number) => void) 
           }
         });
         onProgress?.(0.94);
-        normalizeMarketModel(loadedScene);
+        normalizeMarketModel(templateScene);
+        gltfSceneCache.set(url, templateScene);
+        if (gltfSceneCache.size > GLTF_SCENE_CACHE_LIMIT) {
+          const oldestKey = gltfSceneCache.keys().next().value as string | undefined;
+          if (oldestKey && oldestKey !== url) {
+            const stale = gltfSceneCache.get(oldestKey);
+            if (stale) {
+              disposeLoadedScene(stale);
+            }
+            gltfSceneCache.delete(oldestKey);
+          }
+        }
+        const loadedScene = templateScene.clone(true);
         const rig = discoverAssetCarRig(loadedScene, url);
         loadedScene.userData.showroomRig = rig;
         onProgress?.(1);
-        gltfSceneCache.set(url, loadedScene);
         resolve(loadedScene);
       },
       (event) => {
