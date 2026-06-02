@@ -32,7 +32,7 @@ pnpm start
 | 文件 | 用途 |
 |------|------|
 | `suv-mainstream.glb` | SUV |
-| `2023_bmw_m2_coupe.glb` | 小轿车 |
+| `sedan-mainstream.glb` | 小轿车 |
 | `offroad-mainstream.glb` | 越野车 |
 
 GLB 加载失败时会自动回退为内置几何体车模。

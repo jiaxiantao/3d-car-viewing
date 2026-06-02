@@ -25,7 +25,7 @@ export type MarketRigProfile = {
 /** BMW M2 Coupe (Forza-style export; lights keyed by material name). */
 const bmwM2Profile: MarketRigProfile = {
   id: "bmw-m2",
-  urlPattern: /2023_bmw_m2_coupe/i,
+  urlPattern: /sedan-mainstream/i,
   // LightA = headlamp lens; LightEmissiveA spans the body but carries rear emissive (not head).
   headLightMaterial: [/LightA_Material/i],
   tailLightMaterial: [/red_glass/i, /LightEmissiveA/i],

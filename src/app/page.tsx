@@ -15,7 +15,7 @@ const marketCategoryOptions = [
   {
     key: "sedan",
     label: "小轿车",
-    primaryUrl: "/models/market/2023_bmw_m2_coupe.glb",
+    primaryUrl: "/models/market/sedan-mainstream.glb",
   },
   {
     key: "offroad",
