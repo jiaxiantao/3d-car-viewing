@@ -27,7 +27,7 @@ const bmwM2Profile: MarketRigProfile = {
   id: "bmw-m2",
   urlPattern: /sedan-mainstream/i,
   // LightA* = headlamp lens; LightEmissiveA spans the body but carries rear emissive (not head).
-  headLightMaterial: [/\bLightA(?:_Material\d*)?/i, /\bLightA(?!.*Emissive)/i],
+  headLightMaterial: [/LightA(?:_Material\d*)?/i, /LightA(?!.*Emissive)/i],
   tailLightMaterial: [/red_glass/i, /LightEmissiveA/i],
   hazardLightMaterial: [/red_glass/i, /LightEmissiveA/i],
   paintMaterial: [/Paint_Material/i],
