@@ -72,8 +72,11 @@ type MeshEntry = {
 };
 
 function getSourceMaterialName(mesh: THREE.Mesh) {
-  const source = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-  return source?.name ?? "";
+  const sources = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+  return sources
+    .map((entry) => entry?.name ?? "")
+    .filter(Boolean)
+    .join(" ");
 }
 
 type ShowroomMaterial = THREE.MeshStandardMaterial | THREE.MeshPhysicalMaterial;
@@ -108,17 +111,42 @@ function getMeshVolume(mesh: THREE.Mesh) {
   return Math.max(size.x * size.y * size.z, 1e-6);
 }
 
-export function ensureShowroomMaterial(mesh: THREE.Mesh): ShowroomMaterial | null {
-  const source = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+export function ensureShowroomMaterial(
+  mesh: THREE.Mesh,
+  preferMaterialName?: (materialName: string) => boolean,
+): ShowroomMaterial | null {
+  const sources = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+  const cachedByName = (mesh.userData.showroomMaterialByName ??
+    {}) as Record<string, ShowroomMaterial>;
+  const cacheKey = preferMaterialName ? "__preferred__" : "__first__";
+  if (cachedByName[cacheKey]) {
+    return cachedByName[cacheKey];
+  }
+
+  let selectedIndex = -1;
+  for (let index = 0; index < sources.length; index += 1) {
+    const entry = sources[index];
+    if (
+      !(entry instanceof THREE.MeshStandardMaterial) &&
+      !(entry instanceof THREE.MeshPhysicalMaterial)
+    ) {
+      continue;
+    }
+    if (!preferMaterialName || preferMaterialName(entry.name ?? "")) {
+      selectedIndex = index;
+      break;
+    }
+  }
+  if (selectedIndex < 0) {
+    return null;
+  }
+
+  const source = sources[selectedIndex];
   if (
     !(source instanceof THREE.MeshStandardMaterial) &&
     !(source instanceof THREE.MeshPhysicalMaterial)
   ) {
     return null;
-  }
-  const cached = mesh.userData.showroomMaterial as ShowroomMaterial | undefined;
-  if (cached) {
-    return cached;
   }
   const cloned = source.clone();
   const emissiveHsl = { h: 0, s: 0, l: 0 };
@@ -131,8 +159,16 @@ export function ensureShowroomMaterial(mesh: THREE.Mesh): ShowroomMaterial | nul
       : new THREE.Color(0, 0, 0);
   cloned.userData.showroomBaseEmissive = emissiveBase;
   cloned.userData.showroomBaseEmissiveIntensity = source.emissiveIntensity ?? 0;
-  mesh.userData.showroomMaterial = cloned;
-  mesh.material = cloned;
+
+  if (Array.isArray(mesh.material)) {
+    const nextMaterials = [...mesh.material];
+    nextMaterials[selectedIndex] = cloned;
+    mesh.material = nextMaterials;
+  } else {
+    mesh.material = cloned;
+  }
+  cachedByName[cacheKey] = cloned;
+  mesh.userData.showroomMaterialByName = cachedByName;
   return cloned;
 }
 
@@ -685,6 +721,10 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
     const profileHeadLight =
       matchesAny(name, profile?.headLight) ||
       matchesAny(materialName, profile?.headLightMaterial);
+    const headlightMaterialMatcher =
+      profile?.headLightMaterial && profile.headLightMaterial.length > 0
+        ? (candidateName: string) => matchesAny(candidateName, profile.headLightMaterial)
+        : undefined;
     const headLightCandidate =
       profileHeadLight || isHeadLightPart(label, meshCenter, frontX);
     if (
@@ -703,7 +743,7 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
         width,
       )
     ) {
-      const material = ensureShowroomMaterial(mesh);
+      const material = ensureShowroomMaterial(mesh, headlightMaterialMatcher);
       if (material) {
         if (shouldApplyHeadlampLensPreset(profile, profileHeadLight)) {
           applyShowroomHeadlampLens(material);
@@ -744,7 +784,11 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
       ) {
         continue;
       }
-      const material = ensureShowroomMaterial(mesh);
+      const taillightMaterialMatcher =
+        profile?.tailLightMaterial && profile.tailLightMaterial.length > 0
+          ? (candidateName: string) => matchesAny(candidateName, profile.tailLightMaterial)
+          : undefined;
+      const material = ensureShowroomMaterial(mesh, taillightMaterialMatcher);
       if (!material) {
         continue;
       }
