@@ -256,6 +256,7 @@ function applyShowroomHeadlampLens(material: ShowroomMaterial) {
   material.userData.showroomHeadlampLens = true;
   material.userData.showroomBaseEmissive = lampColor;
   material.userData.showroomBaseEmissiveIntensity = 0;
+  material.userData.showroomBaseColor = material.color.clone();
   material.emissive.copy(lampColor);
 }
 
@@ -1008,6 +1009,15 @@ export function boostShowroomMaterialEmissive(
       material.toneMapped = false;
     } else {
       material.toneMapped = true;
+    }
+    if (isHeadlampLens) {
+      const storedBaseColor =
+        (material.userData.showroomBaseColor as THREE.Color | undefined) ??
+        material.color.clone();
+      const lensTargetColor = active
+        ? storedBaseColor.clone().lerp(new THREE.Color("#f8fafc"), 0.85)
+        : storedBaseColor;
+      material.color.lerp(lensTargetColor, THREE.MathUtils.clamp(delta * 8, 0, 1));
     }
     material.emissive.lerp(targetColor, THREE.MathUtils.clamp(delta * 9, 0, 1));
     material.emissiveIntensity = THREE.MathUtils.damp(
