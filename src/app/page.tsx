@@ -262,16 +262,13 @@ export default function HomePage() {
         onToggleTrunk={() => setTrunkOpen((value) => !value)}
       />
       {IS_DEV ? (
-        <section className="rounded-3xl border border-white/10 bg-slate-950/60 p-4">
-          <h2 className="mb-3 text-sm font-medium text-slate-200">GLB 解析调试面板</h2>
-          <ShowroomDebugPanel
-            assetRig={
-              assetRigCaps && assetRigDebug
-                ? { capabilities: assetRigCaps, debug: assetRigDebug }
-                : null
-            }
-          />
-        </section>
+        <ShowroomDebugPanel
+          assetRig={
+            assetRigCaps && assetRigDebug
+              ? { capabilities: assetRigCaps, debug: assetRigDebug }
+              : null
+          }
+        />
       ) : null}
 
       <section className="grid gap-4 rounded-3xl border border-white/10 bg-slate-950/60 p-5">
