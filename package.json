@@ -1,7 +1,32 @@
 {
   "name": "3d-car-viewing",
   "version": "0.1.0",
-  "private": true,
+  "description": "Interactive 3D car showroom demo with Next.js, React Three Fiber, and GLB rig discovery.",
+  "license": "MIT",
+  "author": "jiaxiantao",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jiaxiantao/3d-car-viewing.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jiaxiantao/3d-car-viewing/issues"
+  },
+  "homepage": "https://github.com/jiaxiantao/3d-car-viewing#readme",
+  "keywords": [
+    "threejs",
+    "react-three-fiber",
+    "gltf",
+    "glb",
+    "3d",
+    "car",
+    "showroom",
+    "nextjs",
+    "webgl"
+  ],
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",

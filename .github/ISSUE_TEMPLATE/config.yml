@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Contributing guide
+    url: https://github.com/jiaxiantao/3d-car-viewing/blob/main/CONTRIBUTING.md
+    about: Read how to set up the project and open a PR
+  - name: Security policy
+    url: https://github.com/jiaxiantao/3d-car-viewing/blob/main/SECURITY.md
+    about: Report vulnerabilities privately
