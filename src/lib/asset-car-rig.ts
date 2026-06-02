@@ -187,7 +187,7 @@ function isOffroadHeadlampMesh(name: string) {
 }
 
 function isBmwM2HeadlampMaterial(materialName: string) {
-  return /LightA_Material/i.test(materialName);
+  return /\bLightA(?:_Material)?\b/i.test(materialName) || /\bLightA(?!.*Emissive)/i.test(materialName);
 }
 
 function isBmwM2TailMaterial(materialName: string) {
