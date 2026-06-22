@@ -11,15 +11,13 @@ import type {
   ShowroomSceneHandle,
 } from "@/components/car-showroom-scene";
 import { Button } from "@/components/ui/button";
-import { BookingDialog } from "@/components/booking-dialog";
-import { CarSpecPanel } from "@/components/car-spec-panel";
 import { ShowroomQuickActions } from "@/components/showroom-quick-actions";
 import {
   CAR_CATEGORY_OPTIONS,
-  CAR_SPECS,
+  CAR_CATEGORIES,
   resolveCarCategoryKey,
   type CarCategoryKey,
-} from "@/lib/car-specs";
+} from "@/lib/car-categories";
 import {
   SHOWROOM_DEFAULT_PAINT_ID,
   SHOWROOM_PAINT_OPTIONS,
@@ -86,8 +84,6 @@ export default function HomePage() {
   const [sceneMode, setSceneMode] = useState<ShowroomSceneMode>("studio");
   const [activeTab, setActiveTab] = useState<InteractionTab>("interaction");
 
-  const [bookingOpen, setBookingOpen] = useState(false);
-  const [shareCopied, setShareCopied] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -142,7 +138,7 @@ export default function HomePage() {
     [],
   );
 
-  const activeCategory = useMemo(() => CAR_SPECS[selectedCategory], [selectedCategory]);
+  const activeCategory = useMemo(() => CAR_CATEGORIES[selectedCategory], [selectedCategory]);
   const selectedModelUrl = activeCategory.primaryUrl;
   const selectedModelLabel = `${activeCategory.label}（主流实车模型）`;
 
@@ -304,31 +300,6 @@ export default function HomePage() {
     }
   }, [showStatus]);
 
-  const handleShare = useCallback(async () => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    const url = window.location.href;
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: `3D 看车 · ${activeCategory.label}`,
-          text: `${activeCategory.label} · ${activeCategory.tagline}`,
-          url,
-        });
-        showStatus("分享菜单已打开");
-        return;
-      }
-      await navigator.clipboard.writeText(url);
-      setShareCopied(true);
-      window.setTimeout(() => setShareCopied(false), 1800);
-      showStatus("当前配置链接已复制");
-    } catch (error) {
-      console.warn("[showroom] share failed", error);
-      showStatus("无法复制链接，请手动从地址栏分享");
-    }
-  }, [activeCategory.label, activeCategory.tagline, showStatus]);
-
   const handleSelectCamera = useCallback((preset: CarCameraPreset) => {
     setCameraPreset(preset);
     setAutoTour(false);
@@ -459,14 +430,6 @@ export default function HomePage() {
         onToggleFullscreen={handleToggleFullscreen}
         isFullscreen={isFullscreen}
         capturing={capturing}
-      />
-
-      <CarSpecPanel
-        spec={activeCategory}
-        paint={selectedPaint}
-        onBookNow={() => setBookingOpen(true)}
-        onShare={handleShare}
-        shareCopied={shareCopied}
       />
 
       {IS_DEV ? (
@@ -774,13 +737,6 @@ export default function HomePage() {
         ) : null}
       </section>
 
-      {bookingOpen ? (
-        <BookingDialog
-          spec={activeCategory}
-          paintLabel={selectedPaint.label}
-          onClose={() => setBookingOpen(false)}
-        />
-      ) : null}
     </main>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-import { isCarCategoryKey, type CarCategoryKey } from "@/lib/car-specs";
+import { isCarCategoryKey, type CarCategoryKey } from "@/lib/car-categories";
 import { isShowroomSceneMode, type ShowroomSceneMode } from "@/lib/showroom-scene-modes";
 import { SHOWROOM_PAINT_OPTIONS } from "@/lib/showroom-paint-options";
 

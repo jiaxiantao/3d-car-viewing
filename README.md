@@ -3,9 +3,9 @@
 [![CI](https://github.com/jiaxiantao/3d-car-viewing/actions/workflows/ci.yml/badge.svg)](https://github.com/jiaxiantao/3d-car-viewing/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**English:** Browser-based 3D car showroom built with **Next.js**, **React Three Fiber**, and **Three.js**. Switch GLB vehicles, interact with doors / lights / paint, swap studio / day / night scene modes, save screenshots, share deep links, and book a test drive — with a procedural fallback if assets fail to load.
+**English:** Browser-based 3D car showroom built with **Next.js**, **React Three Fiber**, and **Three.js**. Switch GLB vehicles, interact with doors / lights / paint, swap studio / day / night scene modes, save screenshots, and fall back to a procedural car when assets fail to load.
 
-**中文：** 在浏览器中体验 3D 看车：车型切换 · 部件 / 灯光 / 启停 / 制动交互 · 影棚 / 白天 / 夜晚场景 · 一键截图与全屏 · 可分享深链 · 预约试驾 CTA。支持主流 GLB 车模，并具备几何体回退。
+**中文：** 在浏览器中体验 3D 看车：车型切换、部件 / 灯光 / 启停 / 制动交互、影棚 / 白天 / 夜晚场景、一键截图与全屏。支持主流 GLB 车模，并具备几何体回退。
 
 ## 效果预览
 
@@ -28,10 +28,8 @@
 - **物理拟真**：怠速发动机微抖、加速 / 制动俯仰、车轮旋转、制动时尾灯刹车灯亮起、双闪频闪
 - **场景模式**：影棚 / 白天 / 夜晚，一键切换灯光、地面材质与雾效，夜晚自带湿地反射
 - **视觉**：车漆配色、多机位预设、自动环车巡检、本地 IBL 光照（无外部 HDR CDN 依赖）
-- **商业化 UI**：车型规格 / 起售价卡片、预约试驾 CTA 弹窗（姓名 + 11 位手机号校验）、配置一键分享
-- **看车工具**：截图保存当前画面、一键全屏看车、键盘快捷键（数字键切视角、L 灯光、Space 启动、B 制动等）
+- **看车工具**：截图保存当前画面、一键全屏看车、键盘快捷键
 - **可分享深链**：车型 / 车漆 / 视角 / 场景模式持久化在 URL，使用 `replaceState` 不污染历史栈
-- **SEO**：完整 OpenGraph / Twitter Card / `themeColor`、JSON-LD `Vehicle` 结构化数据，支持深链 OG 抓取
 - **性能**：`AdaptiveDpr` / `AdaptiveEvents`、动态 Reflector 分辨率、`preserveDrawingBuffer` 截图友好
 - **响应式**：移动端 60vh 画布、Tabs 折叠交互区、车型按钮自适应换行
 - **健壮性**：GLB 加载失败时回退内置几何体车模；切换车型时保留上一模型直至新资源就绪
@@ -90,8 +88,6 @@ docker compose up --build
 │   ├── components/
 │   │   ├── car-showroom-scene.tsx     # R3F 展厅主场景
 │   │   ├── showroom-environment.tsx   # 地面、灯光、本地 IBL
-│   │   ├── car-spec-panel.tsx         # 车型规格 / 起售价 / CTA 卡片
-│   │   ├── booking-dialog.tsx         # 预约试驾弹窗
 │   │   └── showroom-quick-actions.tsx # 场景模式 / 截图 / 全屏工具栏
 │   └── lib/
 │       ├── asset-car-rig.ts           # GLB 部件自动发现
@@ -99,7 +95,7 @@ docker compose up --build
 │       ├── showroom-camera.ts         # 相机与轨道限制
 │       ├── showroom-scene-modes.ts    # 影棚 / 白天 / 夜晚配置
 │       ├── showroom-paint-options.ts  # 车漆调色板
-│       ├── car-specs.ts               # 车型规格与商业化文案（同时驱动 JSON-LD）
+│       ├── car-categories.ts          # 内置车型与 GLB 路径
 │       ├── use-showroom-url-state.ts  # URL ↔ 状态双向同步
 │       └── use-showroom-shortcuts.ts  # 键盘快捷键
 ├── public/models/market/       # GLB 车模（见 ATTRIBUTION）
@@ -134,7 +130,6 @@ docker compose up --build
 | 框架 | Next.js 16 · React 19 |
 | 3D | three · @react-three/fiber · @react-three/drei |
 | 样式 | Tailwind CSS 4 · TypeScript 5 |
-| SEO | OpenGraph · Twitter Card · JSON-LD `Vehicle` |
 
 ## 键盘快捷键
 

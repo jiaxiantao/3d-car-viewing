@@ -7,15 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Commercial UI: spec / pricing card, test-drive booking dialog, share-config CTA, and JSON-LD `Vehicle` structured data with pricing.
+- `car-specs.ts` replaced by minimal `car-categories.ts` (category key, label, GLB path only).
+
 ### Added
 
 - **Brake light physics:** rear lights brighten when braking is engaged on both GLB and the procedural fallback car.
 - **Scene modes:** "studio" / "day" / "night" presets driving environment intensity, ambient / directional / hemisphere lights, fog, floor color, roughness, metalness, and headlight spotlight intensity. Configurable via `src/lib/showroom-scene-modes.ts`.
-- **Quick action toolbar:** scene mode radio group, in-canvas screenshot (downloads `3d-car-<category>-<timestamp>.png`), and fullscreen mode.
-- **Spec / pricing card** with starting price, headline performance numbers and feature bullets per category, plus **"预约试驾"** CTA dialog with name + 11-digit CN phone validation, and a **"分享配置"** action that prefers `navigator.share` and falls back to clipboard for the deep link.
+- **Quick action toolbar:** scene mode radio group, in-canvas screenshot, and fullscreen mode.
 - **URL state sync:** `?model=…&paint=…&camera=…&mode=…` reflects the current configuration; uses `history.replaceState` so exploration does not pollute the back stack.
 - **Keyboard shortcuts:** `1`–`6` camera presets, `T` auto-tour, `E` engine, `L` lights, `H` hazards, `A`/`D` doors, `B` trunk, `S` screenshot, `F` fullscreen. Disabled while typing or with modifier keys held.
-- **SEO:** `metadataBase`, OpenGraph, Twitter card, `theme-color`, and a JSON-LD `Vehicle` graph generated from `CAR_SPECS`.
 - **Mobile responsiveness:** 60vh canvas, tab-based interaction tray, wrap-friendly category buttons.
 - Open-source documentation: LICENSE (MIT), CONTRIBUTING, SECURITY, architecture and attribution docs.
 - GitHub issue / PR templates and CI concurrency.
