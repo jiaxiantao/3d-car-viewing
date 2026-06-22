@@ -4,19 +4,17 @@ import { Canvas, type ThreeEvent, useFrame, useThree } from "@react-three/fiber"
 import { AdaptiveDpr, AdaptiveEvents, Html, OrbitControls } from "@react-three/drei";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import {
   ASSET_DOOR_MAX_OPEN_RADIANS,
   ASSET_TRUNK_MAX_OPEN_RADIANS,
   applyWheelMotion,
   boostShowroomMaterialEmissive,
-  discoverAssetCarRig,
   SHOWROOM_HEADLAMP_INTENSITY,
   SHOWROOM_HAZARD_INTENSITY,
   SHOWROOM_TAIL_LAMP_COLOR,
   type AssetCarRig,
 } from "@/lib/asset-car-rig";
-import { normalizeMarketModel } from "@/lib/normalize-market-model";
+import { disposeLoadedScene, loadGltfScene } from "@/lib/gltf-scene-cache";
 import { getOrbitDistanceLimits, type ShowroomCameraPreset } from "@/lib/showroom-camera";
 import {
   SHOWROOM_GROUND_Y,
@@ -112,10 +110,6 @@ const ENGINE_IGNITION_DURATION = 0.9;
 const MIN_LOADING_OVERLAY_MS = 480;
 const HAZARD_MIN_EMISSIVE = { minActiveIntensity: 0 };
 const SHOWROOM_TAIL_LAMP_HEX = `#${new THREE.Color(SHOWROOM_TAIL_LAMP_COLOR).getHexString()}`;
-
-const sharedGltfLoader = new GLTFLoader();
-const gltfSceneCache = new Map<string, THREE.Object3D>();
-const GLTF_SCENE_CACHE_LIMIT = 6;
 
 /** Track active hover count so rapid mount/unmount cycles don't leak `cursor: pointer`. */
 let activeHoverCount = 0;
@@ -505,79 +499,6 @@ function ShowroomSceneControlBridge({
     };
   }, [advance, camera, containerRef, gl, handleRef, invalidate, scene]);
   return null;
-}
-
-function disposeLoadedScene(root: THREE.Object3D) {
-  root.traverse((child) => {
-    const mesh = child as THREE.Mesh;
-    if (!mesh.isMesh) {
-      return;
-    }
-    mesh.geometry?.dispose();
-    const material = mesh.material;
-    if (Array.isArray(material)) {
-      material.forEach((entry) => entry.dispose());
-    } else {
-      material?.dispose();
-    }
-  });
-}
-
-async function loadGltfScene(url: string, onProgress?: (ratio: number) => void) {
-  const cached = gltfSceneCache.get(url);
-  if (cached) {
-    const instance = cached.clone(true);
-    // Object3D.clone deep-copies userData as plain JSON, so Box3 methods are lost.
-    // Rebuild rig on each cloned instance to keep runtime helpers like bounds.isEmpty().
-    instance.userData.showroomRig = discoverAssetCarRig(instance, url);
-    onProgress?.(1);
-    return instance;
-  }
-
-  return new Promise<THREE.Object3D>((resolve, reject) => {
-    sharedGltfLoader.load(
-      url,
-      (gltf) => {
-        const templateScene = gltf.scene.clone(true);
-        templateScene.traverse((child) => {
-          const mesh = child as THREE.Mesh;
-          if (mesh.isMesh) {
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-          }
-        });
-        onProgress?.(0.94);
-        normalizeMarketModel(templateScene);
-        gltfSceneCache.set(url, templateScene);
-        if (gltfSceneCache.size > GLTF_SCENE_CACHE_LIMIT) {
-          const oldestKey = gltfSceneCache.keys().next().value as string | undefined;
-          if (oldestKey && oldestKey !== url) {
-            const stale = gltfSceneCache.get(oldestKey);
-            if (stale) {
-              disposeLoadedScene(stale);
-            }
-            gltfSceneCache.delete(oldestKey);
-          }
-        }
-        const loadedScene = templateScene.clone(true);
-        const rig = discoverAssetCarRig(loadedScene, url);
-        loadedScene.userData.showroomRig = rig;
-        onProgress?.(1);
-        resolve(loadedScene);
-      },
-      (event) => {
-        if (event.lengthComputable && event.total > 0) {
-          onProgress?.(Math.min(0.92, event.loaded / event.total));
-          return;
-        }
-        if (event.loaded > 0) {
-          // Some static hosts omit Content-Length; approximate from bytes loaded.
-          onProgress?.(Math.min(0.75, event.loaded / 48_000_000));
-        }
-      },
-      reject,
-    );
-  });
 }
 
 type CarModelProps = {

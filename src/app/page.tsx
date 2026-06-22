@@ -18,6 +18,7 @@ import {
   resolveCarCategoryKey,
   type CarCategoryKey,
 } from "@/lib/car-categories";
+import { scheduleIdleGltfPreloads } from "@/lib/gltf-scene-cache";
 import {
   SHOWROOM_DEFAULT_PAINT_ID,
   SHOWROOM_PAINT_OPTIONS,
@@ -25,6 +26,7 @@ import {
 } from "@/lib/showroom-paint-options";
 import type { ShowroomSceneMode } from "@/lib/showroom-scene-modes";
 import {
+  copyShowroomShareUrl,
   readShowroomUrlState,
   useShowroomUrlState,
 } from "@/lib/use-showroom-url-state";
@@ -85,6 +87,7 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<InteractionTab>("interaction");
 
   const [capturing, setCapturing] = useState(false);
+  const [copyingLink, setCopyingLink] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
@@ -141,6 +144,27 @@ export default function HomePage() {
   const activeCategory = useMemo(() => CAR_CATEGORIES[selectedCategory], [selectedCategory]);
   const selectedModelUrl = activeCategory.primaryUrl;
   const selectedModelLabel = `${activeCategory.label}（主流实车模型）`;
+
+  useEffect(() => {
+    if (!useAssetModel) {
+      return;
+    }
+    const preloadUrls = CAR_CATEGORY_OPTIONS.map((item) => item.primaryUrl).filter(
+      (url) => url !== selectedModelUrl,
+    );
+    return scheduleIdleGltfPreloads(preloadUrls);
+  }, [selectedModelUrl, useAssetModel]);
+
+  const handleSelectCategory = useCallback((categoryKey: CarCategoryKey) => {
+    setSelectedCategory(resolveCarCategoryKey(categoryKey));
+    setUseAssetModel(true);
+    setLeftDoorOpen(false);
+    setRightDoorOpen(false);
+    setTrunkOpen(false);
+    setSunroofOpen(false);
+    setAssetRigCaps(null);
+    setAssetRigDebug(null);
+  }, []);
 
   const handleAssetRigCapabilities = useCallback(
     (capabilities: AssetRigCapabilities | null) => {
@@ -300,6 +324,34 @@ export default function HomePage() {
     }
   }, [showStatus]);
 
+  const handleCopyShareLink = useCallback(async () => {
+    if (copyingLink) {
+      return;
+    }
+    setCopyingLink(true);
+    try {
+      await copyShowroomShareUrl({
+        category: selectedCategory,
+        paintId: selectedPaintId,
+        cameraPreset,
+        sceneMode,
+      });
+      showStatus("已复制分享链接，可直接发送给他人");
+    } catch (error) {
+      console.warn("[showroom] copy share link failed", error);
+      showStatus("复制失败，请检查浏览器剪贴板权限");
+    } finally {
+      setCopyingLink(false);
+    }
+  }, [
+    cameraPreset,
+    copyingLink,
+    sceneMode,
+    selectedCategory,
+    selectedPaintId,
+    showStatus,
+  ]);
+
   const handleSelectCamera = useCallback((preset: CarCameraPreset) => {
     setCameraPreset(preset);
     setAutoTour(false);
@@ -327,6 +379,7 @@ export default function HomePage() {
     },
     onCaptureScreenshot: handleScreenshot,
     onToggleFullscreen: handleToggleFullscreen,
+    onCopyShareLink: handleCopyShareLink,
   });
 
   function applyWelcomeMode() {
@@ -391,6 +444,7 @@ export default function HomePage() {
             <kbd className="rounded bg-white/10 px-1 py-0.5 text-[11px]">E</kbd> 启动，
             <kbd className="rounded bg-white/10 px-1 py-0.5 text-[11px]">L</kbd> 灯光，
             <kbd className="rounded bg-white/10 px-1 py-0.5 text-[11px]">S</kbd> 截图，
+            <kbd className="rounded bg-white/10 px-1 py-0.5 text-[11px]">C</kbd> 分享，
             <kbd className="rounded bg-white/10 px-1 py-0.5 text-[11px]">F</kbd> 全屏。
           </span>
         </p>
@@ -428,8 +482,10 @@ export default function HomePage() {
         onChangeSceneMode={setSceneMode}
         onCaptureScreenshot={handleScreenshot}
         onToggleFullscreen={handleToggleFullscreen}
+        onCopyShareLink={handleCopyShareLink}
         isFullscreen={isFullscreen}
         capturing={capturing}
+        copyingLink={copyingLink}
       />
 
       {IS_DEV ? (
@@ -454,10 +510,7 @@ export default function HomePage() {
             <Button
               key={model.key}
               variant={selectedCategory === model.key ? "default" : "outline"}
-              onClick={() => {
-                setSelectedCategory(resolveCarCategoryKey(model.key));
-                setUseAssetModel(true);
-              }}
+              onClick={() => handleSelectCategory(model.key)}
             >
               {model.label}
             </Button>
@@ -478,10 +531,7 @@ export default function HomePage() {
           {wheelSpinUnavailable && wheelReadyCategory ? (
             <Button
               variant="secondary"
-              onClick={() => {
-                setSelectedCategory(resolveCarCategoryKey(wheelReadyCategory.key));
-                setUseAssetModel(true);
-              }}
+              onClick={() => handleSelectCategory(wheelReadyCategory.key)}
             >
               切换到{wheelReadyCategory.label}（支持真实四轮转动）
             </Button>

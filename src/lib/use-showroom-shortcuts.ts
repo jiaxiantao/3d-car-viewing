@@ -18,6 +18,7 @@ type ShowroomShortcutHandlers = {
   onToggleTrunk?: () => void;
   onCaptureScreenshot?: () => void;
   onToggleFullscreen?: () => void;
+  onCopyShareLink?: () => void;
 };
 
 function isTextEntryActive(target: EventTarget | null): boolean {
@@ -102,6 +103,10 @@ export function useShowroomShortcuts(handlers: ShowroomShortcutHandlers) {
         case "f":
         case "F":
           handlers.onToggleFullscreen?.();
+          break;
+        case "c":
+        case "C":
+          handlers.onCopyShareLink?.();
           break;
         default:
           return;

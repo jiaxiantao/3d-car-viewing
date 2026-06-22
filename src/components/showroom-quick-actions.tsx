@@ -12,8 +12,10 @@ type ShowroomQuickActionsProps = {
   onChangeSceneMode: (mode: ShowroomSceneMode) => void;
   onCaptureScreenshot: () => void;
   onToggleFullscreen: () => void;
+  onCopyShareLink: () => void;
   isFullscreen: boolean;
   capturing?: boolean;
+  copyingLink?: boolean;
 };
 
 const ICON_BUTTON_CLASS =
@@ -24,8 +26,10 @@ export function ShowroomQuickActions({
   onChangeSceneMode,
   onCaptureScreenshot,
   onToggleFullscreen,
+  onCopyShareLink,
   isFullscreen,
   capturing,
+  copyingLink,
 }: ShowroomQuickActionsProps) {
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -68,6 +72,17 @@ export function ShowroomQuickActions({
       >
         <span aria-hidden>📸</span>
         <span>{capturing ? "保存中..." : "截图"}</span>
+      </button>
+      <button
+        type="button"
+        onClick={onCopyShareLink}
+        disabled={copyingLink}
+        className={ICON_BUTTON_CLASS}
+        aria-label="复制当前看车配置链接"
+        title="复制分享链接（含车型 / 车漆 / 视角 / 场景）"
+      >
+        <span aria-hidden>🔗</span>
+        <span>{copyingLink ? "复制中..." : "分享链接"}</span>
       </button>
       <button
         type="button"

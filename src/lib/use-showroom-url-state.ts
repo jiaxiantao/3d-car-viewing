@@ -43,6 +43,48 @@ export function readShowroomUrlState(): ShowroomUrlState {
   };
 }
 
+export function buildShowroomShareUrl(state: {
+  category: CarCategoryKey;
+  paintId: string;
+  cameraPreset: string;
+  sceneMode: ShowroomSceneMode;
+}): string {
+  const params = new URLSearchParams();
+  params.set("model", state.category);
+  params.set("paint", state.paintId);
+  params.set("camera", state.cameraPreset);
+  params.set("mode", state.sceneMode);
+
+  if (typeof window === "undefined") {
+    return `?${params.toString()}`;
+  }
+  return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+}
+
+export async function copyShowroomShareUrl(state: {
+  category: CarCategoryKey;
+  paintId: string;
+  cameraPreset: string;
+  sceneMode: ShowroomSceneMode;
+}): Promise<string> {
+  const url = buildShowroomShareUrl(state);
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(url);
+    return url;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = url;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  textarea.remove();
+  return url;
+}
+
 /**
  * Mirror the showroom configuration into the URL so a deep link reproduces it.
  * Uses `replaceState` so the user's history is not polluted while they explore.

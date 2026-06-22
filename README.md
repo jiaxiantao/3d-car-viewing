@@ -29,7 +29,7 @@
 - **场景模式**：影棚 / 白天 / 夜晚，一键切换灯光、地面材质与雾效，夜晚自带湿地反射
 - **视觉**：车漆配色、多机位预设、自动环车巡检、本地 IBL 光照（无外部 HDR CDN 依赖）
 - **看车工具**：截图保存当前画面、一键全屏看车、键盘快捷键
-- **可分享深链**：车型 / 车漆 / 视角 / 场景模式持久化在 URL，使用 `replaceState` 不污染历史栈
+- **可分享深链**：车型 / 车漆 / 视角 / 场景模式持久化在 URL，使用 `replaceState` 不污染历史栈；工具栏一键复制分享链接（`C`）
 - **性能**：`AdaptiveDpr` / `AdaptiveEvents`、动态 Reflector 分辨率、`preserveDrawingBuffer` 截图友好
 - **响应式**：移动端 60vh 画布、Tabs 折叠交互区、车型按钮自适应换行
 - **健壮性**：GLB 加载失败时回退内置几何体车模；切换车型时保留上一模型直至新资源就绪
@@ -96,7 +96,8 @@ docker compose up --build
 │       ├── showroom-scene-modes.ts    # 影棚 / 白天 / 夜晚配置
 │       ├── showroom-paint-options.ts  # 车漆调色板
 │       ├── car-categories.ts          # 内置车型与 GLB 路径
-│       ├── use-showroom-url-state.ts  # URL ↔ 状态双向同步
+│       ├── use-showroom-url-state.ts  # URL ↔ 状态双向同步、分享链接
+│       ├── gltf-scene-cache.ts        # GLB 缓存与空闲预加载
 │       └── use-showroom-shortcuts.ts  # 键盘快捷键
 ├── public/models/market/       # GLB 车模（见 ATTRIBUTION）
 ├── docs/
@@ -106,7 +107,7 @@ docker compose up --build
 └── .github/workflows/ci.yml    # lint + typecheck + build
 ```
 
-更细的模块关系见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
+更细的模块关系见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。技术实践博客见 [docs/3D看车技术博客.md](docs/3D看车技术博客.md)。
 
 ## 车型资源
 
@@ -145,6 +146,7 @@ docker compose up --build
 | `A` / `D` | 右前门 / 左前门 |
 | `B` | 后备箱开关 |
 | `S` | 保存当前画面为图片 |
+| `C` | 复制分享链接 |
 | `F` | 全屏 / 退出全屏 |
 
 ## 参与贡献

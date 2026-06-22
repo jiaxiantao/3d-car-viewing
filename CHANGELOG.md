@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Share link:** toolbar button and `C` keyboard shortcut copy the current showroom URL (model / paint / camera / scene mode).
+- **GLB idle preload:** after the active model loads, other category GLBs warm the in-memory cache via `requestIdleCallback` for faster switching.
+- Technical blog draft: `docs/3D看车技术博客.md`.
+
+### Changed
+
+- **GLB cache module:** extracted `src/lib/gltf-scene-cache.ts` from the scene component for reuse by preload and load paths.
+- **Category switch:** door / trunk / sunroof interaction state resets when changing vehicle category to avoid stale UI against a new rig.
+
 ### Removed
 
 - Commercial UI: spec / pricing card, test-drive booking dialog, share-config CTA, and JSON-LD `Vehicle` structured data with pricing.

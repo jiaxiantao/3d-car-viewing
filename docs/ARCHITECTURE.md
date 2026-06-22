@@ -21,6 +21,7 @@ flowchart TB
   Profiles["market-rig-profiles.ts"]
   Norm["normalize-market-model.ts"]
   Camera["showroom-camera.ts"]
+  Cache["gltf-scene-cache.ts\npreload + LRU"]
   end
   Page --> Scene
   Scene --> Env
@@ -51,6 +52,7 @@ Interaction buttons on the page are **disabled until** `onAssetRigCapabilities` 
 3. On success: `normalizeMarketModel()` scales/grounds the root; `discoverAssetCarRig()` builds rig + capability flags.
 4. On failure: `useGeometricFallback` → render `CarModel` instead.
 5. While loading: previous GLB may stay visible under a fullscreen `Html` loader (drei).
+6. After the active model is ready, `scheduleIdleGltfPreloads()` warms other category URLs in `gltf-scene-cache.ts` when the browser is idle.
 
 ## Camera
 
