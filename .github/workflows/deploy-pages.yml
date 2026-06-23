@@ -29,6 +29,10 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - run: pnpm typecheck
+
+      - run: pnpm lint
+
       - name: Build static site for GitHub Pages
         run: pnpm build:pages
         env:

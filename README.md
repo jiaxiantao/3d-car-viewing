@@ -95,7 +95,9 @@ docker compose up --build
 
 **https://jiaxiantao.github.io/3d-car-viewing/**
 
-请在仓库 **Settings → Pages → Build and deployment** 中将 **Source** 设为 **GitHub Actions**（不要选 `main` 分支的 `/docs` 文件夹——该目录仅存放 Markdown 文档，无法承载 Next.js 应用）。
+请在仓库 **Settings → Pages → Build and deployment** 中将 **Source** 设为 **GitHub Actions**（不要选 `main` 分支的 `/docs` 文件夹——否则会额外触发一次 `pages build and deployment`，与 Actions 部署重复）。
+
+推送 `main` 时仅运行 **Deploy GitHub Pages** 工作流（内含 lint / typecheck / 构建 / 发布）；**CI** 工作流仅在 Pull Request 时运行。
 
 本地验证静态导出：
 
