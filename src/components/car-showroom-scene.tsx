@@ -15,6 +15,7 @@ import {
   type AssetCarRig,
 } from "@/lib/asset-car-rig";
 import { disposeLoadedScene, loadGltfScene } from "@/lib/gltf-scene-cache";
+import { publicAssetPath } from "@/lib/public-asset-path";
 import { getOrbitDistanceLimits, type ShowroomCameraPreset } from "@/lib/showroom-camera";
 import {
   SHOWROOM_GROUND_Y,
@@ -1510,7 +1511,7 @@ export function CarShowroomScene({
   cameraPreset,
   autoTour,
   useAssetModel,
-  modelUrl = "/models/market/suv-mainstream.glb",
+  modelUrl = publicAssetPath("/models/market/suv-mainstream.glb"),
   modelAlternateUrls,
   modelFallbackUrl,
   sceneMode = "studio",

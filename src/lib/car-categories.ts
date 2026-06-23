@@ -2,6 +2,8 @@
  * Built-in GLB category keys and their public asset paths.
  */
 
+import { publicAssetPath } from "@/lib/public-asset-path";
+
 export type CarCategoryKey = "suv" | "sedan" | "offroad";
 
 export type CarCategory = {
@@ -14,17 +16,17 @@ export const CAR_CATEGORIES: Record<CarCategoryKey, CarCategory> = {
   suv: {
     key: "suv",
     label: "SUV",
-    primaryUrl: "/models/market/suv-mainstream.glb",
+    primaryUrl: publicAssetPath("/models/market/suv-mainstream.glb"),
   },
   sedan: {
     key: "sedan",
     label: "小轿车",
-    primaryUrl: "/models/market/sedan-mainstream.glb",
+    primaryUrl: publicAssetPath("/models/market/sedan-mainstream.glb"),
   },
   offroad: {
     key: "offroad",
     label: "越野车",
-    primaryUrl: "/models/market/offroad-mainstream.glb",
+    primaryUrl: publicAssetPath("/models/market/offroad-mainstream.glb"),
   },
 };
 

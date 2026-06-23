@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **GLB cache module:** extracted `src/lib/gltf-scene-cache.ts` from the scene component for reuse by preload and load paths.
+- **GitHub Pages asset paths:** GLB URLs use site-relative paths so models load under `/3d-car-viewing` instead of the domain root.
 - **Category switch:** door / trunk / sunroof interaction state resets when changing vehicle category to avoid stale UI against a new rig.
 
 ### Removed
