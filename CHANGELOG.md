@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **GitHub Pages:** static export (`pnpm build:pages`) and `deploy-pages` workflow for live demo at https://jiaxiantao.github.io/3d-car-viewing/.
 - **Share link:** toolbar button and `C` keyboard shortcut copy the current showroom URL (model / paint / camera / scene mode).
 - **GLB idle preload:** after the active model loads, other category GLBs warm the in-memory cache via `requestIdleCallback` for faster switching.
 - Technical blog draft: `docs/3D看车技术博客.md`.

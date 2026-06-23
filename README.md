@@ -2,10 +2,19 @@
 
 [![CI](https://github.com/jiaxiantao/3d-car-viewing/actions/workflows/ci.yml/badge.svg)](https://github.com/jiaxiantao/3d-car-viewing/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-在线预览-22d3ee?style=flat&logo=githubpages&logoColor=white)](https://jiaxiantao.github.io/3d-car-viewing/)
 
 **English:** Browser-based 3D car showroom built with **Next.js**, **React Three Fiber**, and **Three.js**. Switch GLB vehicles, interact with doors / lights / paint, swap studio / day / night scene modes, save screenshots, and fall back to a procedural car when assets fail to load.
 
 **中文：** 在浏览器中体验 3D 看车：车型切换、部件 / 灯光 / 启停 / 制动交互、影棚 / 白天 / 夜晚场景、一键截图与全屏。支持主流 GLB 车模，并具备几何体回退。
+
+## 在线预览
+
+在浏览器中直接体验完整交互（无需本地安装）：
+
+**[https://jiaxiantao.github.io/3d-car-viewing/](https://jiaxiantao.github.io/3d-car-viewing/)**
+
+> 由 GitHub Actions 将 Next.js 静态导出部署至 GitHub Pages。首次打开若 GLB 较大，加载可能需要数秒；加载失败会自动回退几何体车模。
 
 ## 效果预览
 
@@ -79,6 +88,20 @@ docker compose up --build
 ```
 
 服务监听 `http://localhost:3000`。
+
+### GitHub Pages 在线部署
+
+仓库已配置 [Deploy GitHub Pages](.github/workflows/deploy-pages.yml) 工作流，推送 `main` 后自动构建并发布至：
+
+**https://jiaxiantao.github.io/3d-car-viewing/**
+
+请在仓库 **Settings → Pages → Build and deployment** 中将 **Source** 设为 **GitHub Actions**（不要选 `main` 分支的 `/docs` 文件夹——该目录仅存放 Markdown 文档，无法承载 Next.js 应用）。
+
+本地验证静态导出：
+
+```bash
+pnpm build:pages   # 输出到 out/，basePath 为 /3d-car-viewing
+```
 
 ## 项目结构
 
