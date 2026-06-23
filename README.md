@@ -91,15 +91,22 @@ docker compose up --build
 
 ### GitHub Pages 在线部署
 
-仓库已配置 [Deploy GitHub Pages](.github/workflows/deploy-pages.yml) 工作流，推送 `main` 后自动构建并发布至：
+在线地址：**https://jiaxiantao.github.io/3d-car-viewing/**
 
-**https://jiaxiantao.github.io/3d-car-viewing/**
+推送 `main` 后，[Deploy GitHub Pages](.github/workflows/deploy-pages.yml) 会构建静态站点并发布到 **`gh-pages` 分支**（不会把约 120MB 的 GLB 写进 `docs/`）。
 
-请在仓库 **Settings → Pages → Build and deployment** 中将 **Source** 设为 **GitHub Actions**（不要选 `main` 分支的 `/docs` 文件夹——否则会额外触发一次 `pages build and deployment`，与 Actions 部署重复）。
+**首次使用请在 GitHub 改一次 Pages 配置（否则会 404）：**
 
-推送 `main` 时仅运行 **Deploy GitHub Pages** 工作流（内含 lint / typecheck / 构建 / 发布）；**CI** 工作流仅在 Pull Request 时运行。
+1. 打开 **Settings → Pages → Build and deployment**
+2. **Source** → **Deploy from a branch**
+3. **Branch** 选 **`gh-pages`**，文件夹选 **`/ (root)`**（不要选 `main` + `/docs`）
+4. 保存后等待 Actions 部署完成
 
-本地验证静态导出：
+`docs/` 目录仅存放 Markdown 文档；详细说明见 [docs/GITHUB_PAGES_SETUP.md](docs/GITHUB_PAGES_SETUP.md)。
+
+推送 `main` 时仅运行 **Deploy GitHub Pages**（含 lint / typecheck / 构建 / 发布）；**CI** 仅在 Pull Request 时运行。
+
+本地验证：
 
 ```bash
 pnpm build:pages   # 输出到 out/，basePath 为 /3d-car-viewing

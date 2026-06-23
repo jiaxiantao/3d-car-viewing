@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>3D 看车 — GitHub Pages 配置说明</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 42rem;
+        margin: 3rem auto;
+        padding: 0 1.25rem;
+        line-height: 1.7;
+        color: #e2e8f0;
+        background: #020617;
+      }
+      a {
+        color: #22d3ee;
+      }
+      code {
+        background: rgba(255, 255, 255, 0.08);
+        padding: 0.1rem 0.35rem;
+        border-radius: 0.25rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>此目录不是在线演示站点</h1>
+    <p>
+      <code>docs/</code> 仅存放项目文档（架构说明、技术博客等）。Next.js 3D 看车应用体积较大，由 CI 构建后发布到
+      <code>gh-pages</code> 分支，而不是直接放在本目录。
+    </p>
+    <p>若访问 <a href="https://jiaxiantao.github.io/3d-car-viewing/">在线预览</a> 出现空白或 404，请在仓库中完成一次 Pages 配置：</p>
+    <ol>
+      <li>打开 <strong>Settings → Pages → Build and deployment</strong></li>
+      <li><strong>Source</strong> 选择 <strong>Deploy from a branch</strong></li>
+      <li><strong>Branch</strong> 选 <code>gh-pages</code>，文件夹选 <code>/ (root)</code>（不要选 <code>main /docs</code>）</li>
+      <li>保存后等待 <a href="https://github.com/jiaxiantao/3d-car-viewing/actions/workflows/deploy-pages.yml">Deploy GitHub Pages</a> 工作流完成</li>
+    </ol>
+    <p>详细说明见仓库 <a href="https://github.com/jiaxiantao/3d-car-viewing/blob/main/docs/GITHUB_PAGES_SETUP.md">docs/GITHUB_PAGES_SETUP.md</a>。</p>
+  </body>
+</html>
