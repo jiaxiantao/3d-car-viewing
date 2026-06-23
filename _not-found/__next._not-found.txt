@@ -1,0 +1,5 @@
+1:"$Sreact.fragment"
+2:I[35093,["/3d-car-viewing/_next/static/chunks/14zxlp32~s4mx.js","/3d-car-viewing/_next/static/chunks/0l5kd28k55p2s.js"],"default"]
+3:I[47893,["/3d-car-viewing/_next/static/chunks/14zxlp32~s4mx.js","/3d-car-viewing/_next/static/chunks/0l5kd28k55p2s.js"],"default"]
+4:[]
+0:{"rsc":["$","$1","c",{"children":[null,["$","$L2",null,{"parallelRouterKey":"children","template":["$","$L3",null,{}]}]]}],"isPartial":false,"staleTime":300,"varyParams":"$W4","buildId":"6sDBQJXRmiF7iX_8orGs5"}

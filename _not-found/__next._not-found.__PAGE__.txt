@@ -1,0 +1,6 @@
+1:"$Sreact.fragment"
+2:I[32901,["/3d-car-viewing/_next/static/chunks/14zxlp32~s4mx.js","/3d-car-viewing/_next/static/chunks/0l5kd28k55p2s.js","/3d-car-viewing/_next/static/chunks/0dx49547lvtnx.js"],""]
+3:I[39737,["/3d-car-viewing/_next/static/chunks/14zxlp32~s4mx.js","/3d-car-viewing/_next/static/chunks/0l5kd28k55p2s.js"],"OutletBoundary"]
+4:"$Sreact.suspense"
+0:{"rsc":["$","$1","c",{"children":[["$","main",null,{"className":"mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center gap-4 px-6 text-center","children":[["$","h1",null,{"className":"text-2xl font-semibold text-white","children":"页面不存在"}],["$","p",null,{"className":"text-sm text-slate-400","children":"请返回 3D 看车主页继续体验。"}],["$","$L2",null,{"href":"/","className":"rounded-full bg-cyan-200 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-100","children":"返回首页"}]]}],[["$","script","script-0",{"src":"/3d-car-viewing/_next/static/chunks/0dx49547lvtnx.js","async":true}]],["$","$L3",null,{"children":["$","$4",null,{"name":"Next.MetadataOutlet","children":"$@5"}]}]]}],"isPartial":false,"staleTime":300,"varyParams":null,"buildId":"6sDBQJXRmiF7iX_8orGs5"}
+5:null
