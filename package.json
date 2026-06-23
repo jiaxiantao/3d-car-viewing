@@ -30,7 +30,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:pages": "GH_PAGES=1 NEXT_PUBLIC_SITE_URL=https://jiaxiantao.github.io/3d-car-viewing next build",
+    "build:pages": "GH_PAGES=1 NEXT_PUBLIC_SITE_URL=https://jiaxiantao.github.io/3d-car-viewing next build && node scripts/prepare-gh-pages-export.mjs",
     "start": "node .next/standalone/server.js",
     "start:ci": "next start -p 3000",
     "lint": "eslint",

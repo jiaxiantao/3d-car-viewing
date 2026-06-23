@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **GitHub Pages asset paths:** GLB URLs use site-relative paths so models load under `/3d-car-viewing` instead of the domain root.
 - **CI workflow split:** `CI` runs on pull requests only; `main` pushes use a single `Deploy GitHub Pages` job (lint, typecheck, build, deploy).
-- **GitHub Pages deploy:** replace peaceiris (blocks main→main) with a script that copies `out/` into `docs/` and commits on `main`.
+- **GitHub Pages `_next` fix:** post-build script renames `_next` to `next-static` so Jekyll does not strip CSS/JS on branch deploys.
 - **Category switch:** door / trunk / sunroof interaction state resets when changing vehicle category to avoid stale UI against a new rig.
 
 ### Removed

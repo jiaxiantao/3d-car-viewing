@@ -43,7 +43,6 @@ jobs:
 
       - name: Sync build output into docs/
         run: |
-          touch out/.nojekyll
           find docs -mindepth 1 -delete
           cp -a out/. docs/
 
