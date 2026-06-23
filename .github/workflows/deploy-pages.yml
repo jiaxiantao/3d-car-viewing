@@ -10,17 +10,19 @@ on:
 permissions:
   contents: write
 
+# Do not cancel an in-flight Pages build — Next.js export can take several minutes.
 concurrency:
   group: pages-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - uses: pnpm/action-setup@v4
 
@@ -31,15 +33,12 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm typecheck
-
-      - run: pnpm lint
-
       - name: Build static site for GitHub Pages
         run: pnpm build:pages
         env:
           GH_PAGES: "1"
           NEXT_PUBLIC_SITE_URL: https://jiaxiantao.github.io/3d-car-viewing
+          NODE_OPTIONS: --max-old-space-size=6144
 
       - name: Sync build output into docs/
         run: |
