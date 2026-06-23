@@ -10,7 +10,7 @@
 | `docs/` | **仅** GitHub Pages 构建产物（由 CI 自动写入，勿手改） |
 | `src/`、`public/` | 应用源码与静态资源 |
 
-推送 `main`（且变更不在 `docs/` 内）时，[Deploy GitHub Pages](../.github/workflows/deploy-pages.yml) 会执行 `pnpm build:pages`，并将 `out/` 同步到 **`docs/`**。
+推送 `main`（且变更不在 `docs/` 内）时，[Deploy GitHub Pages](../.github/workflows/deploy-pages.yml) 会构建并将 `out/` 同步提交到 **`docs/`**（使用 git 直接提交，因 peaceiris 禁止 main→main 推送）。
 
 ## Pages 配置
 

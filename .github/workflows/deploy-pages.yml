@@ -19,6 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
 
@@ -39,14 +41,20 @@ jobs:
           GH_PAGES: "1"
           NEXT_PUBLIC_SITE_URL: https://jiaxiantao.github.io/3d-car-viewing
 
-      - name: Add .nojekyll for GitHub Pages
-        run: touch out/.nojekyll
+      - name: Sync build output into docs/
+        run: |
+          touch out/.nojekyll
+          find docs -mindepth 1 -delete
+          cp -a out/. docs/
 
-      - name: Publish build output to docs/
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./out
-          publish_branch: main
-          destination_dir: docs
-          commit_message: "deploy: refresh GitHub Pages build in docs/ [skip ci]"
+      - name: Commit and push docs/
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/
+          if git diff --staged --quiet; then
+            echo "No changes under docs/"
+            exit 0
+          fi
+          git commit -m "deploy: refresh GitHub Pages build in docs/ [skip ci]"
+          git push
