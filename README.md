@@ -93,16 +93,11 @@ docker compose up --build
 
 在线地址：**https://jiaxiantao.github.io/3d-car-viewing/**
 
-推送 `main` 后，[Deploy GitHub Pages](.github/workflows/deploy-pages.yml) 会构建静态站点并发布到 **`gh-pages` 分支**（不会把约 120MB 的 GLB 写进 `docs/`）。
+推送 `main` 后，[Deploy GitHub Pages](.github/workflows/deploy-pages.yml) 会构建静态站点并写入 **`docs/`**（仅构建产物，Markdown 文档在 `documentation/`）。
 
-**首次使用请在 GitHub 改一次 Pages 配置（否则会 404）：**
+**Pages 配置：** **Settings → Pages** → Source 选 **Deploy from a branch** → Branch **`main`** → 文件夹 **`/docs`**。
 
-1. 打开 **Settings → Pages → Build and deployment**
-2. **Source** → **Deploy from a branch**
-3. **Branch** 选 **`gh-pages`**，文件夹选 **`/ (root)`**（不要选 `main` + `/docs`）
-4. 保存后等待 Actions 部署完成
-
-`docs/` 目录仅存放 Markdown 文档；详细说明见 [docs/GITHUB_PAGES_SETUP.md](docs/GITHUB_PAGES_SETUP.md)。
+说明见 [documentation/GITHUB_PAGES_SETUP.md](documentation/GITHUB_PAGES_SETUP.md)。
 
 推送 `main` 时仅运行 **Deploy GitHub Pages**（含 lint / typecheck / 构建 / 发布）；**CI** 仅在 Pull Request 时运行。
 
@@ -132,14 +127,15 @@ pnpm build:pages   # 输出到 out/，basePath 为 /3d-car-viewing
 │       ├── gltf-scene-cache.ts        # GLB 缓存与空闲预加载
 │       └── use-showroom-shortcuts.ts  # 键盘快捷键
 ├── public/models/market/       # GLB 车模（见 ATTRIBUTION）
-├── docs/
-│   ├── market-glb-rig.md       # 交互映射与建模要求
-│   ├── ARCHITECTURE.md         # 架构说明
-│   └── ATTRIBUTION.md          # 第三方资源与许可
+├── documentation/              # 项目文档（Markdown）
+│   ├── ARCHITECTURE.md
+│   ├── market-glb-rig.md
+│   └── ATTRIBUTION.md
+├── docs/                       # GitHub Pages 构建产物（CI 自动更新，勿手改）
 └── .github/workflows/ci.yml    # lint + typecheck + build
 ```
 
-更细的模块关系见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。技术实践博客见 [docs/3D看车技术博客.md](docs/3D看车技术博客.md)。
+更细的模块关系见 [documentation/ARCHITECTURE.md](documentation/ARCHITECTURE.md)。技术实践博客见 [documentation/3D看车技术博客.md](documentation/3D看车技术博客.md)。
 
 ## 车型资源
 
@@ -152,9 +148,9 @@ pnpm build:pages   # 输出到 out/，basePath 为 /3d-car-viewing
 | `offroad-mainstream.glb` | 越野车 |
 
 - 加载失败 → 自动使用内置几何体 `CarModel`
-- 自定义车型 → 阅读 [docs/market-glb-rig.md](docs/market-glb-rig.md)，在 `market-rig-profiles.ts` 增加 `MarketRigProfile`
+- 自定义车型 → 阅读 [documentation/market-glb-rig.md](documentation/market-glb-rig.md)，在 `market-rig-profiles.ts` 增加 `MarketRigProfile`
 
-**许可与商标：** 仓库内示例 GLB 来自第三方作者，**本仓库 MIT 许可证仅覆盖源代码**，不包含车模知识产权。商用或再分发前请阅读 [docs/ATTRIBUTION.md](docs/ATTRIBUTION.md) 并自行确认授权。
+**许可与商标：** 仓库内示例 GLB 来自第三方作者，**本仓库 MIT 许可证仅覆盖源代码**，不包含车模知识产权。商用或再分发前请阅读 [documentation/ATTRIBUTION.md](documentation/ATTRIBUTION.md) 并自行确认授权。
 
 ## 技术栈
 
@@ -195,4 +191,4 @@ pnpm build:pages   # 输出到 out/，basePath 为 /3d-car-viewing
 
 本项目**源代码**采用 [MIT License](LICENSE)。
 
-Bundled 3D models in `public/models/market/` are subject to their respective authors' licenses — see [docs/ATTRIBUTION.md](docs/ATTRIBUTION.md).
+Bundled 3D models in `public/models/market/` are subject to their respective authors' licenses — see [documentation/ATTRIBUTION.md](documentation/ATTRIBUTION.md).

@@ -525,7 +525,7 @@ export default function HomePage() {
               {assetRigCaps.rightDoor ? "✓" : "—"} · 后备箱 {assetRigCaps.trunk ? "✓" : "—"} · 车灯{" "}
               {assetRigCaps.headLights ? "✓" : "—"} · 尾灯 {assetRigCaps.tailLights ? "✓" : "—"} ·
               天窗 {assetRigCaps.sunroof ? "✓" : "—"} · 车轮 {assetRigCaps.wheels ? "✓" : "—"}
-              {assetRigCaps.leftDoor ? "" : "（未识别到的部件见 docs/market-glb-rig.md）"}
+              {assetRigCaps.leftDoor ? "" : "（未识别到的部件见 documentation/market-glb-rig.md）"}
             </p>
           ) : null}
           {wheelSpinUnavailable && wheelReadyCategory ? (

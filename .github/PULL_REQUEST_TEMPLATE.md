@@ -19,7 +19,7 @@
 
 ### 3D assets (if applicable)
 
-- [ ] Updated [docs/ATTRIBUTION.md](../docs/ATTRIBUTION.md) and `public/models/market/README.md`
+- [ ] Updated [documentation/ATTRIBUTION.md](../documentation/ATTRIBUTION.md) and `public/models/market/README.md`
 - [ ] License allows redistribution in this repository
 
 ## Screenshots / recordings

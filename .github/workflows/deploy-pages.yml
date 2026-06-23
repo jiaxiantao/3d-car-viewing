@@ -3,6 +3,8 @@ name: Deploy GitHub Pages
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
   workflow_dispatch:
 
 permissions:
@@ -37,10 +39,14 @@ jobs:
           GH_PAGES: "1"
           NEXT_PUBLIC_SITE_URL: https://jiaxiantao.github.io/3d-car-viewing
 
-      - name: Publish to gh-pages branch
+      - name: Add .nojekyll for GitHub Pages
+        run: touch out/.nojekyll
+
+      - name: Publish build output to docs/
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./out
-          publish_branch: gh-pages
-          force_orphan: true
+          publish_branch: main
+          destination_dir: docs
+          commit_message: "deploy: refresh GitHub Pages build in docs/ [skip ci]"
