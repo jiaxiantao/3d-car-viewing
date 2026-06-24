@@ -16,4 +16,8 @@ updates:
         patterns:
           - "three"
           - "@react-three/*"
+        # Keep @types/three out of this group — its version must match `three`
+        # (Dependabot grouped updates can resolve a non-existent @types/three).
+      three-types:
+        patterns:
           - "@types/three"
