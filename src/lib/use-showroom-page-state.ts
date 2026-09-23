@@ -77,7 +77,6 @@ export function useShowroomPageState() {
   const [assetRigCaps, setAssetRigCaps] = useState<AssetRigCapabilities | null>(null);
   const [assetRigDebug, setAssetRigDebug] = useState<AssetRigDebug | null>(null);
   const [sceneMode, setSceneMode] = useState<ShowroomSceneMode>("studio");
-  const [activeTab, setActiveTab] = useState<InteractionTab>("interaction");
 
   const [capturing, setCapturing] = useState(false);
   const [copyingLink, setCopyingLink] = useState(false);
@@ -479,8 +478,6 @@ export function useShowroomPageState() {
     assetRigDebug,
     sceneMode,
     setSceneMode,
-    activeTab,
-    setActiveTab,
     capturing,
     copyingLink,
     isFullscreen,
