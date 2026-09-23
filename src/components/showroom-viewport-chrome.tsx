@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 
 import type { AssetRigCapabilities, CarCameraPreset } from "@/components/car-showroom-scene";
+import { SHOWROOM_PAINT_OPTIONS } from "@/lib/showroom-paint-options";
 import { cn } from "@/lib/utils";
 import {
   SHOWROOM_SCENE_MODES,
@@ -82,6 +83,8 @@ type ShowroomViewportChromeProps = {
   onToggleBraking: () => void;
   onToggleAutoTour: () => void;
   onSelectCamera: (preset: CarCameraPreset) => void;
+  selectedPaintId: string;
+  onSelectPaint: (id: string) => void;
   supportsInteraction: (key: keyof AssetRigCapabilities) => boolean;
   interactionHint: (key: keyof AssetRigCapabilities) => string | undefined;
   wheelSpinHint?: string;
@@ -118,11 +121,48 @@ export function ShowroomViewportChrome({
   onToggleBraking,
   onToggleAutoTour,
   onSelectCamera,
+  selectedPaintId,
+  onSelectPaint,
   supportsInteraction,
   interactionHint,
   wheelSpinHint,
 }: ShowroomViewportChromeProps) {
-  return (
+  const paintSwatches = (
+    <div
+      role="listbox"
+      aria-label="车漆配色"
+      className="flex items-center gap-1.5"
+    >
+      <span className="shrink-0 pr-0.5 text-[10px] uppercase tracking-[0.14em] text-slate-500">
+        车漆
+      </span>
+      {SHOWROOM_PAINT_OPTIONS.map((paint) => {
+        const active = selectedPaintId === paint.id;
+        return (
+          <button
+            key={paint.id}
+            type="button"
+            role="option"
+            aria-selected={active}
+            aria-label={paint.label}
+            title={paint.label}
+            onClick={() => onSelectPaint(paint.id)}
+            className={cn(
+              "h-7 w-7 shrink-0 rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60 sm:h-8 sm:w-8",
+              active
+                ? "border-cyan-200 scale-110 shadow-[0_0_0_2px_rgba(34,211,238,0.45)]"
+                : "border-white/25 hover:border-white/50 hover:scale-105",
+            )}
+            style={{
+              background: paint.secondary
+                ? `linear-gradient(135deg, ${paint.primary}, ${paint.secondary})`
+                : paint.primary,
+            }}
+          />
+        );
+      })}
+    </div>
+  );  return (
     <div className="relative isolate">
       {children}
 
@@ -191,7 +231,7 @@ export function ShowroomViewportChrome({
       {/* Left rail — body interaction (desktop / tablet) */}
       <aside
         aria-label="车身快捷操作"
-        className="pointer-events-none absolute bottom-16 left-2 top-14 z-20 hidden w-[7.25rem] flex-col justify-center md:flex lg:left-3 lg:w-32"
+        className="pointer-events-none absolute bottom-24 left-2 top-14 z-20 hidden w-[7.25rem] flex-col justify-center md:flex lg:left-3 lg:w-32"
       >
         <div className="pointer-events-auto flex max-h-full flex-col gap-1.5 overflow-y-auto rounded-2xl border border-white/12 bg-slate-950/70 p-1.5 shadow-lg backdrop-blur-md">
           <p className="px-1 pb-0.5 text-[10px] uppercase tracking-[0.16em] text-slate-500">
@@ -247,7 +287,7 @@ export function ShowroomViewportChrome({
       {/* Right rail — drive + view (desktop / tablet) */}
       <aside
         aria-label="驾驶与视角快捷操作"
-        className="pointer-events-none absolute bottom-16 right-2 top-14 z-20 hidden w-[7.25rem] flex-col justify-center md:flex lg:right-3 lg:w-32"
+        className="pointer-events-none absolute bottom-24 right-2 top-14 z-20 hidden w-[7.25rem] flex-col justify-center md:flex lg:right-3 lg:w-32"
       >
         <div className="pointer-events-auto flex max-h-full flex-col gap-1.5 overflow-y-auto rounded-2xl border border-white/12 bg-slate-950/70 p-1.5 shadow-lg backdrop-blur-md">
           <p className="px-1 pb-0.5 text-[10px] uppercase tracking-[0.16em] text-slate-500">
@@ -297,8 +337,18 @@ export function ShowroomViewportChrome({
         </div>
       </aside>
 
+      {/* Desktop paint bar — bottom center of canvas */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 hidden justify-center px-28 md:flex lg:px-36">
+        <div className="pointer-events-auto max-w-full overflow-x-auto rounded-2xl border border-white/12 bg-slate-950/75 px-3 py-2 shadow-lg backdrop-blur-md">
+          {paintSwatches}
+        </div>
+      </div>
+
       {/* Mobile quick strip — replaces side rails */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 p-2 md:hidden">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col gap-1.5 p-2 md:hidden">
+        <div className="pointer-events-auto overflow-x-auto rounded-2xl border border-white/12 bg-slate-950/80 px-2.5 py-2 shadow-lg backdrop-blur-md">
+          {paintSwatches}
+        </div>
         <div className="pointer-events-auto flex gap-1.5 overflow-x-auto rounded-2xl border border-white/12 bg-slate-950/80 p-1.5 shadow-lg backdrop-blur-md">
           <RailButton
             className="shrink-0 whitespace-nowrap"

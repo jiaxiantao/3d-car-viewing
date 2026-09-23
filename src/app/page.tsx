@@ -98,6 +98,8 @@ export default function HomePage() {
         onToggleBraking={() => showroom.setBraking((value) => !value)}
         onToggleAutoTour={showroom.handleToggleAutoTour}
         onSelectCamera={showroom.handleSelectCamera}
+        selectedPaintId={showroom.selectedPaintId}
+        onSelectPaint={showroom.setSelectedPaintId}
         supportsInteraction={showroom.supportsInteraction}
         interactionHint={showroom.interactionHint}
         wheelSpinHint={showroom.wheelSpinHint}
