@@ -152,33 +152,9 @@ export default function HomePage() {
         assetRigCaps={showroom.assetRigCaps}
         wheelSpinUnavailable={showroom.wheelSpinUnavailable}
         wheelReadyCategory={showroom.wheelReadyCategory}
-        cameraPreset={showroom.cameraPreset}
-        onSelectCamera={showroom.handleSelectCamera}
-        autoTour={showroom.autoTour}
-        onToggleAutoTour={showroom.handleToggleAutoTour}
-        reduceMotion={showroom.reduceMotion}
-        activeTab={showroom.activeTab}
-        onChangeTab={showroom.setActiveTab}
-        leftDoorOpen={showroom.leftDoorOpen}
-        rightDoorOpen={showroom.rightDoorOpen}
-        trunkOpen={showroom.trunkOpen}
-        sunroofOpen={showroom.sunroofOpen}
-        lightsOn={showroom.lightsOn}
-        hazardOn={showroom.hazardOn}
-        onToggleLeftDoor={() => showroom.setLeftDoorOpen((value) => !value)}
-        onToggleRightDoor={() => showroom.setRightDoorOpen((value) => !value)}
-        onToggleTrunk={() => showroom.setTrunkOpen((value) => !value)}
-        onToggleSunroof={() => showroom.setSunroofOpen((value) => !value)}
-        onToggleLights={() => showroom.setLightsOn((value) => !value)}
-        onToggleHazard={() => showroom.setHazardOn((value) => !value)}
-        supportsInteraction={showroom.supportsInteraction}
-        interactionHint={showroom.interactionHint}
         unsupportedInteractionNote={showroom.unsupportedInteractionNote}
         engineOn={showroom.engineOn}
-        braking={showroom.braking}
-        onToggleEngine={() => showroom.setEngineOn((value) => !value)}
-        onToggleBraking={() => showroom.setBraking((value) => !value)}
-        wheelSpinHint={showroom.wheelSpinHint}
+        supportsInteraction={showroom.supportsInteraction}
         onApplyWelcomeMode={showroom.applyWelcomeMode}
         onApplyDriveMode={showroom.applyDriveMode}
         onResetAll={showroom.resetAll}
@@ -190,8 +166,6 @@ export default function HomePage() {
         onSeatPassengerOffset={showroom.setSeatPassengerOffset}
         onSteeringAngle={showroom.setSteeringAngle}
         onSpeedKph={showroom.setSpeedKph}
-        selectedPaintId={showroom.selectedPaintId}
-        onSelectPaint={showroom.setSelectedPaintId}
       />
     </main>
   );
