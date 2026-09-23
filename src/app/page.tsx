@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 
 import { ShowroomControlPanels } from "@/components/showroom-control-panels";
 import { ShowroomDebugPanel } from "@/components/showroom-debug-panel";
-import { ShowroomQuickActions } from "@/components/showroom-quick-actions";
+import { ShowroomViewportChrome } from "@/components/showroom-viewport-chrome";
 import { useShowroomPageState } from "@/lib/use-showroom-page-state";
 
 const IS_DEV = process.env.NODE_ENV !== "production";
@@ -35,7 +35,7 @@ export default function HomePage() {
           3D 看车交互舱
         </h1>
         <p className="max-w-3xl text-sm leading-7 text-slate-300">
-          在浏览器中即时切换车型、车漆、场景与视角；车门 / 后备箱 / 灯光 / 启动 / 制动等交互全部支持物理拟真。默认加载小轿车（体积更小、四轮动画完整）。
+          在浏览器中即时切换车型、车漆、场景与视角。常用操作已放在看车画面顶栏与左右侧，细项调节仍在下方面板。
         </p>
         <div className="sm:hidden">
           <button
@@ -68,21 +68,56 @@ export default function HomePage() {
         </p>
       </section>
 
-      <CarShowroomScene
-        state={showroom.sceneState}
-        cameraPreset={showroom.cameraPreset}
-        autoTour={showroom.autoTour}
-        useAssetModel={showroom.useAssetModel}
-        modelUrl={showroom.selectedModelUrl}
+      <ShowroomViewportChrome
         sceneMode={showroom.sceneMode}
+        onChangeSceneMode={showroom.setSceneMode}
+        onCaptureScreenshot={showroom.handleScreenshot}
+        onToggleFullscreen={showroom.handleToggleFullscreen}
+        onCopyShareLink={showroom.handleCopyShareLink}
+        isFullscreen={showroom.isFullscreen}
+        capturing={showroom.capturing}
+        copyingLink={showroom.copyingLink}
+        leftDoorOpen={showroom.leftDoorOpen}
+        rightDoorOpen={showroom.rightDoorOpen}
+        trunkOpen={showroom.trunkOpen}
+        sunroofOpen={showroom.sunroofOpen}
+        lightsOn={showroom.lightsOn}
+        hazardOn={showroom.hazardOn}
+        engineOn={showroom.engineOn}
+        braking={showroom.braking}
+        autoTour={showroom.autoTour}
         reduceMotion={showroom.reduceMotion}
-        controlHandleRef={showroom.sceneHandleRef}
-        onAssetRigCapabilities={showroom.handleAssetRigCapabilities}
-        onAssetRigDebug={showroom.handleAssetRigDebug}
+        cameraPreset={showroom.cameraPreset}
         onToggleLeftDoor={() => showroom.setLeftDoorOpen((value) => !value)}
         onToggleRightDoor={() => showroom.setRightDoorOpen((value) => !value)}
         onToggleTrunk={() => showroom.setTrunkOpen((value) => !value)}
-      />
+        onToggleSunroof={() => showroom.setSunroofOpen((value) => !value)}
+        onToggleLights={() => showroom.setLightsOn((value) => !value)}
+        onToggleHazard={() => showroom.setHazardOn((value) => !value)}
+        onToggleEngine={() => showroom.setEngineOn((value) => !value)}
+        onToggleBraking={() => showroom.setBraking((value) => !value)}
+        onToggleAutoTour={showroom.handleToggleAutoTour}
+        onSelectCamera={showroom.handleSelectCamera}
+        supportsInteraction={showroom.supportsInteraction}
+        interactionHint={showroom.interactionHint}
+        wheelSpinHint={showroom.wheelSpinHint}
+      >
+        <CarShowroomScene
+          state={showroom.sceneState}
+          cameraPreset={showroom.cameraPreset}
+          autoTour={showroom.autoTour}
+          useAssetModel={showroom.useAssetModel}
+          modelUrl={showroom.selectedModelUrl}
+          sceneMode={showroom.sceneMode}
+          reduceMotion={showroom.reduceMotion}
+          controlHandleRef={showroom.sceneHandleRef}
+          onAssetRigCapabilities={showroom.handleAssetRigCapabilities}
+          onAssetRigDebug={showroom.handleAssetRigDebug}
+          onToggleLeftDoor={() => showroom.setLeftDoorOpen((value) => !value)}
+          onToggleRightDoor={() => showroom.setRightDoorOpen((value) => !value)}
+          onToggleTrunk={() => showroom.setTrunkOpen((value) => !value)}
+        />
+      </ShowroomViewportChrome>
 
       {showroom.statusMessage ? (
         <div
@@ -95,17 +130,6 @@ export default function HomePage() {
           </span>
         </div>
       ) : null}
-
-      <ShowroomQuickActions
-        sceneMode={showroom.sceneMode}
-        onChangeSceneMode={showroom.setSceneMode}
-        onCaptureScreenshot={showroom.handleScreenshot}
-        onToggleFullscreen={showroom.handleToggleFullscreen}
-        onCopyShareLink={showroom.handleCopyShareLink}
-        isFullscreen={showroom.isFullscreen}
-        capturing={showroom.capturing}
-        copyingLink={showroom.copyingLink}
-      />
 
       {IS_DEV ? (
         <ShowroomDebugPanel
