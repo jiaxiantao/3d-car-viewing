@@ -319,7 +319,7 @@ export function CarShowroomScene({
   return (
     <div
       ref={containerRef}
-      className="relative h-[52vh] min-h-[360px] w-full overflow-hidden rounded-4xl border border-white/10 bg-slate-950/80 sm:h-[520px] sm:min-h-[420px]"
+      className="relative h-[58vh] min-h-[400px] w-full overflow-hidden rounded-4xl border border-white/10 bg-slate-950/80 sm:h-[560px] sm:min-h-[480px]"
     >
       {useAssetModel && assetLoadState === "error" ? (
         <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center px-4">

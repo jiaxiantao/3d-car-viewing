@@ -88,6 +88,8 @@ type ShowroomViewportChromeProps = {
   supportsInteraction: (key: keyof AssetRigCapabilities) => boolean;
   interactionHint: (key: keyof AssetRigCapabilities) => string | undefined;
   wheelSpinHint?: string;
+  helpOpen: boolean;
+  onToggleHelp: () => void;
 };
 
 export function ShowroomViewportChrome({
@@ -126,6 +128,8 @@ export function ShowroomViewportChrome({
   supportsInteraction,
   interactionHint,
   wheelSpinHint,
+  helpOpen,
+  onToggleHelp,
 }: ShowroomViewportChromeProps) {
   const paintSwatches = (
     <div
@@ -162,13 +166,15 @@ export function ShowroomViewportChrome({
         );
       })}
     </div>
-  );  return (
+  );
+
+  return (
     <div className="relative isolate">
       {children}
 
-      {/* Top bar — scene + capture tools */}
+      {/* Top bar — scene + capture tools + help */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center p-2 sm:p-3">
-        <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-1.5 rounded-2xl border border-white/12 bg-slate-950/75 px-2 py-1.5 shadow-lg backdrop-blur-md sm:gap-2 sm:px-3">
+        <div className="pointer-events-auto relative flex max-w-full flex-wrap items-center justify-center gap-1.5 rounded-2xl border border-white/12 bg-slate-950/75 px-2 py-1.5 shadow-lg backdrop-blur-md sm:gap-2 sm:px-3">
           <div
             role="radiogroup"
             aria-label="展厅场景模式"
@@ -225,6 +231,51 @@ export function ShowroomViewportChrome({
           >
             {isFullscreen ? "退出全屏" : "全屏"}
           </button>
+          <button
+            type="button"
+            onClick={onToggleHelp}
+            aria-expanded={helpOpen}
+            aria-controls="showroom-help-panel"
+            className={cn(
+              "rounded-full border px-2.5 py-1 text-[11px] transition sm:text-xs",
+              helpOpen
+                ? "border-cyan-200/70 bg-cyan-200/15 text-white"
+                : "border-white/12 bg-white/5 text-slate-100 hover:bg-white/10",
+            )}
+            title="操作说明"
+          >
+            说明
+          </button>
+
+          {helpOpen ? (
+            <div
+              id="showroom-help-panel"
+              role="region"
+              aria-label="操作说明"
+              className="absolute left-1/2 top-[calc(100%+0.5rem)] z-30 w-[min(22rem,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-white/12 bg-slate-950/95 p-3 text-left shadow-xl backdrop-blur-md"
+            >
+              <p className="text-xs leading-6 text-slate-300">
+                常用操作在画布顶栏与左右侧；车型切换与座椅 / 车速等细项在下方。
+              </p>
+              <p className="mt-2 text-xs leading-6 text-slate-400">
+                键盘：
+                <kbd className="mx-0.5 rounded bg-white/10 px-1 py-0.5 text-[11px]">1-6</kbd>
+                视角，
+                <kbd className="mx-0.5 rounded bg-white/10 px-1 py-0.5 text-[11px]">E</kbd>
+                启动，
+                <kbd className="mx-0.5 rounded bg-white/10 px-1 py-0.5 text-[11px]">L</kbd>
+                灯光，
+                <kbd className="mx-0.5 rounded bg-white/10 px-1 py-0.5 text-[11px]">S</kbd>
+                截图，
+                <kbd className="mx-0.5 rounded bg-white/10 px-1 py-0.5 text-[11px]">C</kbd>
+                分享，
+                <kbd className="mx-0.5 rounded bg-white/10 px-1 py-0.5 text-[11px]">F</kbd>
+                全屏，
+                <kbd className="mx-0.5 rounded bg-white/10 px-1 py-0.5 text-[11px]">T</kbd>
+                环车。
+              </p>
+            </div>
+          ) : null}
         </div>
       </div>
 
