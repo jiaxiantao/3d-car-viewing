@@ -10,7 +10,7 @@ flowchart TB
     Page["page.tsx\ncontrols & state"]
   end
   subgraph r3f [React Three Fiber]
-  Scene["CarShowroomScene"]
+  Scene["CarShowroomScene\nCanvas orchestration"]
   Env["ShowroomEnvironment\nfloor + IBL + lights"]
   Asset["AssetModel\nGLB + rig animations"]
   Fallback["CarModel\nprocedural mesh"]
@@ -21,8 +21,11 @@ flowchart TB
   Profiles["market-rig-profiles.ts"]
   Norm["normalize-market-model.ts"]
   Camera["showroom-camera.ts"]
-  Cache["gltf-scene-cache.ts\npreload + LRU"]
+  Cache["gltf-scene-cache.ts\nDraco preload + LRU"]
+  PageState["use-showroom-page-state"]
   end
+  Page --> PageState
+  PageState --> Scene
   Page --> Scene
   Scene --> Env
   Scene --> Asset
@@ -38,8 +41,10 @@ flowchart TB
 
 | Layer | Responsibility |
 |-------|----------------|
-| `page.tsx` | User-facing toggles (doors, lights, paint, category), passes props into the canvas |
-| `car-showroom-scene.tsx` | WebGL lifecycle: GLTF loading, overlay, camera transitions, applying rig to meshes |
+| `use-showroom-page-state.ts` | User-facing toggles, URL hydrate, presets, capability gating |
+| `page.tsx` | Layout shell: canvas, quick actions, control panels |
+| `car-showroom-scene.tsx` | WebGL lifecycle: GLTF loading, overlay, camera, screenshot bridge |
+| `showroom/asset-car-model.tsx` / `procedural-car-model.tsx` | Per-frame mesh animation |
 | `asset-car-rig.ts` | One-time scan of loaded `THREE.Object3D` tree → `AssetCarRig` handles |
 | `market-rig-profiles.ts` | Per-URL regex overrides when auto-discovery is ambiguous |
 

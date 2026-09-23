@@ -14,6 +14,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -30,4 +31,13 @@ jobs:
 
       - run: pnpm lint
 
+      - run: pnpm test
+
       - run: pnpm build
+
+      - name: Build static GitHub Pages export
+        run: pnpm build:pages
+        env:
+          GH_PAGES: "1"
+          NEXT_PUBLIC_SITE_URL: https://jiaxiantao.github.io/3d-car-viewing
+          NODE_OPTIONS: --max-old-space-size=6144

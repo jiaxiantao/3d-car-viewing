@@ -32,6 +32,9 @@
 .DS_Store
 *.pem
 
+# Uncompressed GLB backups from scripts/compress-market-glbs.mjs
+public/models/market/*-src.glb
+
 # debug
 npm-debug.log*
 yarn-debug.log*

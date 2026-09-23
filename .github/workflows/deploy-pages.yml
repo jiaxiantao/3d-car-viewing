@@ -3,20 +3,19 @@ name: Deploy GitHub Pages
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "docs/**"
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
 
-# Do not cancel an in-flight Pages build — Next.js export can take several minutes.
 concurrency:
-  group: pages-${{ github.ref }}
+  group: pages
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -40,19 +39,18 @@ jobs:
           NEXT_PUBLIC_SITE_URL: https://jiaxiantao.github.io/3d-car-viewing
           NODE_OPTIONS: --max-old-space-size=6144
 
-      - name: Sync build output into docs/
-        run: |
-          find docs -mindepth 1 -delete
-          cp -a out/. docs/
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
 
-      - name: Commit and push docs/
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/
-          if git diff --staged --quiet; then
-            echo "No changes under docs/"
-            exit 0
-          fi
-          git commit -m "deploy: refresh GitHub Pages build in docs/ [skip ci]"
-          git push
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

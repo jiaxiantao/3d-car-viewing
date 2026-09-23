@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // GitHub Pages build artifacts (minified bundles must not be linted)
     "docs/**",
+    // Vendored Draco decoder (from three.js examples)
+    "public/draco/**",
   ]),
 ]);
 

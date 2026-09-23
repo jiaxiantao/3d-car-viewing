@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Draco GLB pipeline:** `pnpm compress:models` + local `public/draco/gltf` decoder; market models shrink to ~27MB total.
+- **Vitest:** unit tests for category helpers, URL parse/serialize, and `discoverAssetCarRig` mesh-name fixtures.
+- **Bandwidth-aware preload** and `prefers-reduced-motion` support (steadier hazards, weaker idle shake, no auto-tour).
+- **Showroom module split:** `showroom/` procedural + asset models, control panels, and `use-showroom-page-state`.
+
+### Changed
+
+- **GitHub Pages:** deploy via Actions artifact (`upload-pages-artifact` / `deploy-pages`); stop committing build output under `docs/`.
+- **Default vehicle:** sedan (lighter, full wheel rig); SUV / offroad labeled as baked wheels.
+- **PR CI:** runs `test` and `build:pages` in addition to lint / typecheck / build.
+
+### Added
+
 - **GitHub Pages:** static export (`pnpm build:pages`) and `deploy-pages` workflow for live demo at https://jiaxiantao.github.io/3d-car-viewing/.
 - **Share link:** toolbar button and `C` keyboard shortcut copy the current showroom URL (model / paint / camera / scene mode).
 - **GLB idle preload:** after the active model loads, other category GLBs warm the in-memory cache via `requestIdleCallback` for faster switching.

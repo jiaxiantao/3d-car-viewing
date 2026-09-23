@@ -22,11 +22,7 @@ const VALID_CAMERA_PRESETS = new Set([
   "cockpit",
 ]);
 
-export function readShowroomUrlState(): ShowroomUrlState {
-  if (typeof window === "undefined") {
-    return {};
-  }
-  const params = new URLSearchParams(window.location.search);
+export function parseShowroomUrlSearchParams(params: URLSearchParams): ShowroomUrlState {
   const category = params.get("model");
   const paintId = params.get("paint");
   const cameraPreset = params.get("camera");
@@ -41,6 +37,13 @@ export function readShowroomUrlState(): ShowroomUrlState {
     cameraPreset: cameraPreset && VALID_CAMERA_PRESETS.has(cameraPreset) ? cameraPreset : undefined,
     sceneMode: isShowroomSceneMode(sceneMode) ? sceneMode : undefined,
   };
+}
+
+export function readShowroomUrlState(): ShowroomUrlState {
+  if (typeof window === "undefined") {
+    return {};
+  }
+  return parseShowroomUrlSearchParams(new URLSearchParams(window.location.search));
 }
 
 export function buildShowroomShareUrl(state: {

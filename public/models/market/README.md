@@ -8,7 +8,15 @@ Place licensed GLB files in this folder with these exact names:
 | `sedan-mainstream.glb` | Sedan |
 | `offroad-mainstream.glb` | Off-road |
 
-The showroom loads them per category in `src/app/page.tsx`. If a file is missing or fails to load, the built-in geometric car model is used instead.
+The showroom loads them per category via `src/lib/car-categories.ts`. If a file is missing or fails to load, the built-in geometric car model is used instead.
+
+Shipped meshes are **Draco-compressed** (`pnpm compress:models`). Uncompressed backups (`*-src.glb`) are gitignored — restore from git history if needed.
+
+| File (compressed) | Approx. size |
+|-------------------|--------------|
+| `sedan-mainstream.glb` | ~2.7 MB |
+| `offroad-mainstream.glb` | ~9.5 MB |
+| `suv-mainstream.glb` | ~14.5 MB |
 
 ## Shipped in this repository
 

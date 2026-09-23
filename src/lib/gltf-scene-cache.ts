@@ -1,10 +1,18 @@
 import * as THREE from "three";
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import { discoverAssetCarRig } from "@/lib/asset-car-rig";
+import { approxBytesForModelUrl } from "@/lib/car-categories";
 import { normalizeMarketModel } from "@/lib/normalize-market-model";
+import { publicAssetPath } from "@/lib/public-asset-path";
+
+const sharedDracoLoader = new DRACOLoader();
+sharedDracoLoader.setDecoderPath(publicAssetPath("/draco/gltf/"));
 
 const sharedGltfLoader = new GLTFLoader();
+sharedGltfLoader.setDRACOLoader(sharedDracoLoader);
+
 const gltfSceneCache = new Map<string, THREE.Object3D>();
 const GLTF_SCENE_CACHE_LIMIT = 6;
 const preloadInFlight = new Map<string, Promise<void>>();
@@ -50,6 +58,8 @@ async function ensureGltfTemplateCached(
     return cached;
   }
 
+  const approxBytes = approxBytesForModelUrl(url);
+
   return new Promise<THREE.Object3D>((resolve, reject) => {
     sharedGltfLoader.load(
       url,
@@ -75,8 +85,8 @@ async function ensureGltfTemplateCached(
           return;
         }
         if (event.loaded > 0) {
-          // Some static hosts omit Content-Length; approximate from bytes loaded.
-          onProgress?.(Math.min(0.75, event.loaded / 48_000_000));
+          // Some static hosts omit Content-Length; approximate from known model size.
+          onProgress?.(Math.min(0.75, event.loaded / approxBytes));
         }
       },
       reject,
@@ -112,12 +122,46 @@ export function preloadGltfScene(url: string): Promise<void> {
   return task;
 }
 
-export function scheduleIdleGltfPreloads(urls: string[]) {
+export type IdlePreloadOptions = {
+  /** Skip idle preloads on constrained networks (save-data / 2g). Default true. */
+  respectNetworkConstraints?: boolean;
+  /** When true, only warm the first URL (e.g. mobile). */
+  currentOnly?: boolean;
+};
+
+function shouldSkipIdlePreloadForNetwork(): boolean {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+  const connection = (
+    navigator as Navigator & {
+      connection?: { saveData?: boolean; effectiveType?: string };
+    }
+  ).connection;
+  if (!connection) {
+    return false;
+  }
+  if (connection.saveData) {
+    return true;
+  }
+  const effectiveType = connection.effectiveType;
+  return effectiveType === "2g" || effectiveType === "slow-2g";
+}
+
+export function scheduleIdleGltfPreloads(urls: string[], options?: IdlePreloadOptions) {
   if (typeof window === "undefined") {
     return () => undefined;
   }
 
-  const uniqueUrls = [...new Set(urls)].filter((url) => !gltfSceneCache.has(url));
+  const respectNetwork = options?.respectNetworkConstraints !== false;
+  if (respectNetwork && shouldSkipIdlePreloadForNetwork()) {
+    return () => undefined;
+  }
+
+  let uniqueUrls = [...new Set(urls)].filter((url) => !gltfSceneCache.has(url));
+  if (options?.currentOnly && uniqueUrls.length > 0) {
+    uniqueUrls = uniqueUrls.slice(0, 1);
+  }
   if (uniqueUrls.length === 0) {
     return () => undefined;
   }

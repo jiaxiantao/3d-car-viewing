@@ -32,15 +32,16 @@
 
 ## 功能特性
 
-- **车型切换**：SUV / 小轿车 / 越野车（`public/models/market/*.glb`）
+- **车型切换**：SUV / 小轿车 / 越野车（`public/models/market/*.glb`，**Draco 压缩**；默认小轿车）
 - **部件交互**：车门、后备箱、天窗、车灯、双闪、启动、制动（依 GLB 网格命名自动识别）
-- **物理拟真**：怠速发动机微抖、加速 / 制动俯仰、车轮旋转、制动时尾灯刹车灯亮起、双闪频闪
+- **物理拟真**：怠速发动机微抖、加速 / 制动俯仰、**轿车完整四轮旋转**（SUV / 越野为轮系烘焙，部分交互受限）、制动时尾灯刹车灯亮起、双闪频闪
 - **场景模式**：影棚 / 白天 / 夜晚，一键切换灯光、地面材质与雾效，夜晚自带湿地反射
 - **视觉**：车漆配色、多机位预设、自动环车巡检、本地 IBL 光照（无外部 HDR CDN 依赖）
-- **看车工具**：截图保存当前画面、一键全屏看车、键盘快捷键
+- **看车工具**：截图保存当前画面、一键全屏看车、键盘快捷键（移动端可展开操作提示）
 - **可分享深链**：车型 / 车漆 / 视角 / 场景模式持久化在 URL，使用 `replaceState` 不污染历史栈；工具栏一键复制分享链接（`C`）
-- **性能**：`AdaptiveDpr` / `AdaptiveEvents`、动态 Reflector 分辨率、`preserveDrawingBuffer` 截图友好
-- **响应式**：移动端 60vh 画布、Tabs 折叠交互区、车型按钮自适应换行
+- **性能**：`AdaptiveDpr` / `AdaptiveEvents`、带宽感知 idle preload、`preserveDrawingBuffer` 截图友好
+- **无障碍**：尊重 `prefers-reduced-motion`（禁用环车巡检、减弱双闪与怠速抖）
+- **响应式**：移动端约 52vh 画布、Tabs 折叠交互区、车型按钮自适应换行
 - **健壮性**：GLB 加载失败时回退内置几何体车模；切换车型时保留上一模型直至新资源就绪
 
 ## 快速开始
@@ -62,7 +63,7 @@ pnpm dev
 
 浏览器打开 [http://localhost:3000](http://localhost:3000)。
 
-> **仓库体积说明：** `public/models/market/` 内含约 **120MB** 的 GLB 资源，首次 clone 会较慢。若你只需改前端逻辑，可暂时删除 GLB，应用会自动使用几何体回退车模。
+> **仓库体积说明：** `public/models/market/` 内含 **Draco 压缩后约 27MB** 的 GLB（未压缩备份 `*-src.glb` 已 gitignore）。若你只需改前端逻辑，可暂时删除 GLB，应用会自动使用几何体回退车模。
 
 ### 环境变量
 
@@ -79,6 +80,8 @@ pnpm build          # Next.js standalone 输出
 pnpm start          # node .next/standalone/server.js
 pnpm lint           # ESLint
 pnpm typecheck      # tsc --noEmit
+pnpm test           # Vitest（rig / URL / categories）
+pnpm compress:models  # 可选：重新 Draco 压缩 market GLB
 ```
 
 ### Docker
@@ -93,13 +96,14 @@ docker compose up --build
 
 在线地址：**https://jiaxiantao.github.io/3d-car-viewing/**
 
-推送 `main` 后，[Deploy GitHub Pages](.github/workflows/deploy-pages.yml) 会构建静态站点并写入 **`docs/`**（仅构建产物，Markdown 文档在 `documentation/`）。
+推送 `main` 后，[Deploy GitHub Pages](.github/workflows/deploy-pages.yml) 会构建静态站点并通过 **GitHub Actions Pages artifact** 发布（不再把产物写回仓库的 `docs/`）。
 
-**Pages 配置：** **Settings → Pages** → Source 选 **Deploy from a branch** → Branch **`main`** → 文件夹 **`/docs`**。
+**Pages 配置（一次性）：** **Settings → Pages** → Source 选 **GitHub Actions**。
 
 说明见 [documentation/GITHUB_PAGES_SETUP.md](documentation/GITHUB_PAGES_SETUP.md)。
 
-推送 `main` 时仅运行 **Deploy GitHub Pages**（含 lint / typecheck / 构建 / 发布）；**CI** 仅在 Pull Request 时运行。
+- **Pull Request：** [CI](.github/workflows/ci.yml) 跑 `typecheck` / `lint` / `test` / `build` / `build:pages`
+- **push `main`：** 仅运行 Deploy GitHub Pages
 
 本地验证：
 
@@ -113,7 +117,9 @@ pnpm build:pages   # 输出到 out/，basePath 为 /3d-car-viewing
 ├── src/
 │   ├── app/                    # Next.js App Router（page、layout、SEO 元数据）
 │   ├── components/
-│   │   ├── car-showroom-scene.tsx     # R3F 展厅主场景
+│   │   ├── car-showroom-scene.tsx     # R3F 展厅 Canvas 编排
+│   │   ├── showroom/                  # 几何体车 / GLB 车 / 加载遮罩
+│   │   ├── showroom-control-panels.tsx
 │   │   ├── showroom-environment.tsx   # 地面、灯光、本地 IBL
 │   │   └── showroom-quick-actions.tsx # 场景模式 / 截图 / 全屏工具栏
 │   └── lib/
@@ -123,29 +129,32 @@ pnpm build:pages   # 输出到 out/，basePath 为 /3d-car-viewing
 │       ├── showroom-scene-modes.ts    # 影棚 / 白天 / 夜晚配置
 │       ├── showroom-paint-options.ts  # 车漆调色板
 │       ├── car-categories.ts          # 内置车型与 GLB 路径
+│       ├── use-showroom-page-state.ts # 页面状态与交互逻辑
 │       ├── use-showroom-url-state.ts  # URL ↔ 状态双向同步、分享链接
-│       ├── gltf-scene-cache.ts        # GLB 缓存与空闲预加载
+│       ├── gltf-scene-cache.ts        # Draco GLB 缓存与空闲预加载
 │       └── use-showroom-shortcuts.ts  # 键盘快捷键
-├── public/models/market/       # GLB 车模（见 ATTRIBUTION）
+├── public/models/market/       # Draco 压缩 GLB（见 ATTRIBUTION）
+├── public/draco/gltf/          # Draco 解码器（本地，无 CDN）
 ├── documentation/              # 项目文档（Markdown）
 │   ├── ARCHITECTURE.md
 │   ├── market-glb-rig.md
 │   └── ATTRIBUTION.md
-├── docs/                       # GitHub Pages 构建产物（CI 自动更新，勿手改）
-└── .github/workflows/ci.yml    # lint + typecheck + build
+├── docs/                       # Pages 说明占位（产物由 Actions 部署，不入库）
+└── .github/workflows/          # PR CI + Pages 部署
 ```
 
 更细的模块关系见 [documentation/ARCHITECTURE.md](documentation/ARCHITECTURE.md)。技术实践博客见 [documentation/3D看车技术博客.md](documentation/3D看车技术博客.md)。
 
 ## 车型资源
 
-将 GLB 放到 `public/models/market/`（文件名需与 `src/app/page.tsx` 中配置一致）：
+将 GLB 放到 `public/models/market/`（路径在 `src/lib/car-categories.ts`）：
 
-| 文件 | 用途 |
-|------|------|
-| `suv-mainstream.glb` | SUV |
-| `sedan-mainstream.glb` | 小轿车 |
-| `offroad-mainstream.glb` | 越野车 |
+| 文件 | 用途 | 约体积（压缩后） | 轮系 |
+|------|------|------------------|------|
+| `sedan-mainstream.glb` | 小轿车（默认） | ~2.7 MB | 完整四轮动画 |
+| `offroad-mainstream.glb` | 越野车 | ~9.5 MB | 烘焙 |
+| `suv-mainstream.glb` | SUV | ~14.5 MB | 烘焙 |
+
 
 - 加载失败 → 自动使用内置几何体 `CarModel`
 - 自定义车型 → 阅读 [documentation/market-glb-rig.md](documentation/market-glb-rig.md)，在 `market-rig-profiles.ts` 增加 `MarketRigProfile`

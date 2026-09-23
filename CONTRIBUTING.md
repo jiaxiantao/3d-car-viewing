@@ -22,10 +22,12 @@ pnpm dev
 ```bash
 pnpm lint
 pnpm typecheck
+pnpm test
 pnpm build
+pnpm build:pages
 ```
 
-CI runs the same steps on every push to `main` and on pull requests.
+CI runs these on pull requests. Pushes to `main` only run the GitHub Pages deploy workflow.
 
 ## Pull request guidelines
 
