@@ -39,14 +39,6 @@ const VALID_CAMERA_PRESETS: CarCameraPreset[] = [
   "cockpit",
 ];
 
-export type InteractionTab = "interaction" | "drive" | "paint";
-
-export const INTERACTION_TABS: Array<{ id: InteractionTab; label: string }> = [
-  { id: "interaction", label: "车身交互" },
-  { id: "drive", label: "驾驶动态" },
-  { id: "paint", label: "车漆 & 模式" },
-];
-
 function isCoarsePointerMobile(): boolean {
   if (typeof window === "undefined") {
     return false;
