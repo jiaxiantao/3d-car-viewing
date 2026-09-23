@@ -16,7 +16,7 @@ import {
   resolveCarCategoryKey,
   type CarCategoryKey,
 } from "@/lib/car-categories";
-import { scheduleIdleGltfPreloads } from "@/lib/gltf-scene-cache";
+import { scheduleIdleGltfPreloads, isShowroomModelPrepared } from "@/lib/gltf-scene-cache";
 import {
   SHOWROOM_DEFAULT_PAINT_ID,
   resolveShowroomPaint,
@@ -145,21 +145,28 @@ export function useShowroomPageState() {
     const otherUrls = CAR_CATEGORY_OPTIONS.map((item) => item.primaryUrl).filter(
       (url) => url !== selectedModelUrl,
     );
+    // Warm full prepared packages (clone + rig) so category switches stay on the main thread briefly.
     return scheduleIdleGltfPreloads(otherUrls, {
       respectNetworkConstraints: true,
+      // Still preload one alternate on mobile; desktop warms all remaining models.
       currentOnly: isCoarsePointerMobile(),
     });
   }, [selectedModelUrl, useAssetModel]);
 
   const handleSelectCategory = useCallback((categoryKey: CarCategoryKey) => {
-    setSelectedCategory(resolveCarCategoryKey(categoryKey));
+    const nextKey = resolveCarCategoryKey(categoryKey);
+    const nextUrl = CAR_CATEGORIES[nextKey].primaryUrl;
+    setSelectedCategory(nextKey);
     setUseAssetModel(true);
     setLeftDoorOpen(false);
     setRightDoorOpen(false);
     setTrunkOpen(false);
     setSunroofOpen(false);
-    setAssetRigCaps(null);
-    setAssetRigDebug(null);
+    // Warm packages keep previous caps until the scene swaps — avoids control flicker.
+    if (!isShowroomModelPrepared(nextUrl)) {
+      setAssetRigCaps(null);
+      setAssetRigDebug(null);
+    }
   }, []);
 
   const handleAssetRigCapabilities = useCallback(

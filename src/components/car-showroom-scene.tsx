@@ -5,7 +5,7 @@ import { AdaptiveDpr, AdaptiveEvents, OrbitControls } from "@react-three/drei";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import * as THREE from "three";
 import type { AssetCarRig } from "@/lib/asset-car-rig";
-import { disposeLoadedScene, loadGltfScene } from "@/lib/gltf-scene-cache";
+import { isShowroomModelPrepared, loadGltfScene, releaseDisplayedScene } from "@/lib/gltf-scene-cache";
 import { publicAssetPath } from "@/lib/public-asset-path";
 import { getOrbitDistanceLimits } from "@/lib/showroom-camera";
 import {
@@ -20,6 +20,7 @@ import { resetHoverCursor } from "@/components/showroom/interactive-pointer";
 import { ShowroomAssetLoadingOverlay } from "@/components/showroom/loading-overlay";
 import { CarModel, ShowroomAccentLights } from "@/components/showroom/procedural-car-model";
 import {
+  CACHED_LOADING_OVERLAY_MS,
   MIN_LOADING_OVERLAY_MS,
   type AssetLoadState,
   type CarShowroomSceneProps,
@@ -132,12 +133,15 @@ export function CarShowroomScene({
   );
 
   const isAssetLoading = useAssetModel && assetLoadState === "loading";
+  // Skip fullscreen overlay when the target model is already prepared in memory.
+  const showBlockingOverlay =
+    isAssetLoading && !isShowroomModelPrepared(modelUrl);
   const [overlayHoldUntil, setOverlayHoldUntil] = useState(0);
   const [loadingOverlayVisible, setLoadingOverlayVisible] = useState(false);
   const [displayedLoadProgress, setDisplayedLoadProgress] = useState(0);
 
   useEffect(() => {
-    if (isAssetLoading) {
+    if (showBlockingOverlay) {
       const frame = requestAnimationFrame(() => setLoadingOverlayVisible(true));
       return () => cancelAnimationFrame(frame);
     }
@@ -157,7 +161,7 @@ export function CarShowroomScene({
       setOverlayHoldUntil(0);
     }, remaining);
     return () => window.clearTimeout(timer);
-  }, [isAssetLoading, overlayHoldUntil]);
+  }, [showBlockingOverlay, overlayHoldUntil]);
 
   useEffect(() => {
     if (!loadingOverlayVisible) {
@@ -209,7 +213,7 @@ export function CarShowroomScene({
   useEffect(() => {
     if (!useAssetModel) {
       if (displayedRootRef.current) {
-        disposeLoadedScene(displayedRootRef.current);
+        releaseDisplayedScene(displayedRootRef.current);
         displayedRootRef.current = null;
       }
       queueMicrotask(() => {
@@ -230,11 +234,19 @@ export function CarShowroomScene({
     );
 
     queueMicrotask(() => {
-      setAssetLoadState("loading");
-      setLoadProgress(0);
-      setUseGeometricFallback(false);
-      onAssetRigCapabilities?.(null);
-      onAssetRigDebug?.(null);
+      const firstUrl = candidateUrls[0];
+      const warm = Boolean(firstUrl && isShowroomModelPrepared(firstUrl));
+      // Warm packages swap instantly — keep previous caps/scene to avoid UI flicker.
+      if (!warm) {
+        setAssetLoadState("loading");
+        setLoadProgress(0);
+        setUseGeometricFallback(false);
+        onAssetRigCapabilities?.(null);
+        onAssetRigDebug?.(null);
+      } else {
+        setAssetLoadState("loading");
+        setLoadProgress(1);
+      }
     });
 
     const tryLoad = async (index: number) => {
@@ -243,7 +255,7 @@ export function CarShowroomScene({
       }
       if (index >= candidateUrls.length) {
         if (displayedRootRef.current) {
-          disposeLoadedScene(displayedRootRef.current);
+          releaseDisplayedScene(displayedRootRef.current);
           displayedRootRef.current = null;
         }
         setAssetScene(null);
@@ -266,24 +278,27 @@ export function CarShowroomScene({
 
       const url = candidateUrls[index];
       try {
-        const loadedScene = await loadGltfScene(url, (ratio) => {
+        const loaded = await loadGltfScene(url, (ratio) => {
           if (active) {
             setLoadProgress(ratio);
           }
         });
         if (!active) {
-          disposeLoadedScene(loadedScene);
+          releaseDisplayedScene(loaded.root);
           return;
         }
-        if (displayedRootRef.current && displayedRootRef.current !== loadedScene) {
-          disposeLoadedScene(displayedRootRef.current);
+        if (displayedRootRef.current && displayedRootRef.current !== loaded.root) {
+          // Keep GPU resources in the prepared-model cache for instant switch-back.
+          releaseDisplayedScene(displayedRootRef.current);
         }
-        displayedRootRef.current = loadedScene;
-        const rig = loadedScene.userData.showroomRig as AssetCarRig;
+        displayedRootRef.current = loaded.root;
+        const rig = loaded.rig;
         setLoadProgress(1);
-        setOverlayHoldUntil(Date.now() + MIN_LOADING_OVERLAY_MS);
+        setOverlayHoldUntil(
+          Date.now() + (loaded.fromCache ? CACHED_LOADING_OVERLAY_MS : MIN_LOADING_OVERLAY_MS),
+        );
         setAssetRig(rig);
-        setAssetScene(loadedScene);
+        setAssetScene(loaded.root);
         setAssetLoadState("ready");
         onAssetRigCapabilities?.(rig.capabilities);
         onAssetRigDebug?.(rig.debug);

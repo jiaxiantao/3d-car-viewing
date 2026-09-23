@@ -70,5 +70,6 @@ export type CarModelProps = {
 
 export const ENGINE_IGNITION_DURATION = 0.9;
 export const HAZARD_MIN_EMISSIVE = { minActiveIntensity: 0 };
-/** Keep overlay visible long enough to perceive when GLB is cached locally. */
-export const MIN_LOADING_OVERLAY_MS = 480;
+/** Brief hold so first-time loads still show the overlay; cache hits skip this. */
+export const MIN_LOADING_OVERLAY_MS = 280;
+export const CACHED_LOADING_OVERLAY_MS = 0;
