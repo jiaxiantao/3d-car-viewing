@@ -5,7 +5,7 @@ Thank you for considering a contribution to **3d-car-viewing**!
 ## Before you start
 
 - Search [existing issues](https://github.com/jiaxiantao/3d-car-viewing/issues) to avoid duplicates.
-- For large changes (new loader, auth, multi-room showroom), open an issue first to align on scope.
+- For large changes (new loader, multi-room showroom, major camera system), open an issue first to align on scope.
 - Read [documentation/ARCHITECTURE.md](documentation/ARCHITECTURE.md) and [documentation/market-glb-rig.md](documentation/market-glb-rig.md) when touching GLB or rig code.
 - Do **not** commit secrets (`.env`, API keys). `.env.example` is the template for documented variables only.
 

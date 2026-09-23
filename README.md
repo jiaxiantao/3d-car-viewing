@@ -121,7 +121,7 @@ pnpm build:pages   # 输出到 out/，basePath 为 /3d-car-viewing
 │   │   ├── showroom/                  # 几何体车 / GLB 车 / 加载遮罩
 │   │   ├── showroom-control-panels.tsx
 │   │   ├── showroom-environment.tsx   # 地面、灯光、本地 IBL
-│   │   └── showroom-quick-actions.tsx # 场景模式 / 截图 / 全屏工具栏
+│   │   └── showroom-viewport-chrome.tsx # 画布内顶栏 / 左右轨 / 车漆 / 说明
 │   └── lib/
 │       ├── asset-car-rig.ts           # GLB 部件自动发现
 │       ├── market-rig-profiles.ts     # 按车型 URL 的识别规则

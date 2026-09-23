@@ -26,7 +26,6 @@
 /build
 
 # editor / local AI tooling (not part of the app)
-.cursor/
 
 # misc
 .DS_Store

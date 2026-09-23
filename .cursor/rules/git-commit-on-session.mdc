@@ -1,0 +1,25 @@
+---
+description: 仅在用户明确要求时才提交并推送到 GitHub；改完代码不要自动 commit/push
+alwaysApply: true
+---
+
+# Git 提交与推送约定
+
+远程仓库：`https://github.com/jiaxiantao/3d-car-viewing.git`（`origin` / `main`）
+
+## 默认行为
+
+- 完成代码或配置改动后，**不要**自动 `git add` / `git commit` / `git push`。
+- 只有用户明确说要提交、推送、或「提交并推送」时，才执行对应动作。
+- 未获明确指示时，可在回复中简要说明有哪些未提交改动，等用户确认后再操作。
+
+## 用户要求提交 / 推送时
+
+1. 并行执行 `git status`、`git diff`、`git log -1 --oneline`。
+2. 不要提交 `.env` 或含密钥的文件；`.env.example` 可以提交。
+3. 有改动时：`git add`（相关文件）→ `git commit`（HEREDOC 写清「为什么」）。
+4. 仅在用户要求推送时执行 `git push origin main`（或当前分支）；只说「提交」则只 commit、不 push。
+5. 若无任何可提交改动且已同步远程，不要空提交。
+6. 不要使用 `git push --force` 到 `main`，除非用户明确要求。
+
+在最终回复中简短告知：commit hash（如有）、分支、push 是否成功（若执行了 push）。
