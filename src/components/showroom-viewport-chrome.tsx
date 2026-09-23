@@ -301,33 +301,39 @@ export function ShowroomViewportChrome({
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 p-2 md:hidden">
         <div className="pointer-events-auto flex gap-1.5 overflow-x-auto rounded-2xl border border-white/12 bg-slate-950/80 p-1.5 shadow-lg backdrop-blur-md">
           <RailButton
+            className="shrink-0 whitespace-nowrap"
             label={lightsOn ? "关灯" : "车灯"}
             active={lightsOn}
             onClick={onToggleLights}
           />
           <RailButton
+            className="shrink-0 whitespace-nowrap"
             label={engineOn ? "熄火" : "启动"}
             active={engineOn}
             onClick={onToggleEngine}
           />
           <RailButton
+            className="shrink-0 whitespace-nowrap"
             label={leftDoorOpen ? "关左门" : "左门"}
             active={leftDoorOpen}
             disabled={!supportsInteraction("leftDoor")}
             onClick={onToggleLeftDoor}
           />
           <RailButton
+            className="shrink-0 whitespace-nowrap"
             label={rightDoorOpen ? "关右门" : "右门"}
             active={rightDoorOpen}
             disabled={!supportsInteraction("rightDoor")}
             onClick={onToggleRightDoor}
           />
           <RailButton
+            className="shrink-0 whitespace-nowrap"
             label={braking ? "松制动" : "制动"}
             active={braking}
             onClick={onToggleBraking}
           />
           <RailButton
+            className="shrink-0 whitespace-nowrap"
             label="全景"
             active={cameraPreset === "overview"}
             onClick={() => onSelectCamera("overview")}
