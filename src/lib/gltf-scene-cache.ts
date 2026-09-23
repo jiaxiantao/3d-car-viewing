@@ -119,7 +119,7 @@ function evictOldestPrepared(exceptUrl?: string) {
 
 /** Reset interaction transforms so a reused package starts from a clean pose. */
 export function resetPreparedShowroomModel(model: PreparedShowroomModel) {
-  const { rig, root } = model;
+  const { rig } = model;
   if (rig.leftDoorPivot) {
     rig.leftDoorPivot.rotation.set(0, 0, 0);
   }
@@ -130,7 +130,10 @@ export function resetPreparedShowroomModel(model: PreparedShowroomModel) {
     rig.trunkPivot.rotation.set(0, 0, 0);
   }
   for (const node of rig.sunroofNodes) {
-    // Sunroof base Y is re-captured by AssetModel on rig change; keep local rotation clean.
+    const baseY = node.userData.showroomSunroofBaseY;
+    if (typeof baseY === "number") {
+      node.position.y = baseY;
+    }
     node.rotation.set(0, 0, 0);
   }
   for (const node of [...rig.frontWheels, ...rig.rearWheels]) {
@@ -145,9 +148,8 @@ export function resetPreparedShowroomModel(model: PreparedShowroomModel) {
       node.rotation.set(0, 0, 0);
     }
   }
-  root.position.set(0, 0, 0);
-  root.rotation.set(0, 0, 0);
-  root.scale.set(1, 1, 1);
+  // Do NOT reset root position / rotation / scale — normalizeMarketModel baked those
+  // onto the prepared instance; wiping them makes the car a speck in the showroom.
 }
 
 async function ensureGltfTemplateCached(
@@ -221,6 +223,11 @@ async function prepareShowroomModel(
     const instance = template.clone(true);
     await yieldToNextFrame();
     const rig = discoverAssetCarRig(instance, url);
+    for (const node of rig.sunroofNodes) {
+      if (typeof node.userData.showroomSunroofBaseY !== "number") {
+        node.userData.showroomSunroofBaseY = node.position.y;
+      }
+    }
     instance.userData.showroomRig = rig;
     const prepared: PreparedShowroomModel = { url, root: instance, rig };
     touchMapEntry(preparedCache, url, prepared);
