@@ -65,10 +65,57 @@ export function getGeometricCameraPose(preset: ShowroomCameraPreset): ShowroomCa
   };
 }
 
+/** Exterior-style cockpit for models without a separate steering mesh (BMW M2). */
+export const COCKPIT_CAMERA_FOV = 52;
+
+/** Closer to a real wheel, so a wider lens keeps the rim from filling the frame. */
+export const COCKPIT_WHEEL_FOV = 64;
+
+/**
+ * Driver's-eye view of the steering wheel.
+ * Showroom forward is −X, so the driver sits at a larger X than the wheel.
+ * A discovered wheel is framed from just behind the rim. Sitting further back
+ * lands inside the seat back on the Q3 and G900.
+ */
+export function getCockpitCameraPose(
+  bounds: THREE.Box3,
+  steeringWheelCenter?: THREE.Vector3 | null,
+): ShowroomCameraPose {
+  const size = bounds.getSize(TMP_SIZE);
+  const center = bounds.getCenter(TMP_CENTER);
+  if (steeringWheelCenter) {
+    const wheel = steeringWheelCenter.clone();
+    const target = wheel.clone().add(new THREE.Vector3(0, Math.min(0.05, size.y * 0.04), 0));
+    const eyeBack = Math.min(0.42, size.x * 0.11);
+    const eyeUp = Math.min(0.12, size.y * 0.09);
+    const towardCenter = Math.sign(center.z - wheel.z) || 1;
+    const eyeSide = Math.min(0.04, size.z * 0.025) * towardCenter;
+    return {
+      position: new THREE.Vector3(wheel.x + eyeBack, wheel.y + eyeUp, wheel.z + eyeSide),
+      target,
+    };
+  }
+  const wheel = new THREE.Vector3(
+    bounds.min.x + size.x * 0.4,
+    bounds.min.y + size.y * 0.62,
+    center.z + size.z * 0.18,
+  );
+  const target = wheel.clone().add(new THREE.Vector3(-0.02, Math.min(0.1, size.y * 0.07), 0));
+  const eyeBack = Math.min(0.78, size.x * 0.18);
+  const eyeUp = Math.min(0.26, size.y * 0.16);
+  const towardCenter = Math.sign(center.z - wheel.z) || 1;
+  const eyeSide = Math.min(0.05, size.z * 0.04) * towardCenter;
+  return {
+    position: new THREE.Vector3(wheel.x + eyeBack, wheel.y + eyeUp, wheel.z + eyeSide),
+    target,
+  };
+}
+
 /** Camera poses derived from normalized GLB bounds (showroom forward = −X). */
 export function getBoundsCameraPose(
   preset: ShowroomCameraPreset,
   bounds: THREE.Box3,
+  steeringWheelCenter?: THREE.Vector3 | null,
 ): ShowroomCameraPose {
   const size = bounds.getSize(TMP_SIZE);
   const center = bounds.getCenter(TMP_CENTER);
@@ -116,19 +163,7 @@ export function getBoundsCameraPose(
     };
   }
   if (preset === "cockpit") {
-    const driverZ = center.z + size.z * 0.22;
-    return {
-      position: new THREE.Vector3(
-        bounds.min.x + size.x * 0.38,
-        center.y + size.y * 0.38,
-        driverZ,
-      ),
-      target: new THREE.Vector3(
-        bounds.min.x + size.x * 0.18,
-        center.y + size.y * 0.24,
-        center.z,
-      ),
-    };
+    return getCockpitCameraPose(bounds, steeringWheelCenter);
   }
   return {
     position: new THREE.Vector3(
@@ -143,21 +178,31 @@ export function getBoundsCameraPose(
 export function resolveShowroomCameraPose(
   preset: ShowroomCameraPreset,
   bounds: THREE.Box3 | null | undefined,
+  steeringWheelCenter?: THREE.Vector3 | null,
 ): ShowroomCameraPose {
   if (bounds && !bounds.isEmpty()) {
-    return getBoundsCameraPose(preset, bounds);
+    return getBoundsCameraPose(preset, bounds, steeringWheelCenter);
   }
   return getGeometricCameraPose(preset);
 }
 
-export function getOrbitDistanceLimits(bounds: THREE.Box3 | null | undefined) {
+/** Interior shots sit well inside the exterior orbit clamp. */
+const COCKPIT_MIN_DISTANCE = 0.18;
+
+export function getOrbitDistanceLimits(
+  bounds: THREE.Box3 | null | undefined,
+  preset?: ShowroomCameraPreset,
+) {
   if (!bounds || bounds.isEmpty()) {
-    return { minDistance: 3.8, maxDistance: 9 };
+    return preset === "cockpit"
+      ? { minDistance: COCKPIT_MIN_DISTANCE, maxDistance: 9 }
+      : { minDistance: 3.8, maxDistance: 9 };
   }
   const size = bounds.getSize(TMP_SIZE);
   const span = Math.max(size.x, size.y, size.z, 1e-3);
+  const exteriorMin = Math.max(2.6, span * 0.42);
   return {
-    minDistance: Math.max(2.6, span * 0.42),
+    minDistance: preset === "cockpit" ? COCKPIT_MIN_DISTANCE : exteriorMin,
     maxDistance: Math.max(7.5, span * 2.35),
   };
 }

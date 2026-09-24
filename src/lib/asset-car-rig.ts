@@ -66,6 +66,8 @@ export type AssetCarRig = {
   rearWheels: THREE.Object3D[];
   /** Effective rolling radius for wheel spin speed (meters, post-normalize). */
   wheelRollRadius: number;
+  /** World-space center of the steering wheel rim, when the GLB has one. */
+  steeringWheelCenter: THREE.Vector3 | null;
   /** Human-readable summary for UI / debugging. */
   capabilities: {
     leftDoor: boolean;
@@ -779,6 +781,50 @@ function prepareSunroofMotion(nodes: THREE.Object3D[]) {
   }
 }
 
+/**
+ * Steering-wheel rim center in world space.
+ * Q3 names the wheel `Staring` (and its stitch `Stich_SW`). Dashboard shells that
+ * share that prefix span the cabin and are ignored.
+ */
+function findSteeringWheelCenter(root: THREE.Object3D, carSize: THREE.Vector3) {
+  type Candidate = { mesh: THREE.Mesh; center: THREE.Vector3; volume: number };
+  const candidates: Candidate[] = [];
+  root.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    if (!mesh.isMesh || !/(staring|steering[\s_-]?wheel|leather[_\s-]?wheel)/i.test(hierarchicalName(mesh))) {
+      return;
+    }
+    const box = new THREE.Box3().setFromObject(mesh);
+    if (box.isEmpty()) {
+      return;
+    }
+    const size = box.getSize(new THREE.Vector3());
+    if (size.x > carSize.x * 0.28 || size.z > carSize.z * 0.5) {
+      return;
+    }
+    candidates.push({
+      mesh,
+      center: box.getCenter(new THREE.Vector3()),
+      volume: Math.max(size.x * size.y * size.z, 1e-6),
+    });
+  });
+  if (candidates.length === 0) {
+    return null;
+  }
+  const hub = candidates.reduce((best, item) => (item.volume > best.volume ? item : best));
+  const reach = Math.min(0.34, Math.max(carSize.y, carSize.z) * 0.22);
+  const cluster = candidates.filter((item) => item.center.distanceTo(hub.center) <= reach);
+  const rim = cluster.find((item) => /stich|stitch/i.test(item.mesh.name));
+  if (rim) {
+    return rim.center.clone();
+  }
+  const clusterBox = new THREE.Box3();
+  for (const item of cluster) {
+    clusterBox.expandByObject(item.mesh);
+  }
+  return clusterBox.getCenter(new THREE.Vector3());
+}
+
 /** Names that contain "wheel" but are not road wheels (spare, steering, trim). */
 function isWheelMeshName(name: string) {
   if (
@@ -788,10 +834,109 @@ function isWheelMeshName(name: string) {
   ) {
     return false;
   }
-  if (/(caliper|brake\s*disc|brake\s*pad|fender|arch)/i.test(name)) {
+  // Q3 brake calipers live in `Alloy_Break` and must stay fixed while the tyre rolls.
+  if (/(caliper|brake\s*disc|brake\s*pad|fender|arch|alloy[_\s-]?break)/i.test(name)) {
     return false;
   }
   return /(wheel|tire|tyre|rim)/i.test(name);
+}
+
+function spansBothAxles(size: THREE.Vector3, carSize: THREE.Vector3) {
+  return size.x > carSize.x * 0.4 && size.z > carSize.z * 0.4;
+}
+
+function wheelCornerKey(point: THREE.Vector3, center: THREE.Vector3) {
+  const front = point.x < center.x;
+  const left = point.z > center.z;
+  return `${front ? "F" : "R"}${left ? "L" : "R"}`;
+}
+
+function adoptWheelPiece(source: THREE.Mesh, geometry: THREE.BufferGeometry, corner: string) {
+  const piece = new THREE.Mesh(geometry, source.material);
+  piece.name = `${source.name}_${corner}`;
+  piece.castShadow = source.castShadow;
+  piece.receiveShadow = source.receiveShadow;
+  piece.position.copy(source.position);
+  piece.quaternion.copy(source.quaternion);
+  piece.scale.copy(source.scale);
+  piece.userData.showroomWheelPiece = corner;
+  source.parent?.add(piece);
+  return piece;
+}
+
+/**
+ * Q3 exports one buffer per tyre material with all four corners inside it.
+ * Cut each buffer into FL/FR/RL/RR so each corner can roll about its own axle.
+ * Brake calipers are left on the body.
+ */
+function splitSpanningWheelMeshes(root: THREE.Object3D) {
+  const bounds = new THREE.Box3().setFromObject(root);
+  const carSize = bounds.getSize(new THREE.Vector3());
+  const carCenter = bounds.getCenter(new THREE.Vector3());
+
+  const candidates: THREE.Mesh[] = [];
+  root.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    if (!mesh.isMesh || mesh.userData.showroomWheelPiece) {
+      return;
+    }
+    if (!isWheelMeshName(hierarchicalName(mesh))) {
+      return;
+    }
+    if (Object.keys(mesh.geometry.morphAttributes).length > 0) {
+      return;
+    }
+    const size = new THREE.Box3().setFromObject(mesh).getSize(new THREE.Vector3());
+    if (spansBothAxles(size, carSize)) {
+      candidates.push(mesh);
+    }
+  });
+
+  const cornerA = new THREE.Vector3();
+  const cornerB = new THREE.Vector3();
+  const cornerC = new THREE.Vector3();
+  const centroid = new THREE.Vector3();
+
+  for (const mesh of candidates) {
+    const position = mesh.geometry.getAttribute("position");
+    if (!position) {
+      continue;
+    }
+    mesh.updateWorldMatrix(true, false);
+    const triangleCount = mesh.geometry.getIndex()
+      ? mesh.geometry.getIndex()!.count / 3
+      : position.count / 3;
+    const groups = new Map<string, number[]>();
+
+    for (let triangle = 0; triangle < triangleCount; triangle += 1) {
+      cornerA.fromBufferAttribute(position, triangleCorner(mesh.geometry, triangle, 0));
+      cornerB.fromBufferAttribute(position, triangleCorner(mesh.geometry, triangle, 1));
+      cornerC.fromBufferAttribute(position, triangleCorner(mesh.geometry, triangle, 2));
+      cornerA.applyMatrix4(mesh.matrixWorld);
+      cornerB.applyMatrix4(mesh.matrixWorld);
+      cornerC.applyMatrix4(mesh.matrixWorld);
+      centroid.copy(cornerA).add(cornerB).add(cornerC).multiplyScalar(1 / 3);
+      const key = wheelCornerKey(centroid, carCenter);
+      const bucket = groups.get(key);
+      if (bucket) {
+        bucket.push(triangle);
+      } else {
+        groups.set(key, [triangle]);
+      }
+    }
+
+    if (groups.size < 2) {
+      continue;
+    }
+
+    for (const [corner, triangles] of groups) {
+      if (triangles.length === 0) {
+        continue;
+      }
+      adoptWheelPiece(mesh, extractTriangleGeometry(mesh.geometry, triangles), corner);
+    }
+    mesh.removeFromParent();
+  }
 }
 
 /** Per-wheel spin metadata stored on the real GLB node (no helper nodes added). */
@@ -1252,13 +1397,17 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
   let wheelRollRadius = 0.27;
 
   // Only ever spin the GLB's own wheel meshes — never inject synthetic rollers.
+  // Spanning tyre buffers (all four corners in one mesh) are cut apart first.
   if (!profile?.bakedWheels) {
+    splitSpanningWheelMeshes(root);
     hideMisplacedTemplateWheels(root, bounds);
     const realWheels = findWheelNodes(root, profile);
     frontWheels = realWheels.frontWheels;
     rearWheels = realWheels.rearWheels;
     wheelRollRadius = realWheels.wheelRollRadius;
   }
+
+  const steeringWheelCenter = findSteeringWheelCenter(root, size);
 
   if (hazardMaterials.length === 0 && tailLightMaterials.length > 0) {
     hazardMaterials.push(...tailLightMaterials.slice(0, 6));
@@ -1357,6 +1506,7 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
     frontWheels,
     rearWheels,
     wheelRollRadius,
+    steeringWheelCenter,
     capabilities: {
       leftDoor: Boolean(leftDoorPivot),
       rightDoor: Boolean(rightDoorPivot),

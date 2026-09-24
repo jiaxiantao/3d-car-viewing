@@ -2,7 +2,8 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { describe, expect, it } from "vitest";
 
-import { discoverAssetCarRig } from "@/lib/asset-car-rig";
+import { applyWheelMotion, discoverAssetCarRig } from "@/lib/asset-car-rig";
+import { getOrbitDistanceLimits, resolveShowroomCameraPose } from "@/lib/showroom-camera";
 
 function mesh(
   name: string,
@@ -233,5 +234,109 @@ describe("discoverAssetCarRig", () => {
     const frontAfter = new THREE.Box3().setFromObject(frontDefroster).getCenter(new THREE.Vector3());
     expect(glassAfter.distanceTo(glassBefore)).toBeGreaterThan(0.05);
     expect(frontAfter.distanceTo(frontBefore)).toBeLessThan(0.001);
+  });
+
+  it("splits Q3 tyre buffers into four spinning corners and leaves brake calipers fixed", () => {
+    const root = new THREE.Group();
+    root.name = "Q3";
+    root.add(mesh("Body_Carpaint", [0, 0.6, 0], [3.2, 1.2, 1.6]));
+
+    const corners: [number, number, number][] = [
+      [-1.15, 0.22, 0.62],
+      [-1.15, 0.22, -0.62],
+      [1.15, 0.22, 0.62],
+      [1.15, 0.22, -0.62],
+    ];
+    const merged = (name: string, size: [number, number, number]) => {
+      const geometry = mergeGeometries(
+        corners.map(([x, y, z]) => new THREE.BoxGeometry(...size).translate(x, y, z)),
+      );
+      const object = new THREE.Mesh(
+        geometry!,
+        new THREE.MeshStandardMaterial({ name: `${name}_Mat` }),
+      );
+      object.name = name;
+      return object;
+    };
+
+    const tyre = merged("Q3_Tyre8_Mesh_243_Tyre_Nor", [0.22, 0.44, 0.44]);
+    const rim = merged("Q3_Tyre2_Mesh_237_Alloy_rim", [0.16, 0.32, 0.32]);
+    const caliper = merged("Q3_Tyre5_Mesh_240_Alloy_Break", [0.06, 0.12, 0.1]);
+    root.add(tyre, rim, caliper);
+
+    const rig = discoverAssetCarRig(root, "models/market/suv-mainstream.glb");
+    const wheels = [...rig.frontWheels, ...rig.rearWheels];
+    expect(rig.capabilities.wheels).toBe(true);
+    expect(rig.capabilities.wheelsSynthetic).toBe(false);
+    expect(wheels).toHaveLength(8);
+    expect(wheels.filter((node) => node.name.includes("Tyre_Nor"))).toHaveLength(4);
+    expect(wheels.filter((node) => node.name.includes("Alloy_rim"))).toHaveLength(4);
+    expect(wheels.some((node) => /Break/i.test(node.name))).toBe(false);
+    expect(caliper.parent).toBe(root);
+
+    root.updateWorldMatrix(true, true);
+    const spinning = wheels.find((node) => node.name.includes("Tyre_Nor_FL")) as THREE.Mesh | undefined;
+    expect(spinning).toBeDefined();
+    const position = spinning!.geometry.getAttribute("position");
+    const vertex = new THREE.Vector3().fromBufferAttribute(position, 0);
+    const before = vertex.clone().applyMatrix4(spinning!.matrixWorld);
+    const caliperBefore = new THREE.Box3().setFromObject(caliper).getCenter(new THREE.Vector3());
+
+    applyWheelMotion(spinning!, 0.8, 0);
+    spinning!.updateWorldMatrix(true, false);
+    const after = new THREE.Vector3().fromBufferAttribute(position, 0).applyMatrix4(spinning!.matrixWorld);
+    const caliperAfter = new THREE.Box3().setFromObject(caliper).getCenter(new THREE.Vector3());
+
+    expect(after.distanceTo(before)).toBeGreaterThan(0.05);
+    expect(caliperAfter.distanceTo(caliperBefore)).toBeLessThan(0.001);
+    expect(rig.frontWheels.every((node) => node.name.endsWith("_FL") || node.name.endsWith("_FR"))).toBe(
+      true,
+    );
+  });
+
+  it("frames the cockpit on the steering rim from the driver's seat", () => {
+    const root = new THREE.Group();
+    root.add(mesh("Body_Carpaint", [0, 0.6, 0], [3.2, 1.2, 1.6]));
+    root.add(mesh("Dasboard_Staring_Plastick", [0, 0.55, 0], [1.2, 0.45, 1.3]));
+    root.add(mesh("Dasboard_Staring_Stich_SW", [-0.4, 0.66, -0.32], [0.12, 0.28, 0.28]));
+
+    const rig = discoverAssetCarRig(root, "models/market/suv-mainstream.glb");
+    expect(rig.steeringWheelCenter).not.toBeNull();
+    expect(rig.steeringWheelCenter!.x).toBeCloseTo(-0.4, 1);
+    expect(rig.steeringWheelCenter!.z).toBeCloseTo(-0.32, 1);
+
+    const pose = resolveShowroomCameraPose("cockpit", rig.bounds, rig.steeringWheelCenter);
+    const distance = pose.position.distanceTo(pose.target);
+    const limits = getOrbitDistanceLimits(rig.bounds, "cockpit");
+    expect(pose.target.y).toBeGreaterThan(rig.steeringWheelCenter!.y);
+    expect(pose.target.distanceTo(rig.steeringWheelCenter!)).toBeLessThan(0.2);
+    expect(pose.position.x).toBeGreaterThan(pose.target.x);
+    expect(pose.position.y).toBeGreaterThan(pose.target.y);
+    expect(distance).toBeGreaterThan(limits.minDistance);
+    expect(getOrbitDistanceLimits(rig.bounds, "overview").minDistance).toBeGreaterThan(2);
+
+    const offset = pose.position.clone().sub(pose.target);
+    const polar = Math.acos(offset.y / offset.length());
+    expect(polar).toBeGreaterThan(0.6);
+    expect(polar).toBeLessThan(1.5);
+  });
+
+  it("aims a cockpit without a named wheel at dash height, and finds a leather wheel", () => {
+    const bare = new THREE.Group();
+    bare.add(mesh("Body_Carpaint", [0, 0.6, 0], [3.2, 1.2, 1.6]));
+    const bareRig = discoverAssetCarRig(bare, "models/market/sedan-mainstream.glb");
+    expect(bareRig.steeringWheelCenter).toBeNull();
+    const fallback = resolveShowroomCameraPose("cockpit", bareRig.bounds, null);
+    const height = bareRig.bounds.max.y - bareRig.bounds.min.y;
+    expect((fallback.target.y - bareRig.bounds.min.y) / height).toBeGreaterThan(0.55);
+    expect(fallback.position.y).toBeGreaterThan(fallback.target.y);
+
+    const root = new THREE.Group();
+    root.add(mesh("Body_Carpaint", [0, 0.6, 0], [3.2, 1.2, 1.6]));
+    root.add(mesh("leather_wheel", [-0.5, 0.8, 0.35], [0.16, 0.32, 0.32]));
+    const rig = discoverAssetCarRig(root, "models/market/offroad-mainstream.glb");
+    expect(rig.steeringWheelCenter).not.toBeNull();
+    expect(rig.steeringWheelCenter!.z).toBeGreaterThan(0.2);
+    expect(rig.steeringWheelCenter!.y).toBeGreaterThan(0.6);
   });
 });

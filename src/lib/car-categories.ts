@@ -21,15 +21,15 @@ export type CarCategory = {
 export const CAR_CATEGORIES: Record<CarCategoryKey, CarCategory> = {
   suv: {
     key: "suv",
-    label: "SUV",
+    label: "奥迪 Q3",
     primaryUrl: publicAssetPath("/models/market/suv-mainstream.glb"),
     approxBytes: 14_500_000,
-    bakedWheels: true,
-    capabilityHint: "轮系烘焙 · 前门可开合",
+    bakedWheels: false,
+    capabilityHint: "四轮可转 · 前门可开合",
   },
   sedan: {
     key: "sedan",
-    label: "小轿车",
+    label: "宝马 M2",
     primaryUrl: publicAssetPath("/models/market/sedan-mainstream.glb"),
     approxBytes: 2_800_000,
     bakedWheels: false,
@@ -37,7 +37,7 @@ export const CAR_CATEGORIES: Record<CarCategoryKey, CarCategory> = {
   },
   offroad: {
     key: "offroad",
-    label: "越野车",
+    label: "巴博斯 G900",
     primaryUrl: publicAssetPath("/models/market/offroad-mainstream.glb"),
     approxBytes: 9_500_000,
     bakedWheels: true,

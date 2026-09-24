@@ -23,8 +23,11 @@ describe("car-categories", () => {
 
   it("exposes approxBytes for progress fallback", () => {
     expect(CAR_CATEGORIES.sedan.approxBytes).toBeGreaterThan(0);
+    expect(CAR_CATEGORIES.suv.label).toBe("奥迪 Q3");
+    expect(CAR_CATEGORIES.sedan.label).toBe("宝马 M2");
+    expect(CAR_CATEGORIES.offroad.label).toBe("巴博斯 G900");
     expect(CAR_CATEGORIES.sedan.bakedWheels).toBe(false);
-    expect(CAR_CATEGORIES.suv.bakedWheels).toBe(true);
+    expect(CAR_CATEGORIES.suv.bakedWheels).toBe(false);
     expect(approxBytesForModelUrl(CAR_CATEGORIES.sedan.primaryUrl)).toBe(
       CAR_CATEGORIES.sedan.approxBytes,
     );

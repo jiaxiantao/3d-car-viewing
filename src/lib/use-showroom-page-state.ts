@@ -214,7 +214,7 @@ export function useShowroomPageState() {
 
   const unsupportedInteractionNote =
     unsupportedInteractionLabels.length > 0
-      ? `当前 GLB 的「${unsupportedInteractionLabels.join("、")}」无法单独开合（按钮已禁用）。车灯、双闪、启动与整车动态仍可用；真实四轮转动请切换小轿车。`
+      ? `当前 GLB 的「${unsupportedInteractionLabels.join("、")}」无法单独开合（按钮已禁用）。车灯、双闪、启动与整车动态仍可用；真实四轮转动请切换${CAR_CATEGORIES.sedan.label}。`
       : null;
 
   const wheelSpinUnavailable = useAssetModel && assetRigCaps ? !assetRigCaps.wheels : false;

@@ -3,7 +3,12 @@ import { useFrame } from "@react-three/fiber";
 import { useCallback, useEffect, useRef } from "react";
 import * as THREE from "three";
 
-import { resolveShowroomCameraPose, sampleAutoTourPose } from "@/lib/showroom-camera";
+import {
+  COCKPIT_CAMERA_FOV,
+  COCKPIT_WHEEL_FOV,
+  resolveShowroomCameraPose,
+  sampleAutoTourPose,
+} from "@/lib/showroom-camera";
 
 import type { CarCameraPreset } from "@/components/car-showroom-scene";
 import type { OrbitControlsLike } from "@/components/car-showroom-scene";
@@ -14,6 +19,7 @@ type CameraRigProps = {
   controlsRef: { current: OrbitControlsLike | null | undefined };
   framingBounds: THREE.Box3 | null;
   framingBoundsKey: string;
+  steeringWheelCenter?: THREE.Vector3 | null;
 };
 
 export function CameraRig({
@@ -22,6 +28,7 @@ export function CameraRig({
   controlsRef,
   framingBounds,
   framingBoundsKey,
+  steeringWheelCenter = null,
 }: CameraRigProps) {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   const fromPositionRef = useRef(new THREE.Vector3(5.2, 2.4, 4.6));
@@ -47,13 +54,23 @@ export function CameraRig({
       const currentTarget = controls?.target.clone() ?? toTargetRef.current.clone();
       fromPositionRef.current.copy(camera.position);
       fromTargetRef.current.copy(currentTarget);
-      const nextPose = resolveShowroomCameraPose(nextPreset, framingBounds);
+      const nextPose = resolveShowroomCameraPose(nextPreset, framingBounds, steeringWheelCenter);
       toPositionRef.current.copy(nextPose.position);
       toTargetRef.current.copy(nextPose.target);
       transitionProgressRef.current = 0;
     },
-    [controlsRef, framingBounds],
+    [controlsRef, framingBounds, steeringWheelCenter],
   );
+
+  useEffect(() => {
+    const camera = cameraRef.current;
+    if (!camera) {
+      return;
+    }
+    const cockpitFov = steeringWheelCenter ? COCKPIT_WHEEL_FOV : COCKPIT_CAMERA_FOV;
+    camera.fov = preset === "cockpit" ? cockpitFov : 45;
+    camera.updateProjectionMatrix();
+  }, [preset, steeringWheelCenter]);
 
   useEffect(() => {
     if (autoTour) {

@@ -203,7 +203,10 @@ export function CarShowroomScene({
       .join("|");
   }, [framingBounds]);
 
-  const orbitLimits = useMemo(() => getOrbitDistanceLimits(framingBounds), [framingBounds]);
+  const orbitLimits = useMemo(
+    () => getOrbitDistanceLimits(framingBounds, cameraPreset),
+    [cameraPreset, framingBounds],
+  );
 
   const modelUrlChainKey = useMemo(
     () => [modelUrl, ...(modelAlternateUrls ?? []), modelFallbackUrl ?? ""].join("\0"),
@@ -343,6 +346,7 @@ export function CarShowroomScene({
           controlsRef={controlsRef}
           framingBounds={framingBounds}
           framingBoundsKey={framingBoundsKey}
+          steeringWheelCenter={showAssetCar ? assetRig?.steeringWheelCenter : null}
         />
         <color attach="background" args={[sceneConfig.background]} />
         {sceneConfig.fog ? (

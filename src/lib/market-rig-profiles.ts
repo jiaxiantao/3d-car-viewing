@@ -155,7 +155,8 @@ const suvQ3Profile: MarketRigProfile = {
   tailLight: [/Tail_upper_Red/i, /Tail_inner_Red/i, /Tail_inner_White/i, /Tail_Cover_White/i],
   hazardLight: [/Tail_upper_Red/i, /Tail_inner_Red/i, /Emiss/i],
   sunroof: [/Q3_Exteroir337_Mesh_179_Roof_glass/i],
-  bakedWheels: true,
+  // Tyre / rim / disc buffers each contain all four corners. They are split per
+  // wheel at rig time. Brake calipers (`Alloy_Break`) stay fixed on the body.
 };
 
 /**
@@ -193,7 +194,7 @@ export function marketRigProfilesFingerprint(): string {
     ]
       .map((pattern) => pattern.source)
       .join("|");
-    return `${profile.id}:${patterns.length}:${patterns}`;
+    return `${profile.id}:${profile.bakedWheels ? 1 : 0}:${patterns.length}:${patterns}`;
   }).join(";");
 }
 
