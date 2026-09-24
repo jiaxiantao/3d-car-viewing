@@ -17,19 +17,9 @@ type ShowroomControlPanelsProps = {
   wheelSpinUnavailable: boolean;
   wheelReadyCategory: { key: CarCategoryKey; label: string } | undefined;
   unsupportedInteractionNote: string | null;
-  engineOn: boolean;
-  supportsInteraction: (key: keyof AssetRigCapabilities) => boolean;
   onApplyWelcomeMode: () => void;
   onApplyDriveMode: () => void;
   onResetAll: () => void;
-  seatDriverOffset: number;
-  seatPassengerOffset: number;
-  steeringAngle: number;
-  speedKph: number;
-  onSeatDriverOffset: (value: number) => void;
-  onSeatPassengerOffset: (value: number) => void;
-  onSteeringAngle: (value: number) => void;
-  onSpeedKph: (value: number) => void;
 };
 
 export function ShowroomControlPanels({
@@ -42,19 +32,9 @@ export function ShowroomControlPanels({
   wheelSpinUnavailable,
   wheelReadyCategory,
   unsupportedInteractionNote,
-  engineOn,
-  supportsInteraction,
   onApplyWelcomeMode,
   onApplyDriveMode,
   onResetAll,
-  seatDriverOffset,
-  seatPassengerOffset,
-  steeringAngle,
-  speedKph,
-  onSeatDriverOffset,
-  onSeatPassengerOffset,
-  onSteeringAngle,
-  onSpeedKph,
 }: ShowroomControlPanelsProps) {
   return (
     <section className="grid gap-5 rounded-3xl border border-white/10 bg-slate-950/60 p-4 sm:p-5">
@@ -103,8 +83,8 @@ export function ShowroomControlPanels({
 
       <div className="grid gap-4 border-t border-white/10 pt-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-slate-100">高级调节</h2>
-          <p className="text-xs text-slate-500">座椅 / 方向盘 / 车速与一键预设</p>
+          <h2 className="text-sm font-semibold text-slate-100">模式预设</h2>
+          <p className="text-xs text-slate-500">一键预设</p>
         </div>
 
         <div className="flex flex-wrap gap-2 sm:gap-3">
@@ -117,72 +97,6 @@ export function ShowroomControlPanels({
           <Button variant="outline" onClick={onResetAll}>
             复位全部状态
           </Button>
-        </div>
-
-        <div className="grid gap-3">
-          <label htmlFor="driver-seat-offset" className="text-sm font-medium text-slate-100">
-            主驾座椅：{seatDriverOffset > 0 ? "向后" : seatDriverOffset < 0 ? "向前" : "中间"}
-            {useAssetModel ? "（GLB 模型暂不支持座椅调节）" : ""}
-          </label>
-          <input
-            id="driver-seat-offset"
-            type="range"
-            min={-45}
-            max={45}
-            disabled={useAssetModel}
-            value={Math.round(seatDriverOffset * 100)}
-            onChange={(event) => onSeatDriverOffset(Number(event.target.value) / 100)}
-            className="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-          />
-          <label htmlFor="passenger-seat-offset" className="text-sm font-medium text-slate-100">
-            副驾座椅：
-            {seatPassengerOffset > 0 ? "向后" : seatPassengerOffset < 0 ? "向前" : "中间"}
-            {useAssetModel ? "（GLB 模型暂不支持座椅调节）" : ""}
-          </label>
-          <input
-            id="passenger-seat-offset"
-            type="range"
-            min={-45}
-            max={45}
-            disabled={useAssetModel}
-            value={Math.round(seatPassengerOffset * 100)}
-            onChange={(event) => onSeatPassengerOffset(Number(event.target.value) / 100)}
-            className="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-          />
-          <label htmlFor="steering-angle" className="text-sm font-medium text-slate-100">
-            方向盘角度：
-            {steeringAngle > 0
-              ? `右转 ${steeringAngle}°`
-              : steeringAngle < 0
-                ? `左转 ${Math.abs(steeringAngle)}°`
-                : "居中"}
-            {useAssetModel && !supportsInteraction("wheels")
-              ? "（当前 GLB 未识别到可转向车轮）"
-              : ""}
-          </label>
-          <input
-            id="steering-angle"
-            type="range"
-            min={-42}
-            max={42}
-            disabled={useAssetModel && !supportsInteraction("wheels")}
-            value={Math.round(steeringAngle)}
-            onChange={(event) => onSteeringAngle(Number(event.target.value))}
-            className="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-          />
-          <label htmlFor="speed-kph" className="text-sm font-medium text-slate-100">
-            目标车速：{speedKph} km/h
-            {!engineOn ? "（启动车辆后生效）" : null}
-          </label>
-          <input
-            id="speed-kph"
-            type="range"
-            min={0}
-            max={120}
-            value={speedKph}
-            onChange={(event) => onSpeedKph(Number(event.target.value))}
-            className="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-700"
-          />
         </div>
       </div>
     </section>

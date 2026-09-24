@@ -27,6 +27,11 @@ export type MarketRigProfile = {
   hazardLightMaterial?: RegExp[];
   sunroof?: RegExp[];
   wheel?: RegExp[];
+  /**
+   * Road-wheel meshes that may pack several corners into one buffer (split, then spun).
+   * Unlike `wheel`, these are not already one node per corner.
+   */
+  wheelPart?: RegExp[];
   paintMaterial?: RegExp[];
   /** Road wheels are painted into the body shell; do not hide tyre meshes or add synthetic rollers. */
   bakedWheels?: boolean;
@@ -41,9 +46,12 @@ const bmwM2Profile: MarketRigProfile = {
   tailLightMaterial: [/red_glass/i, /LightEmissiveA/i],
   hazardLightMaterial: [/red_glass/i, /LightEmissiveA/i],
   paintMaterial: [/Paint_Material/i],
-  // Four separable wheel group nodes ("3DWheel Front L/R", "3DWheel Rear L/R")
-  // — each is spun in place about its own axle when the engine starts.
-  wheel: [/3DWheel (Front|Rear) [LR]/i],
+  // Rim groups ("3DWheel Front L/R", "3DWheel Rear L/R") roll about their axles.
+  // GLTFLoader sanitizes node names (spaces become "_"), so the pattern must
+  // tolerate both separators. Only the tyre annulus is reprojected onto the face
+  // atlas; spoke/hub UVs stay so the metal rim keeps its shape.
+  // Sibling `Calliper *` nodes stay on the knuckle.
+  wheel: [/3DWheel[\s_](Front|Rear)[\s_][LR]/i],
 };
 
 /**
@@ -80,11 +88,17 @@ const suvQ3Profile: MarketRigProfile = {
     /Door_INT9_Mesh_123/i,
     /Door_INT23_Mesh_093/i,
   ],
-  // Beltline plastic (and its chrome lip) is one mesh for all four doors.
+  // Shared across every door: beltline covers, the thin black sill line,
+  // window-switch icons, the aluminum door card, and the three mirror studs
+  // (`Thrmoline1` — one buffer, a cluster on each front door).
   spanningDoorTrim: [
     /Q3_Technology7_Mesh_232/i,
     /Primeam_Q3_10_Mesh_217/i,
     /Q3_Technology14_Mesh_230/i,
+    /phong1SG1/i,
+    /Dooricon_Mesh_138/i,
+    /Interior86_Mesh_210/i,
+    /Boot_ext26_Mesh_192_Thrmoline1/i,
   ],
   rightDoor: [
     /polySurface2908_Mesh_142/i,
@@ -112,7 +126,7 @@ const suvQ3Profile: MarketRigProfile = {
     /Door_INT43_Mesh_103/i,
   ],
   // Liftgate is one piece: painted shell, rear glass, badge, and inner trim.
-  // The front-screen defroster shares the Boot_ext26 prefix (`Thrmoline1`) and stays on the body.
+  // `Thrmoline` (no 1) is the hatch heater. `Thrmoline1` is the mirror studs and is split onto the front doors.
   trunkHinge: [/Boot_ext2_Mesh_049_Carpaint/i],
   trunk: [
     /Boot_ext2_Mesh_049_Carpaint/i,
@@ -160,17 +174,30 @@ const suvQ3Profile: MarketRigProfile = {
 };
 
 /**
- * Brabus G900: road wheels are baked into the body; only a rear spare is a separate rig.
- * Do not list `wheel` patterns here — global discovery excludes spare / tailgate mounts.
+ * Brabus G900: each road wheel is split across shared buffers (one side's axles,
+ * or all four corners). Those parts are cut per corner and spun in place.
+ * The tailgate spare stays on the body — do not use `wheel` (that treats each
+ * match as an already-separated corner, e.g. BMW `3DWheel`).
  */
 const offroadBrabusProfile: MarketRigProfile = {
   id: "offroad-brabus",
   urlPattern: /offroad-mainstream/i,
-  // Outer rings: lights_lod0* / lamp_alpha; inner projector lenses: nlightsf* (not roof `lightled`).
-  headLight: [/lights_lod0/i, /lamp_alpha/i, /\/\d+_lights_0/i, /nlightsf/i],
+  // Round lamps live in `lights_lod0*` (front islands only). Inner projectors are
+  // `nlightsf20`. Skip body-sized `nlightsf_0` and the bumper `lamp_alpha` bar.
+  headLight: [/lights_lod0/i, /nlightsf\d/i],
   tailLight: [/red_b/i, /g500_brake/i],
   hazardLight: [/red_b/i, /g500_brake/i],
-  bakedWheels: true,
+  wheelPart: [
+    /left_wheel/i,
+    /right_wheel/i,
+    /michelin/i,
+    /rimdetail/i,
+    /diamondcutrim/i,
+    /wheel_track/i,
+    /_gt_34_/i,
+    /_gt_35_/i,
+    /smallspecmap/i,
+  ],
 };
 
 export const MARKET_RIG_PROFILES: MarketRigProfile[] = [
@@ -191,6 +218,8 @@ export function marketRigProfilesFingerprint(): string {
       ...(profile.trunkHinge ?? []),
       ...(profile.spanningDoorTrim ?? []),
       ...(profile.sunroof ?? []),
+      ...(profile.wheel ?? []),
+      ...(profile.wheelPart ?? []),
     ]
       .map((pattern) => pattern.source)
       .join("|");

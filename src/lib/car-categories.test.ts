@@ -28,6 +28,7 @@ describe("car-categories", () => {
     expect(CAR_CATEGORIES.offroad.label).toBe("巴博斯 G900");
     expect(CAR_CATEGORIES.sedan.bakedWheels).toBe(false);
     expect(CAR_CATEGORIES.suv.bakedWheels).toBe(false);
+    expect(CAR_CATEGORIES.offroad.bakedWheels).toBe(false);
     expect(approxBytesForModelUrl(CAR_CATEGORIES.sedan.primaryUrl)).toBe(
       CAR_CATEGORIES.sedan.approxBytes,
     );

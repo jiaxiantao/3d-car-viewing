@@ -255,7 +255,7 @@ export function ShowroomViewportChrome({
               className="absolute left-1/2 top-[calc(100%+0.5rem)] z-30 w-[min(22rem,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-white/12 bg-slate-950/95 p-3 text-left shadow-xl backdrop-blur-md"
             >
               <p className="text-xs leading-6 text-slate-300">
-                常用操作在画布顶栏与左右侧；车型切换与座椅 / 车速等细项在下方。
+                常用操作在画布顶栏与左右侧；车型切换与一键预设在下方。
               </p>
               <p className="mt-2 text-xs leading-6 text-slate-400">
                 键盘：

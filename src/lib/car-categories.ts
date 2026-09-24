@@ -25,7 +25,7 @@ export const CAR_CATEGORIES: Record<CarCategoryKey, CarCategory> = {
     primaryUrl: publicAssetPath("/models/market/suv-mainstream.glb"),
     approxBytes: 14_500_000,
     bakedWheels: false,
-    capabilityHint: "四轮可转 · 前门可开合",
+    capabilityHint: "",
   },
   sedan: {
     key: "sedan",
@@ -33,15 +33,15 @@ export const CAR_CATEGORIES: Record<CarCategoryKey, CarCategory> = {
     primaryUrl: publicAssetPath("/models/market/sedan-mainstream.glb"),
     approxBytes: 2_800_000,
     bakedWheels: false,
-    capabilityHint: "完整四轮动画",
+    capabilityHint: "",
   },
   offroad: {
     key: "offroad",
     label: "巴博斯 G900",
     primaryUrl: publicAssetPath("/models/market/offroad-mainstream.glb"),
     approxBytes: 9_500_000,
-    bakedWheels: true,
-    capabilityHint: "轮系烘焙 · 部分交互受限",
+    bakedWheels: false,
+    capabilityHint: "",
   },
 };
 

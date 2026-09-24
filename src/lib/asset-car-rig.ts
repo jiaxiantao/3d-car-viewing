@@ -247,7 +247,7 @@ function isHeadLightPart(name: string, center: THREE.Vector3, frontX: number) {
 }
 
 function isOffroadHeadlampMesh(name: string) {
-  return /lights_lod0|lamp_alpha|\/\d+_lights_0|nlightsf/i.test(name);
+  return /lights_lod0|nlightsf\d/i.test(name);
 }
 
 function isBmwM2HeadlampMaterial(materialName: string) {
@@ -361,6 +361,86 @@ function isPlausibleHeadlampPosition(
   const sideMounted = Math.abs(center.z - carCenter.z) >= size.z * 0.1;
   const notRoofStrip = center.y <= bounds.min.y + size.y * 0.72;
   return nearFront && sideMounted && notRoofStrip;
+}
+
+/**
+ * G900 packs both round headlamps, side markers, and rear lenses into one
+ * `lights_lod0` buffer. Keep only the front-corner islands for the headlamp
+ * material so the bumper bar and tail pieces do not light up with the beams.
+ */
+function isolateOffroadHeadlampIslands(root: THREE.Object3D, bounds: THREE.Box3) {
+  const carCenter = bounds.getCenter(new THREE.Vector3());
+  const meshes: THREE.Mesh[] = [];
+  root.updateWorldMatrix(true, true);
+  root.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    if (!mesh.isMesh || mesh.userData.showroomHeadlampIsland || mesh.userData.showroomHeadlampResidual) {
+      return;
+    }
+    if (!isOffroadHeadlampMesh(hierarchicalName(mesh))) {
+      return;
+    }
+    if (Object.keys(mesh.geometry.morphAttributes).length > 0) {
+      return;
+    }
+    meshes.push(mesh);
+  });
+
+  const cornerA = new THREE.Vector3();
+  const cornerB = new THREE.Vector3();
+  const cornerC = new THREE.Vector3();
+  const centroid = new THREE.Vector3();
+
+  for (const mesh of meshes) {
+    const position = mesh.geometry.getAttribute("position");
+    if (!position) {
+      continue;
+    }
+    mesh.updateWorldMatrix(true, false);
+    const triangleCount = mesh.geometry.getIndex()
+      ? mesh.geometry.getIndex()!.count / 3
+      : position.count / 3;
+    const left: number[] = [];
+    const right: number[] = [];
+    const dropped: number[] = [];
+    for (let triangle = 0; triangle < triangleCount; triangle += 1) {
+      cornerA.fromBufferAttribute(position, triangleCorner(mesh.geometry, triangle, 0));
+      cornerB.fromBufferAttribute(position, triangleCorner(mesh.geometry, triangle, 1));
+      cornerC.fromBufferAttribute(position, triangleCorner(mesh.geometry, triangle, 2));
+      cornerA.applyMatrix4(mesh.matrixWorld);
+      cornerB.applyMatrix4(mesh.matrixWorld);
+      cornerC.applyMatrix4(mesh.matrixWorld);
+      centroid.copy(cornerA).add(cornerB).add(cornerC).multiplyScalar(1 / 3);
+      if (!isPlausibleHeadlampPosition(centroid, bounds, carCenter)) {
+        dropped.push(triangle);
+      } else if (centroid.z >= carCenter.z) {
+        left.push(triangle);
+      } else {
+        right.push(triangle);
+      }
+    }
+    const keptSides = [left, right].filter((side) => side.length > 0);
+    if (keptSides.length === 0 || dropped.length === 0) {
+      continue;
+    }
+
+    for (const side of keptSides) {
+      const piece = new THREE.Mesh(extractTriangleGeometry(mesh.geometry, side), mesh.material);
+      piece.name = mesh.name;
+      piece.castShadow = mesh.castShadow;
+      piece.receiveShadow = mesh.receiveShadow;
+      piece.position.copy(mesh.position);
+      piece.quaternion.copy(mesh.quaternion);
+      piece.scale.copy(mesh.scale);
+      piece.userData.showroomHeadlampIsland = true;
+      mesh.parent?.add(piece);
+    }
+
+    const sourceGeometry = mesh.geometry;
+    mesh.geometry = extractTriangleGeometry(sourceGeometry, dropped);
+    sourceGeometry.dispose();
+    mesh.userData.showroomHeadlampResidual = true;
+  }
 }
 
 function isTailLightPart(name: string, center: THREE.Vector3, rearX: number) {
@@ -611,6 +691,265 @@ function extractTriangleGeometry(geometry: THREE.BufferGeometry, triangles: numb
   return next;
 }
 
+function isBmwM2WindowCoverMaterial(materialName: string) {
+  return /Window_Material/i.test(materialName) && !/red_glass/i.test(materialName);
+}
+
+/**
+ * M2 packs both cabin glass and the headlamp lenses into one opaque black
+ * `Window_Material`. The lenses sit at the front corners and hide `LightA`,
+ * so the showroom spots hit the floor while the lamps stay dark.
+ */
+function isBmwM2HeadlampCoverTriangle(
+  centroid: THREE.Vector3,
+  bounds: THREE.Box3,
+  center: THREE.Vector3,
+  size: THREE.Vector3,
+) {
+  const nearFront = centroid.x <= bounds.min.x + size.x * 0.13;
+  const sideMounted = Math.abs(centroid.z - center.z) >= size.z * 0.18;
+  const inLampBand =
+    centroid.y >= bounds.min.y + size.y * 0.36 && centroid.y <= bounds.min.y + size.y * 0.68;
+  return nearFront && sideMounted && inLampBand;
+}
+
+function createBmwM2HeadlampCoverMaterial() {
+  const material = new THREE.MeshStandardMaterial({
+    name: "LightA_Material_HeadlampLens",
+    color: new THREE.Color("#070707"),
+    roughness: 0.08,
+    metalness: 0,
+    emissive: new THREE.Color("#fff6e0"),
+    emissiveIntensity: 0,
+    side: THREE.DoubleSide,
+  });
+  material.polygonOffset = true;
+  material.polygonOffsetFactor = -2;
+  material.polygonOffsetUnits = -2;
+  return material;
+}
+
+function adoptHeadlampCover(source: THREE.Mesh, geometry: THREE.BufferGeometry, material: THREE.Material) {
+  const piece = new THREE.Mesh(geometry, material);
+  piece.name = `${source.name}_HeadlampLens`;
+  piece.userData.showroomHeadlampCover = true;
+  piece.castShadow = source.castShadow;
+  piece.receiveShadow = source.receiveShadow;
+  piece.renderOrder = 2;
+  piece.position.copy(source.position);
+  piece.quaternion.copy(source.quaternion);
+  piece.scale.copy(source.scale);
+  source.parent?.add(piece);
+  return piece;
+}
+
+function splitBmwM2HeadlampCovers(root: THREE.Object3D, bounds: THREE.Box3) {
+  const size = bounds.getSize(new THREE.Vector3());
+  const center = bounds.getCenter(new THREE.Vector3());
+  if (size.x < 1e-4 || size.z < 1e-4) {
+    return;
+  }
+
+  const covers: THREE.Mesh[] = [];
+  root.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    if (!mesh.isMesh || Array.isArray(mesh.material) || !mesh.geometry) {
+      return;
+    }
+    if (Object.keys(mesh.geometry.morphAttributes).length > 0) {
+      return;
+    }
+    const materialName = mesh.material?.name ?? "";
+    if (!isBmwM2WindowCoverMaterial(materialName)) {
+      return;
+    }
+    covers.push(mesh);
+  });
+
+  const lensMaterial = createBmwM2HeadlampCoverMaterial();
+  const cornerA = new THREE.Vector3();
+  const cornerB = new THREE.Vector3();
+  const cornerC = new THREE.Vector3();
+  const centroid = new THREE.Vector3();
+  let claimed = 0;
+
+  for (const mesh of covers) {
+    const position = mesh.geometry.getAttribute("position");
+    if (!position) {
+      continue;
+    }
+    mesh.updateWorldMatrix(true, false);
+    const triangleCount = mesh.geometry.getIndex()
+      ? mesh.geometry.getIndex()!.count / 3
+      : position.count / 3;
+    const lensTriangles: number[] = [];
+    const stayTriangles: number[] = [];
+
+    for (let triangle = 0; triangle < triangleCount; triangle += 1) {
+      cornerA.fromBufferAttribute(position, triangleCorner(mesh.geometry, triangle, 0));
+      cornerB.fromBufferAttribute(position, triangleCorner(mesh.geometry, triangle, 1));
+      cornerC.fromBufferAttribute(position, triangleCorner(mesh.geometry, triangle, 2));
+      cornerA.applyMatrix4(mesh.matrixWorld);
+      cornerB.applyMatrix4(mesh.matrixWorld);
+      cornerC.applyMatrix4(mesh.matrixWorld);
+      centroid.copy(cornerA).add(cornerB).add(cornerC).multiplyScalar(1 / 3);
+      if (isBmwM2HeadlampCoverTriangle(centroid, bounds, center, size)) {
+        lensTriangles.push(triangle);
+      } else {
+        stayTriangles.push(triangle);
+      }
+    }
+
+    if (lensTriangles.length === 0) {
+      continue;
+    }
+    claimed += lensTriangles.length;
+    adoptHeadlampCover(mesh, extractTriangleGeometry(mesh.geometry, lensTriangles), lensMaterial);
+    if (stayTriangles.length === 0) {
+      mesh.removeFromParent();
+    } else {
+      mesh.geometry = extractTriangleGeometry(mesh.geometry, stayTriangles);
+    }
+  }
+
+  if (claimed === 0) {
+    lensMaterial.dispose();
+  }
+}
+
+const OFFROAD_HEADLAMP_COVER_RADIUS = 0.18;
+
+function createOffroadHeadlampCoverMaterial() {
+  const material = new THREE.MeshStandardMaterial({
+    name: "G900_HeadlampLens",
+    color: new THREE.Color("#070707"),
+    roughness: 0.08,
+    metalness: 0,
+    emissive: new THREE.Color("#fff6e0"),
+    emissiveIntensity: 0,
+    side: THREE.DoubleSide,
+  });
+  material.polygonOffset = true;
+  material.polygonOffsetFactor = -2;
+  material.polygonOffsetUnits = -2;
+  return material;
+}
+
+/**
+ * G900's round lamps are a black `window_plastic` disc with dark glass in
+ * front of a 2cm projector. The projector can glow and still be invisible.
+ * Cut the disc out so the lens itself can brighten, and drop the glass over it.
+ */
+function splitOffroadHeadlampCovers(root: THREE.Object3D, bounds: THREE.Box3) {
+  const carCenter = bounds.getCenter(new THREE.Vector3());
+  const anchors: THREE.Vector3[] = [];
+  root.updateWorldMatrix(true, true);
+  root.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    if (!mesh.isMesh || !mesh.userData.showroomHeadlampIsland) {
+      return;
+    }
+    anchors.push(new THREE.Box3().setFromObject(mesh).getCenter(new THREE.Vector3()));
+  });
+  if (anchors.length < 2) {
+    return;
+  }
+
+  const covers: THREE.Mesh[] = [];
+  const veils: THREE.Mesh[] = [];
+  root.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    if (!mesh.isMesh || mesh.userData.showroomHeadlampCover || Array.isArray(mesh.material)) {
+      return;
+    }
+    if (Object.keys(mesh.geometry.morphAttributes).length > 0) {
+      return;
+    }
+    const name = mesh.name;
+    if (/window_plastic/i.test(name)) {
+      covers.push(mesh);
+    } else if (/ExtWindowsGlass_0/i.test(name)) {
+      veils.push(mesh);
+    }
+  });
+
+  const lensMaterial = createOffroadHeadlampCoverMaterial();
+  const cornerA = new THREE.Vector3();
+  const cornerB = new THREE.Vector3();
+  const cornerC = new THREE.Vector3();
+  const centroid = new THREE.Vector3();
+  let claimed = 0;
+
+  const nearAnchor = (point: THREE.Vector3) =>
+    anchors.some((anchor) => point.distanceTo(anchor) <= OFFROAD_HEADLAMP_COVER_RADIUS);
+
+  const classify = (mesh: THREE.Mesh) => {
+    const position = mesh.geometry.getAttribute("position");
+    const left: number[] = [];
+    const right: number[] = [];
+    const stay: number[] = [];
+    if (!position) {
+      return { left, right, stay };
+    }
+    mesh.updateWorldMatrix(true, false);
+    const triangleCount = mesh.geometry.getIndex()
+      ? mesh.geometry.getIndex()!.count / 3
+      : position.count / 3;
+    for (let triangle = 0; triangle < triangleCount; triangle += 1) {
+      cornerA.fromBufferAttribute(position, triangleCorner(mesh.geometry, triangle, 0));
+      cornerB.fromBufferAttribute(position, triangleCorner(mesh.geometry, triangle, 1));
+      cornerC.fromBufferAttribute(position, triangleCorner(mesh.geometry, triangle, 2));
+      cornerA.applyMatrix4(mesh.matrixWorld);
+      cornerB.applyMatrix4(mesh.matrixWorld);
+      cornerC.applyMatrix4(mesh.matrixWorld);
+      centroid.copy(cornerA).add(cornerB).add(cornerC).multiplyScalar(1 / 3);
+      if (!nearAnchor(centroid)) {
+        stay.push(triangle);
+      } else if (centroid.z >= carCenter.z) {
+        left.push(triangle);
+      } else {
+        right.push(triangle);
+      }
+    }
+    return { left, right, stay };
+  };
+
+  const replaceResidual = (mesh: THREE.Mesh, stay: number[]) => {
+    if (stay.length === 0) {
+      mesh.removeFromParent();
+      return;
+    }
+    const sourceGeometry = mesh.geometry;
+    mesh.geometry = extractTriangleGeometry(sourceGeometry, stay);
+    sourceGeometry.dispose();
+  };
+
+  for (const mesh of covers) {
+    const { left, right, stay } = classify(mesh);
+    const sides = [left, right].filter((side) => side.length > 0);
+    if (sides.length === 0) {
+      continue;
+    }
+    for (const side of sides) {
+      claimed += side.length;
+      adoptHeadlampCover(mesh, extractTriangleGeometry(mesh.geometry, side), lensMaterial);
+    }
+    replaceResidual(mesh, stay);
+  }
+
+  for (const mesh of veils) {
+    const { left, right, stay } = classify(mesh);
+    if (left.length + right.length === 0) {
+      continue;
+    }
+    replaceResidual(mesh, stay);
+  }
+
+  if (claimed === 0) {
+    lensMaterial.dispose();
+  }
+}
+
 function adoptDoorPiece(source: THREE.Mesh, geometry: THREE.BufferGeometry, pivot: THREE.Group) {
   const piece = new THREE.Mesh(geometry, source.material);
   piece.name = source.name;
@@ -835,10 +1174,23 @@ function isWheelMeshName(name: string) {
     return false;
   }
   // Q3 brake calipers live in `Alloy_Break` and must stay fixed while the tyre rolls.
-  if (/(caliper|brake\s*disc|brake\s*pad|fender|arch|alloy[_\s-]?break)/i.test(name)) {
+  // M2 spells them `Calliper` (double l) under the `Wheel1A_3D` assembly — never
+  // let the generic wheel matcher sweep them into a spinning corner.
+  if (/(calliper|caliper|brake\s*disc|brake\s*pad|fender|arch|alloy[_\s-]?break)/i.test(name)) {
     return false;
   }
   return /(wheel|tire|tyre|rim)/i.test(name);
+}
+
+/** Profile-listed wheel parts, plus generic tyre names. Spares and the steering wheel stay put. */
+function isRoadWheelMesh(name: string, profile: MarketRigProfile | null) {
+  if (/(spare|leather.?wheel|steering.?wheel)/i.test(name)) {
+    return false;
+  }
+  if (matchesAny(name, profile?.wheelPart)) {
+    return true;
+  }
+  return isWheelMeshName(name);
 }
 
 function spansBothAxles(size: THREE.Vector3, carSize: THREE.Vector3) {
@@ -864,12 +1216,64 @@ function adoptWheelPiece(source: THREE.Mesh, geometry: THREE.BufferGeometry, cor
   return piece;
 }
 
+type WheelCornerBucket = {
+  triangles: number[];
+  points: THREE.Vector3[];
+};
+
+function medianComponent(values: number[]) {
+  const sorted = [...values].sort((left, right) => left - right);
+  return sorted[Math.floor(sorted.length / 2)] ?? 0;
+}
+
 /**
- * Q3 exports one buffer per tyre material with all four corners inside it.
- * Cut each buffer into FL/FR/RL/RR so each corner can roll about its own axle.
- * Brake calipers are left on the body.
+ * Drop triangles that sit far from the road-wheel cluster in this corner
+ * (G900 packs a few spare-tyre faces into the same paint buffer).
+ * The hub is the median so a high spare cannot pull it, and a cut is applied
+ * only across a real gap. Clipping the top of a round tyre shifts its center
+ * and makes that wheel wobble as it rolls.
  */
-function splitSpanningWheelMeshes(root: THREE.Object3D) {
+function roadWheelTriangles(points: THREE.Vector3[], triangles: number[]) {
+  if (triangles.length < 12) {
+    return triangles;
+  }
+  const hubX = medianComponent(points.map((point) => point.x));
+  const hubY = medianComponent(points.map((point) => point.y));
+  const hubZ = medianComponent(points.map((point) => point.z));
+  const distances = points.map((point) =>
+    Math.hypot(point.x - hubX, point.y - hubY, point.z - hubZ),
+  );
+  const sorted = [...distances].sort((left, right) => left - right);
+  const wheelRadius = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.9))];
+  const start = Math.floor(sorted.length * 0.6);
+  let bestGap = 0;
+  let cut = sorted[sorted.length - 1];
+  for (let index = start; index < sorted.length - 1; index += 1) {
+    const gap = sorted[index + 1] - sorted[index];
+    if (gap > bestGap) {
+      bestGap = gap;
+      cut = sorted[index] + gap * 0.5;
+    }
+  }
+  if (bestGap < Math.max(0.05, wheelRadius * 0.35)) {
+    return triangles;
+  }
+
+  const kept: number[] = [];
+  for (let index = 0; index < triangles.length; index += 1) {
+    if (distances[index] <= cut) {
+      kept.push(triangles[index]);
+    }
+  }
+  return kept.length > 0 ? kept : triangles;
+}
+
+/**
+ * Some exports pack every corner into one buffer (Q3 tyres, G900 rims).
+ * Cut those into FL/FR/RL/RR so each corner can roll about its own axle.
+ * Brake calipers and spare-tyre leftovers stay on the body.
+ */
+function splitSpanningWheelMeshes(root: THREE.Object3D, profile: MarketRigProfile | null) {
   const bounds = new THREE.Box3().setFromObject(root);
   const carSize = bounds.getSize(new THREE.Vector3());
   const carCenter = bounds.getCenter(new THREE.Vector3());
@@ -877,17 +1281,21 @@ function splitSpanningWheelMeshes(root: THREE.Object3D) {
   const candidates: THREE.Mesh[] = [];
   root.traverse((child) => {
     const mesh = child as THREE.Mesh;
-    if (!mesh.isMesh || mesh.userData.showroomWheelPiece) {
+    if (!mesh.isMesh || mesh.userData.showroomWheelPiece || mesh.userData.showroomWheelResidual) {
       return;
     }
-    if (!isWheelMeshName(hierarchicalName(mesh))) {
+    const name = hierarchicalName(mesh);
+    const profileWheel = matchesAny(name, profile?.wheelPart);
+    if (!isRoadWheelMesh(name, profile)) {
       return;
     }
     if (Object.keys(mesh.geometry.morphAttributes).length > 0) {
       return;
     }
     const size = new THREE.Box3().setFromObject(mesh).getSize(new THREE.Vector3());
-    if (spansBothAxles(size, carSize)) {
+    // Generic tyre names must span the car. Profile parts (G900) also include
+    // a single side's front+rear pair, which is long but not wide.
+    if (profileWheel || spansBothAxles(size, carSize)) {
       candidates.push(mesh);
     }
   });
@@ -906,7 +1314,7 @@ function splitSpanningWheelMeshes(root: THREE.Object3D) {
     const triangleCount = mesh.geometry.getIndex()
       ? mesh.geometry.getIndex()!.count / 3
       : position.count / 3;
-    const groups = new Map<string, number[]>();
+    const groups = new Map<string, WheelCornerBucket>();
 
     for (let triangle = 0; triangle < triangleCount; triangle += 1) {
       cornerA.fromBufferAttribute(position, triangleCorner(mesh.geometry, triangle, 0));
@@ -919,9 +1327,10 @@ function splitSpanningWheelMeshes(root: THREE.Object3D) {
       const key = wheelCornerKey(centroid, carCenter);
       const bucket = groups.get(key);
       if (bucket) {
-        bucket.push(triangle);
+        bucket.triangles.push(triangle);
+        bucket.points.push(centroid.clone());
       } else {
-        groups.set(key, [triangle]);
+        groups.set(key, { triangles: [triangle], points: [centroid.clone()] });
       }
     }
 
@@ -929,11 +1338,45 @@ function splitSpanningWheelMeshes(root: THREE.Object3D) {
       continue;
     }
 
-    for (const [corner, triangles] of groups) {
-      if (triangles.length === 0) {
+    const pieces: { corner: string; triangles: number[] }[] = [];
+    const assigned = new Set<number>();
+    for (const [corner, bucket] of groups) {
+      const kept = roadWheelTriangles(bucket.points, bucket.triangles);
+      if (kept.length === 0) {
         continue;
       }
-      adoptWheelPiece(mesh, extractTriangleGeometry(mesh.geometry, triangles), corner);
+      pieces.push({ corner, triangles: kept });
+      for (const triangle of kept) {
+        assigned.add(triangle);
+      }
+    }
+    if (pieces.length < 2) {
+      continue;
+    }
+
+    for (const piece of pieces) {
+      adoptWheelPiece(mesh, extractTriangleGeometry(mesh.geometry, piece.triangles), piece.corner);
+    }
+
+    const outliers: number[] = [];
+    for (let triangle = 0; triangle < triangleCount; triangle += 1) {
+      if (!assigned.has(triangle)) {
+        outliers.push(triangle);
+      }
+    }
+    if (outliers.length > 0) {
+      const residual = new THREE.Mesh(
+        extractTriangleGeometry(mesh.geometry, outliers),
+        mesh.material,
+      );
+      residual.name = mesh.name;
+      residual.castShadow = mesh.castShadow;
+      residual.receiveShadow = mesh.receiveShadow;
+      residual.position.copy(mesh.position);
+      residual.quaternion.copy(mesh.quaternion);
+      residual.scale.copy(mesh.scale);
+      residual.userData.showroomWheelResidual = true;
+      mesh.parent?.add(residual);
     }
     mesh.removeFromParent();
   }
@@ -997,7 +1440,11 @@ function collectWheelUnits(
   const clusters: Cluster[] = [];
   const tolerance = Math.max(carSize.x, carSize.z) * 0.12;
   root.traverse((child) => {
-    if (!(child as THREE.Mesh).isMesh || !isWheelMeshName(hierarchicalName(child))) {
+    if (
+      child.userData.showroomWheelResidual ||
+      !(child as THREE.Mesh).isMesh ||
+      !isRoadWheelMesh(hierarchicalName(child), profile)
+    ) {
       return;
     }
     const box = new THREE.Box3().setFromObject(child);
@@ -1066,6 +1513,355 @@ function setupWheelSpin(
   return true;
 }
 
+function invert3(m: number[][]) {
+  const a = m[0][0];
+  const b = m[0][1];
+  const c = m[0][2];
+  const d = m[1][0];
+  const e = m[1][1];
+  const f = m[1][2];
+  const g = m[2][0];
+  const h = m[2][1];
+  const i = m[2][2];
+  const A = e * i - f * h;
+  const B = f * g - d * i;
+  const C = d * h - e * g;
+  const D = c * h - b * i;
+  const E = a * i - c * g;
+  const F = b * g - a * h;
+  const G = b * f - c * e;
+  const H = c * d - a * f;
+  const I = a * e - b * d;
+  const det = a * A + b * B + c * C;
+  if (Math.abs(det) < 1e-12) {
+    return null;
+  }
+  const invDet = 1 / det;
+  return [
+    [A * invDet, D * invDet, G * invDet],
+    [B * invDet, E * invDet, H * invDet],
+    [C * invDet, F * invDet, I * invDet],
+  ];
+}
+
+/** Smallest-variance direction of a thin disc — the axle, including a little camber. */
+function fitDiscAxle(mesh: THREE.Mesh): { center: THREE.Vector3; axis: THREE.Vector3 } | null {
+  const position = mesh.geometry.getAttribute("position");
+  if (!position || position.count < 24) {
+    return null;
+  }
+  mesh.updateWorldMatrix(true, false);
+  const step = Math.max(1, Math.floor(position.count / 900));
+  const points: THREE.Vector3[] = [];
+  const center = new THREE.Vector3();
+  const sample = new THREE.Vector3();
+  for (let index = 0; index < position.count; index += step) {
+    sample.fromBufferAttribute(position, index).applyMatrix4(mesh.matrixWorld);
+    const point = sample.clone();
+    points.push(point);
+    center.add(point);
+  }
+  if (points.length < 24) {
+    return null;
+  }
+  center.multiplyScalar(1 / points.length);
+  let xx = 0;
+  let xy = 0;
+  let xz = 0;
+  let yy = 0;
+  let yz = 0;
+  let zz = 0;
+  for (const point of points) {
+    const x = point.x - center.x;
+    const y = point.y - center.y;
+    const z = point.z - center.z;
+    xx += x * x;
+    xy += x * y;
+    xz += x * z;
+    yy += y * y;
+    yz += y * z;
+    zz += z * z;
+  }
+  const covariance = [
+    [xx, xy, xz],
+    [xy, yy, yz],
+    [xz, yz, zz],
+  ];
+  const axis = new THREE.Vector3(0, 0, 1);
+  for (let iteration = 0; iteration < 32; iteration += 1) {
+    const inverse = invert3(covariance);
+    if (!inverse) {
+      return null;
+    }
+    const x = inverse[0][0] * axis.x + inverse[0][1] * axis.y + inverse[0][2] * axis.z;
+    const y = inverse[1][0] * axis.x + inverse[1][1] * axis.y + inverse[1][2] * axis.z;
+    const z = inverse[2][0] * axis.x + inverse[2][1] * axis.y + inverse[2][2] * axis.z;
+    const length = Math.hypot(x, y, z);
+    if (length < 1e-8) {
+      return null;
+    }
+    axis.set(x / length, y / length, z / length);
+  }
+  // Showroom axles are lateral. A fit that falls over is a partial mesh, not a disc.
+  if (Math.abs(axis.z) < 0.9) {
+    return null;
+  }
+  if (axis.z < 0) {
+    axis.negate();
+  }
+  return { center, axis };
+}
+
+function discWheelMesh(nodes: THREE.Object3D[]) {
+  const meshes = nodes.filter((node): node is THREE.Mesh => (node as THREE.Mesh).isMesh);
+  const discLike = meshes.filter((mesh) => {
+    const size = new THREE.Box3().setFromObject(mesh).getSize(new THREE.Vector3());
+    const dims = [size.x, size.y, size.z].sort((left, right) => left - right);
+    return dims[0] < dims[2] * 0.25 && dims[1] > dims[2] * 0.75;
+  });
+  return (
+    discLike.find((mesh) => /diamondcutrim/i.test(mesh.name)) ??
+    discLike.find((mesh) => /rim/i.test(mesh.name)) ??
+    discLike[0] ??
+    null
+  );
+}
+
+/**
+ * A road-wheel part surrounds the axle. An off-center strip (G900 brake / arch
+ * fragment packed into a wheel buffer) must stay on the body — spinning it
+ * makes the front wheels look like they wobble.
+ * Small rim bolts still spin; they sit on the tyre and are only a few centimetres across.
+ */
+function shouldSpinWheelNode(node: THREE.Object3D, axlePoint: THREE.Vector3, axis: THREE.Vector3) {
+  const box = new THREE.Box3().setFromObject(node);
+  if (box.isEmpty()) {
+    return false;
+  }
+  const size = box.getSize(new THREE.Vector3());
+  const expanded = box.clone().expandByVector(axis.clone().multiplyScalar(Math.max(size.length(), 1)));
+  if (expanded.containsPoint(axlePoint)) {
+    return true;
+  }
+  return Math.max(size.x, size.y, size.z) < 0.12;
+}
+
+/** UV span below this means every vertex samples one texel — rotation is invisible. */
+const COLLAPSED_WHEEL_UV_SPAN = 0.08;
+/** Michelin sidewall ring on the M2 wheel-face atlas, as a radius from the texture center. */
+const BMW_WHEEL_ATLAS_RADIUS = 0.46;
+
+function attributeSpan2(attribute: THREE.BufferAttribute | THREE.InterleavedBufferAttribute) {
+  let minU = Infinity;
+  let minV = Infinity;
+  let maxU = -Infinity;
+  let maxV = -Infinity;
+  for (let index = 0; index < attribute.count; index += 1) {
+    const u = attribute.getX(index);
+    const v = attribute.getY(index);
+    minU = Math.min(minU, u);
+    minV = Math.min(minV, v);
+    maxU = Math.max(maxU, u);
+    maxV = Math.max(maxV, v);
+  }
+  return Math.hypot(maxU - minU, maxV - minV);
+}
+
+function smallestVarianceAxis(points: THREE.Vector3[]) {
+  if (points.length < 24) {
+    return null;
+  }
+  const center = new THREE.Vector3();
+  for (const point of points) {
+    center.add(point);
+  }
+  center.multiplyScalar(1 / points.length);
+  let xx = 0;
+  let xy = 0;
+  let xz = 0;
+  let yy = 0;
+  let yz = 0;
+  let zz = 0;
+  for (const point of points) {
+    const x = point.x - center.x;
+    const y = point.y - center.y;
+    const z = point.z - center.z;
+    xx += x * x;
+    xy += x * y;
+    xz += x * z;
+    yy += y * y;
+    yz += y * z;
+    zz += z * z;
+  }
+  const covariance = [
+    [xx, xy, xz],
+    [xy, yy, yz],
+    [xz, yz, zz],
+  ];
+  const axis = new THREE.Vector3(0, 0, 1);
+  for (let iteration = 0; iteration < 32; iteration += 1) {
+    const inverse = invert3(covariance);
+    if (!inverse) {
+      return null;
+    }
+    const x = inverse[0][0] * axis.x + inverse[0][1] * axis.y + inverse[0][2] * axis.z;
+    const y = inverse[1][0] * axis.x + inverse[1][1] * axis.y + inverse[1][2] * axis.z;
+    const z = inverse[2][0] * axis.x + inverse[2][1] * axis.y + inverse[2][2] * axis.z;
+    const length = Math.hypot(x, y, z);
+    if (length < 1e-8) {
+      return null;
+    }
+    axis.set(x / length, y / length, z / length);
+  }
+  return axis;
+}
+
+/**
+ * M2 tyre shells share the rim atlas but most rubber triangles are pinned to one
+ * texel, so the sidewall stays a flat colour. Project only that outer annulus
+ * onto the Michelin ring. The spoke/hub meshes reach the axle — repainting them
+ * covers the metal rim with the flat centre of the atlas (the hub looks frozen)
+ * and paints the brake rotor onto the spokes (that reads as a spinning caliper).
+ */
+function repairCollapsedWheelFaceUvs(wheel: THREE.Object3D) {
+  wheel.updateWorldMatrix(true, true);
+  const wheelInverse = wheel.matrixWorld.clone().invert();
+  const localPoint = new THREE.Vector3();
+  const samples: THREE.Vector3[] = [];
+  const collapsed: THREE.Mesh[] = [];
+  const seen = new Set<string>();
+
+  wheel.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    if (!mesh.isMesh || seen.has(mesh.geometry.uuid) || mesh.geometry.userData.showroomRadialWheelUv) {
+      return;
+    }
+    const uv = mesh.geometry.getAttribute("uv");
+    const position = mesh.geometry.getAttribute("position");
+    if (!uv || !position || attributeSpan2(uv) >= COLLAPSED_WHEEL_UV_SPAN) {
+      return;
+    }
+    seen.add(mesh.geometry.uuid);
+    collapsed.push(mesh);
+    const step = Math.max(1, Math.floor(position.count / 80));
+    for (let index = 0; index < position.count; index += step) {
+      samples.push(
+        localPoint
+          .fromBufferAttribute(position, index)
+          .applyMatrix4(mesh.matrixWorld)
+          .applyMatrix4(wheelInverse)
+          .clone(),
+      );
+    }
+  });
+  if (collapsed.length === 0) {
+    return;
+  }
+  const axle = smallestVarianceAxis(samples);
+  if (!axle) {
+    return;
+  }
+  const radiusOf = (point: THREE.Vector3) => {
+    const along = point.dot(axle);
+    return Math.hypot(
+      point.x - axle.x * along,
+      point.y - axle.y * along,
+      point.z - axle.z * along,
+    );
+  };
+  const radii = samples.map(radiusOf);
+  radii.sort((left, right) => left - right);
+  const outer = radii[Math.min(radii.length - 1, Math.floor(radii.length * 0.9))];
+  if (outer < 1e-5) {
+    return;
+  }
+  const basisSeed = Math.abs(axle.dot(new THREE.Vector3(1, 0, 0))) > 0.9
+    ? new THREE.Vector3(0, 1, 0)
+    : new THREE.Vector3(1, 0, 0);
+  const basisU = new THREE.Vector3().crossVectors(axle, basisSeed).normalize();
+  const basisV = new THREE.Vector3().crossVectors(axle, basisU).normalize();
+  // Spokes and the centre cap reach inward. Only the tyre annulus gets the atlas.
+  const tyreInner = outer * 0.72;
+
+  for (const mesh of collapsed) {
+    const position = mesh.geometry.getAttribute("position");
+    let inner = Infinity;
+    const step = Math.max(1, Math.floor(position.count / 40));
+    for (let index = 0; index < position.count; index += step) {
+      localPoint
+        .fromBufferAttribute(position, index)
+        .applyMatrix4(mesh.matrixWorld)
+        .applyMatrix4(wheelInverse);
+      inner = Math.min(inner, radiusOf(localPoint));
+    }
+    if (inner <= tyreInner) {
+      continue;
+    }
+    const geometry = mesh.geometry.clone();
+    const next = new Float32Array(position.count * 2);
+    for (let index = 0; index < position.count; index += 1) {
+      localPoint
+        .fromBufferAttribute(position, index)
+        .applyMatrix4(mesh.matrixWorld)
+        .applyMatrix4(wheelInverse);
+      const along = localPoint.dot(axle);
+      localPoint.addScaledVector(axle, -along);
+      const radius = localPoint.length();
+      const angle = Math.atan2(localPoint.dot(basisV), localPoint.dot(basisU));
+      const uvRadius = (radius / outer) * BMW_WHEEL_ATLAS_RADIUS;
+      next[index * 2] = 0.5 + Math.cos(angle) * uvRadius;
+      next[index * 2 + 1] = 0.5 + Math.sin(angle) * uvRadius;
+    }
+    geometry.setAttribute("uv", new THREE.BufferAttribute(next, 2));
+    geometry.userData.showroomRadialWheelUv = true;
+    mesh.geometry = geometry;
+  }
+}
+
+/**
+ * A few caliper bolts are packed inside the M2 rim group. They sit wholly in the
+ * sibling caliper's bounds, so they have to stay on the knuckle instead of rolling
+ * with the tyre. Spoke meshes surround the axle and are left on the rim.
+ */
+function releaseFixedCaliperPieces(wheel: THREE.Object3D) {
+  const carrier = wheel.parent;
+  if (!carrier) {
+    return;
+  }
+  const caliperBoxes: THREE.Box3[] = [];
+  carrier.traverse((node) => {
+    let parent: THREE.Object3D | null = node;
+    while (parent) {
+      if (parent === wheel) {
+        return;
+      }
+      parent = parent.parent;
+    }
+    // Corner calipers only. The parent `Calliper1` box spans the whole car and
+    // would swallow rim bolts that merely sit near a corner.
+    // GLTFLoader sanitizes node names (spaces become "_") — tolerate both.
+    if (!/calliper(?:zone)?[\s_](front|rear)[\s_][lr]/i.test(node.name)) {
+      return;
+    }
+    const box = new THREE.Box3().setFromObject(node);
+    if (!box.isEmpty()) {
+      caliperBoxes.push(box);
+    }
+  });
+  if (caliperBoxes.length === 0) {
+    return;
+  }
+  for (const child of [...wheel.children]) {
+    const childBox = new THREE.Box3().setFromObject(child);
+    if (childBox.isEmpty()) {
+      continue;
+    }
+    if (caliperBoxes.some((box) => box.containsBox(childBox))) {
+      carrier.attach(child);
+    }
+  }
+}
+
 /** Find the real ground wheels and tag them for in-place rotation. */
 function findWheelNodes(root: THREE.Object3D, profile: MarketRigProfile | null) {
   const frontWheels: THREE.Object3D[] = [];
@@ -1110,13 +1906,25 @@ function findWheelNodes(root: THREE.Object3D, profile: MarketRigProfile | null) 
   for (const [key, unit] of quadrantBest) {
     const isFront = key.startsWith("F");
     rollRadii.push(Math.max(unit.size.y, Math.min(unit.size.x, unit.size.z)) * 0.5);
-    // Axle is the thinner horizontal axis (lateral Z after normalize, fallback X).
+    // Front rims sit a little off the world lateral axis. Spinning them around
+    // world Z makes the face shimmy left-right once per turn. Use the disc normal.
+    const disc = discWheelMesh(unit.nodes);
+    const fitted = disc ? fitDiscAxle(disc) : null;
     const worldAxis =
-      unit.size.z <= unit.size.x
-        ? new THREE.Vector3(0, 0, 1)
-        : new THREE.Vector3(1, 0, 0);
+      fitted?.axis ??
+      (unit.size.z <= unit.size.x ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0));
+    const pivot = fitted?.center ?? unit.center;
     for (const node of unit.nodes) {
-      if (setupWheelSpin(node, unit.center, worldAxis, isFront)) {
+      if (!shouldSpinWheelNode(node, pivot, worldAxis)) {
+        continue;
+      }
+      if (/3DWheel/i.test(node.name)) {
+        releaseFixedCaliperPieces(node);
+      }
+      if (setupWheelSpin(node, pivot, worldAxis, isFront)) {
+        if (/3DWheel/i.test(node.name)) {
+          repairCollapsedWheelFaceUvs(node);
+        }
         (isFront ? frontWheels : rearWheels).push(node);
       }
     }
@@ -1132,11 +1940,20 @@ function findWheelNodes(root: THREE.Object3D, profile: MarketRigProfile | null) 
 
 export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): AssetCarRig {
   const profile = resolveMarketRigProfile(modelUrl);
+  if (profile?.id === "bmw-m2") {
+    root.updateWorldMatrix(true, true);
+    splitBmwM2HeadlampCovers(root, new THREE.Box3().setFromObject(root));
+  }
   const bounds = new THREE.Box3().setFromObject(root);
   const size = new THREE.Vector3();
   const center = new THREE.Vector3();
   bounds.getSize(size);
   bounds.getCenter(center);
+
+  if (profile?.id === "offroad-brabus") {
+    isolateOffroadHeadlampIslands(root, bounds);
+    splitOffroadHeadlampCovers(root, bounds);
+  }
 
   const entries = collectMeshes(root);
   const headLightMaterials: ShowroomMaterial[] = [];
@@ -1204,6 +2021,19 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
       continue;
     }
 
+    if (mesh.userData.showroomHeadlampCover) {
+      const material = ensureShowroomMaterial(mesh);
+      if (material) {
+        applyShowroomHeadlampLens(material);
+        headLightMaterials.push(material);
+        headLightDebugItems.add(`${name} :: ${materialName || "(no-material-name)"}`);
+        if (meshCenter.x <= frontX && meshSize.z <= width * 0.32) {
+          headLightPositions.push(meshCenter.clone());
+        }
+      }
+      continue;
+    }
+
     const profileHeadLight =
       matchesAny(name, profile?.headLight) ||
       matchesAny(materialName, profile?.headLightMaterial);
@@ -1214,6 +2044,7 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
     const headLightCandidate =
       profileHeadLight || isHeadLightPart(label, meshCenter, frontX);
     if (
+      !mesh.userData.showroomHeadlampResidual &&
       !isExcludedFromHeadlightDiscovery(nameLower) &&
       headLightCandidate &&
       headlampPositionAllowed(
@@ -1399,7 +2230,7 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
   // Only ever spin the GLB's own wheel meshes — never inject synthetic rollers.
   // Spanning tyre buffers (all four corners in one mesh) are cut apart first.
   if (!profile?.bakedWheels) {
-    splitSpanningWheelMeshes(root);
+    splitSpanningWheelMeshes(root, profile);
     hideMisplacedTemplateWheels(root, bounds);
     const realWheels = findWheelNodes(root, profile);
     frontWheels = realWheels.frontWheels;
