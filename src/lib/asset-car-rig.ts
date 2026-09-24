@@ -317,7 +317,10 @@ function shouldApplyHeadlampLensPreset(
     profileHeadLight &&
     (profile?.id === "offroad-brabus" ||
       profile?.id === "suv-q3" ||
-      profile?.id === "bmw-m2")
+      profile?.id === "bmw-m2" ||
+      profile?.id === "xiaomi-su7-max" ||
+      profile?.id === "xiaomi-su7-ultra" ||
+      profile?.id === "xiaomi-yu7")
   );
 }
 
@@ -340,6 +343,14 @@ function headlampPositionAllowed(
     return true;
   }
   if (profile?.id === "bmw-m2" && profileHeadLight && isBmwM2HeadlampMaterial(materialName)) {
+    return true;
+  }
+  if (
+    profileHeadLight &&
+    (profile?.id === "xiaomi-su7-max" ||
+      profile?.id === "xiaomi-su7-ultra" ||
+      profile?.id === "xiaomi-yu7")
+  ) {
     return true;
   }
   const isLocalizedPanel =
@@ -1862,6 +1873,20 @@ function releaseFixedCaliperPieces(wheel: THREE.Object3D) {
   }
 }
 
+/** SU7 Max packs brake calipers inside each `3DWheel` group. Leave them on the knuckle. */
+function releaseFixedBrakeChildren(wheel: THREE.Object3D) {
+  const carrier = wheel.parent;
+  if (!carrier) {
+    return;
+  }
+  for (const child of [...wheel.children]) {
+    if (!/brake|calliper|caliper/i.test(child.name) || /disc|disk|hub/i.test(child.name)) {
+      continue;
+    }
+    carrier.attach(child);
+  }
+}
+
 /** Find the real ground wheels and tag them for in-place rotation. */
 function findWheelNodes(root: THREE.Object3D, profile: MarketRigProfile | null) {
   const frontWheels: THREE.Object3D[] = [];
@@ -1920,6 +1945,7 @@ function findWheelNodes(root: THREE.Object3D, profile: MarketRigProfile | null) 
       }
       if (/3DWheel/i.test(node.name)) {
         releaseFixedCaliperPieces(node);
+        releaseFixedBrakeChildren(node);
       }
       if (setupWheelSpin(node, pivot, worldAxis, isFront)) {
         if (/3DWheel/i.test(node.name)) {
@@ -1995,21 +2021,61 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
     // Exclusive market door lists win first so INT trim (e.g. Soft_Black_Pattern)
     // is never stolen by paint / lamp heuristics.
     if (profileHasDoors) {
-      if (matchesAny(name, profile?.leftDoor)) {
-        leftDoorMeshes.push(mesh);
-        continue;
-      }
-      if (matchesAny(name, profile?.rightDoor)) {
-        rightDoorMeshes.push(mesh);
+      const claimedDoor =
+        matchesAny(name, profile?.leftDoor) || matchesAny(name, profile?.rightDoor);
+      if (claimedDoor) {
+        if (matchesAny(name, profile?.leftDoor)) {
+          leftDoorMeshes.push(mesh);
+        } else {
+          rightDoorMeshes.push(mesh);
+        }
+        if (
+          matchesAny(name, profile?.paintMaterial) ||
+          matchesAny(materialName, profile?.paintMaterial)
+        ) {
+          const material = ensureShowroomPaintMaterial(mesh);
+          if (material) {
+            paintMaterials.push(material);
+            paintDebugItems.add(`${name} :: ${materialName || "(no-material-name)"}`);
+          }
+        }
         continue;
       }
     }
 
-    if (matchesAny(name, profile?.sunroof) || isSunroofPart(nameLower)) {
-      if (!isInteriorLight(nameLower)) {
-        sunroofNodes.push(mesh);
-      }
+    const listedSunroof = (profile?.sunroof?.length ?? 0) > 0;
+    const sunroofMatch = listedSunroof
+      ? matchesAny(name, profile?.sunroof)
+      : isSunroofPart(nameLower);
+    if (sunroofMatch && !isInteriorLight(nameLower)) {
+      sunroofNodes.push(mesh);
       continue;
+    }
+
+    // Hatch paint shares the body paint material. Claim it before the paint pass,
+    // and leave lamp meshes for the tail-light pass so they still emissive-light.
+    if (profile?.trunk?.length && matchesAny(name, profile.trunk)) {
+      const trunkLamp =
+        matchesAny(name, profile.headLight) ||
+        matchesAny(name, profile.tailLight) ||
+        matchesAny(name, profile.hazardLight) ||
+        matchesAny(materialName, profile.headLightMaterial) ||
+        matchesAny(materialName, profile.tailLightMaterial) ||
+        matchesAny(materialName, profile.hazardLightMaterial);
+      if (!trunkLamp) {
+        trunkMeshes.push(mesh);
+        if (
+          matchesAny(name, profile.paintMaterial) ||
+          matchesAny(materialName, profile.paintMaterial)
+        ) {
+          const material = ensureShowroomPaintMaterial(mesh);
+          if (material) {
+            paintMaterials.push(material);
+            paintDebugItems.add(`${name} :: ${materialName || "(no-material-name)"}`);
+          }
+        }
+        continue;
+      }
     }
 
     if (matchesAny(name, profile?.paintMaterial) || matchesAny(materialName, profile?.paintMaterial)) {
@@ -2045,7 +2111,8 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
       profileHeadLight || isHeadLightPart(label, meshCenter, frontX);
     if (
       !mesh.userData.showroomHeadlampResidual &&
-      !isExcludedFromHeadlightDiscovery(nameLower) &&
+      // Authored lamp lists win. The generic exclude treats the letters in `Paint_` as `int_`.
+      (profileHeadLight || !isExcludedFromHeadlightDiscovery(nameLower)) &&
       headLightCandidate &&
       headlampPositionAllowed(
         profile,

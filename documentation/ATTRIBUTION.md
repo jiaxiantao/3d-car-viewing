@@ -11,6 +11,9 @@ The **3D models** under `public/models/market/` are **not** covered by that lice
 | `suv-mainstream.glb` | SUV (Audi Q3–style) | Poly Pizza / Quaternius — **CC0 1.0** (per `public/models/market/README.md`) | Verify on [Poly Pizza](https://poly.pizza/) before commercial use |
 | `offroad-mainstream.glb` | Off-road (Brabus G900–style) | Poly Pizza / Quaternius — **CC0 1.0** (per README) | Same as above |
 | `sedan-mainstream.glb` | BMW M2 Coupe | **Verify independently** | High-poly Sketchfab-style asset; BMW trademark may apply. **Do not assume CC0.** Replace with your own licensed model for production |
+| `2024_xiaomi_su7_max.glb` | Xiaomi SU7 Max | **Verify independently** | User-supplied GLB. Xiaomi trademark may apply. **Do not assume a permissive license.** |
+| `2025_xiaomi_su7_ultra.glb` | Xiaomi SU7 Ultra | **Verify independently** | Same as above |
+| `2025_xiaomi_yu7.glb` | Xiaomi YU7 | **Verify independently** | Same as above |
 
 ## Your responsibilities
 

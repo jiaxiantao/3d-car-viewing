@@ -4,7 +4,13 @@
 
 import { publicAssetPath } from "@/lib/public-asset-path";
 
-export type CarCategoryKey = "suv" | "sedan" | "offroad";
+export type CarCategoryKey =
+  | "suv"
+  | "sedan"
+  | "offroad"
+  | "su7-max"
+  | "su7-ultra"
+  | "yu7";
 
 export type CarCategory = {
   key: CarCategoryKey;
@@ -43,6 +49,30 @@ export const CAR_CATEGORIES: Record<CarCategoryKey, CarCategory> = {
     bakedWheels: false,
     capabilityHint: "",
   },
+  "su7-max": {
+    key: "su7-max",
+    label: "小米 SU7 Max",
+    primaryUrl: publicAssetPath("/models/market/2024_xiaomi_su7_max.glb"),
+    approxBytes: 5_500_000,
+    bakedWheels: false,
+    capabilityHint: "",
+  },
+  "su7-ultra": {
+    key: "su7-ultra",
+    label: "小米 SU7 Ultra",
+    primaryUrl: publicAssetPath("/models/market/2025_xiaomi_su7_ultra.glb"),
+    approxBytes: 32_000_000,
+    bakedWheels: false,
+    capabilityHint: "",
+  },
+  yu7: {
+    key: "yu7",
+    label: "小米 YU7",
+    primaryUrl: publicAssetPath("/models/market/2025_xiaomi_yu7.glb"),
+    approxBytes: 29_000_000,
+    bakedWheels: false,
+    capabilityHint: "",
+  },
 };
 
 export const CAR_CATEGORY_OPTIONS: CarCategory[] = Object.values(CAR_CATEGORIES);
@@ -51,7 +81,14 @@ export const CAR_CATEGORY_OPTIONS: CarCategory[] = Object.values(CAR_CATEGORIES)
 export const DEFAULT_CAR_CATEGORY_KEY: CarCategoryKey = "sedan";
 
 export function isCarCategoryKey(value: unknown): value is CarCategoryKey {
-  return value === "suv" || value === "sedan" || value === "offroad";
+  return (
+    value === "suv" ||
+    value === "sedan" ||
+    value === "offroad" ||
+    value === "su7-max" ||
+    value === "su7-ultra" ||
+    value === "yu7"
+  );
 }
 
 export function resolveCarCategoryKey(value: unknown): CarCategoryKey {

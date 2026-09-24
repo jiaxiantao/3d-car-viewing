@@ -200,10 +200,152 @@ const offroadBrabusProfile: MarketRigProfile = {
   ],
 };
 
+/**
+ * Xiaomi SU7 Max: body kits are fused (no separable doors, hatch, or sunroof).
+ * Headlamp and tail-lamp lenses are the FrontKit / RearKit light materials.
+ * Each corner is a `3DWheel` group; brake calipers are children and stay fixed.
+ */
+const xiaomiSu7MaxProfile: MarketRigProfile = {
+  id: "xiaomi-su7-max",
+  urlPattern: /2024_xiaomi_su7_max/i,
+  headLight: [/SM_FrontKit.*Light_glass/i, /SM_FrontKit.*MAT_Lights/i],
+  tailLight: [/SM_RearKit.*Light_glass/i, /SM_RearKit.*MAT_Lights/i],
+  hazardLight: [/SM_RearKit.*Light_glass/i, /SM_RearKit.*MAT_Lights/i],
+  paintMaterial: [/^untitledMAT_CarPaint_SU7_Base1$/i],
+  wheel: [/3DWheel[\s_](Front|Rear)[\s_][LR]/i],
+};
+
+/**
+ * Xiaomi SU7 Ultra: front doors, hatch, panoramic roof, and lamps are separate meshes.
+ * Showroom left is +Z. `trunk_*` names also appear on the front bumper, so only the
+ * rear hatch ids are listed. The body-sized `carLight_bulb` buffers are not lamps.
+ */
+const xiaomiSu7UltraProfile: MarketRigProfile = {
+  id: "xiaomi-su7-ultra",
+  urlPattern: /2025_xiaomi_su7_ultra/i,
+  leftDoorHinge: [/carPaint_4_carPaint_4/i],
+  rightDoorHinge: [/carPaint_6_carPaint_6/i],
+  leftDoor: [
+    /carPaint_4_carPaint_4/i,
+    /carInternal_DoorFront_carInternal_DoorFront/i,
+    /carGlass_front_2_Side_2_carGlass_front_2_Side_2/i,
+    /carWindowTrim_1_carWindowTrim_1/i,
+    /carMirror_top_2_carMirror_top_2/i,
+    /carMirror_bottom_2_carMirror_bottom_2/i,
+    /carRearviewMirror_2_/i,
+    /carPlastic_BrilliantBlack_3_2_/i,
+  ],
+  rightDoor: [
+    /carPaint_6_carPaint_6/i,
+    /carInternal_DoorFront_1__/i,
+    /carGlass_front_2_Side_1_carGlass_front_2_Side_1/i,
+    /carWindowTrim_3_carWindowTrim_3/i,
+    /carMirror_top_1_carMirror_top_1/i,
+    /carMirror_bottom_1_carMirror_bottom_1/i,
+    /carRearviewMirror_1_/i,
+    /carPlastic_BrilliantBlack_3_1_/i,
+  ],
+  trunkHinge: [/carPaint_8_carPaint_8/i],
+  trunk: [
+    /carPaint_8_carPaint_8/i,
+    /carPaint_2_carPaint_2/i,
+    /carPlastic_MatteBlack_trunk_7_/i,
+    /carGlass_back_1_carGlass_back_1/i,
+    /carHeaterStrip_/i,
+    /carLightGlass_Back/i,
+    /carLightPlastic_BrilliantBlack_2_carLightPlastic/i,
+    /carLight_bulb_2_/i,
+  ],
+  sunroof: [/carRoof_su7Pro/i],
+  headLight: [
+    /carLightGlass_Front/i,
+    /carLightPlastic_MatteBlack/i,
+    /carLightPlastic_Chroming/i,
+  ],
+  tailLight: [
+    /carLightGlass_Back/i,
+    /carLightPlastic_BrilliantBlack_2_carLightPlastic/i,
+    /carLight_bulb_2_/i,
+  ],
+  hazardLight: [
+    /carLightGlass_Back/i,
+    /carLightPlastic_BrilliantBlack_2_carLightPlastic/i,
+    /carLight_bulb_2_/i,
+  ],
+  paintMaterial: [/^CarPaint$/i],
+};
+
+/**
+ * Xiaomi YU7: same showroom interactions as SU7 Ultra. Rear-door shells
+ * (`carPaint_9` / `carPaint_13`) stay on the body — the tray only swings front doors.
+ */
+const xiaomiYu7Profile: MarketRigProfile = {
+  id: "xiaomi-yu7",
+  urlPattern: /2025_xiaomi_yu7/i,
+  leftDoorHinge: [/carPaint_4_carPaint_4/i],
+  rightDoorHinge: [/carPaint_4_1__/i],
+  leftDoor: [
+    /carPaint_4_carPaint_4/i,
+    /carInternal_DoorFront_carInternal_DoorFront/i,
+    /carGlass_front_2_Side_2_carGlass_front_2_Side_2/i,
+    /carWindowTrim_1_carWindowTrim_1/i,
+    /carMirror_top_2_carMirror_top_2/i,
+    /carMirror_bottom_2_carMirror_bottom_2/i,
+    /carRearviewMirror_2_/i,
+    /carPlastic_BrilliantBlack_3_2_/i,
+    /carPlastic_BrilliantBlack_1_6_1__/i,
+  ],
+  rightDoor: [
+    /carPaint_4_1__/i,
+    /carInternal_DoorFront_1__/i,
+    /carGlass_front_2_Side_2_1__/i,
+    /carWindowTrim_1_1__/i,
+    /carMirror_top_2_1__/i,
+    /carMirror_bottom_2_1__/i,
+    /carRearviewMirror_3_/i,
+    /carPlastic_BrilliantBlack_3_3_/i,
+    /carPlastic_BrilliantBlack_1_6_2__/i,
+  ],
+  trunkHinge: [/carPaint_8_carPaint_8/i],
+  trunk: [
+    /carPaint_8_carPaint_8/i,
+    /carInternal_TrunkExternal/i,
+    /carGlass_back_1_carGlass_back_1/i,
+    /carHeaterStrip_/i,
+    /carDuckTail_/i,
+    /carLightGlass_Back/i,
+    /carLightPlastic_BrilliantBlack_2_carLightPlastic/i,
+    /carLight_bulb_2_/i,
+  ],
+  sunroof: [/carRoof_yu7_/i],
+  headLight: [
+    /carLightGlass_Front/i,
+    /carLight_bulb_1_/i,
+    /carLightPlastic_BrilliantBlack_3_/i,
+    /carLightPlastic_MatteBlack_carLightPlastic_MatteBlack/i,
+  ],
+  tailLight: [
+    /carLightGlass_Back/i,
+    /carLightPlastic_BrilliantBlack_2_carLightPlastic/i,
+    /carLight_bulb_2_/i,
+    /carLight_backbulb/i,
+  ],
+  hazardLight: [
+    /carLightGlass_Back/i,
+    /carLightPlastic_BrilliantBlack_2_carLightPlastic/i,
+    /carLight_bulb_2_/i,
+    /carLight_backbulb/i,
+  ],
+  paintMaterial: [/^CarPaint$/i],
+};
+
 export const MARKET_RIG_PROFILES: MarketRigProfile[] = [
   bmwM2Profile,
   suvQ3Profile,
   offroadBrabusProfile,
+  xiaomiSu7MaxProfile,
+  xiaomiSu7UltraProfile,
+  xiaomiYu7Profile,
 ];
 
 /** Fingerprint of profile door/trunk lists — used to invalidate warm prepared GLB packages. */

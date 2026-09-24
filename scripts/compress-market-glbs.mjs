@@ -21,6 +21,9 @@ const FILES = [
   "suv-mainstream.glb",
   "sedan-mainstream.glb",
   "offroad-mainstream.glb",
+  "2024_xiaomi_su7_max.glb",
+  "2025_xiaomi_su7_ultra.glb",
+  "2025_xiaomi_yu7.glb",
 ];
 
 async function createIo() {

@@ -32,7 +32,7 @@
 
 ## 功能特性
 
-- **车型切换**：SUV / 小轿车 / 越野车（`public/models/market/*.glb`，**Draco 压缩**；默认小轿车）
+- **车型切换**：奥迪 Q3 / 宝马 M2 / 巴博斯 G900 / 小米 SU7 Max / SU7 Ultra / YU7（`public/models/market/*.glb`；默认宝马 M2）
 - **部件交互**：车门、后备箱、天窗、车灯、双闪、启动、制动（依 GLB 网格命名自动识别）
 - **物理拟真**：怠速发动机微抖、加速 / 制动俯仰、**轿车完整四轮旋转**（SUV / 越野为轮系烘焙，部分交互受限）、制动时尾灯刹车灯亮起、双闪频闪
 - **场景模式**：影棚 / 白天 / 夜晚，一键切换灯光、地面材质与雾效，夜晚自带湿地反射
@@ -154,6 +154,9 @@ pnpm build:pages   # 输出到 out/，basePath 为 /3d-car-viewing
 | `sedan-mainstream.glb` | 小轿车（默认） | ~2.7 MB | 完整四轮动画 |
 | `offroad-mainstream.glb` | 越野车 | ~9.5 MB | 烘焙 |
 | `suv-mainstream.glb` | SUV | ~14.5 MB | 烘焙 |
+| `2024_xiaomi_su7_max.glb` | 小米 SU7 Max | ~5.3 MB | 四轮、车灯；门与车身合并 |
+| `2025_xiaomi_su7_ultra.glb` | 小米 SU7 Ultra | ~31 MB | 前门、后备箱、天窗、车灯、四轮 |
+| `2025_xiaomi_yu7.glb` | 小米 YU7 | ~28 MB | 前门、后备箱、天窗、车灯、四轮 |
 
 
 - 加载失败 → 自动使用内置几何体 `CarModel`
