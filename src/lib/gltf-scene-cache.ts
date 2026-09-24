@@ -4,6 +4,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import { discoverAssetCarRig, type AssetCarRig } from "@/lib/asset-car-rig";
 import { approxBytesForModelUrl } from "@/lib/car-categories";
+import { marketRigProfilesFingerprint } from "@/lib/market-rig-profiles";
 import { normalizeMarketModel } from "@/lib/normalize-market-model";
 import { publicAssetPath } from "@/lib/public-asset-path";
 
@@ -20,8 +21,21 @@ const preparedCache = new Map<string, PreparedShowroomModel>();
 const prepareInFlight = new Map<string, Promise<PreparedShowroomModel>>();
 const preloadInFlight = new Map<string, Promise<void>>();
 
+/** Drop prepared packages when door/trunk pattern lists change (HMR / hot profile edits). */
+let preparedCacheProfileStamp = marketRigProfilesFingerprint();
+
 const TEMPLATE_CACHE_LIMIT = 6;
 const PREPARED_CACHE_LIMIT = 4;
+
+function preparedCacheKey(url: string) {
+  const stamp = marketRigProfilesFingerprint();
+  if (stamp !== preparedCacheProfileStamp) {
+    preparedCache.clear();
+    prepareInFlight.clear();
+    preparedCacheProfileStamp = stamp;
+  }
+  return `${stamp}::${url}`;
+}
 
 export type PreparedShowroomModel = {
   url: string;
@@ -130,9 +144,11 @@ export function resetPreparedShowroomModel(model: PreparedShowroomModel) {
     rig.trunkPivot.rotation.set(0, 0, 0);
   }
   for (const node of rig.sunroofNodes) {
-    const baseY = node.userData.showroomSunroofBaseY;
-    if (typeof baseY === "number") {
-      node.position.y = baseY;
+    const basePos = node.userData.showroomSunroofBasePos as THREE.Vector3 | undefined;
+    if (basePos) {
+      node.position.copy(basePos);
+    } else if (typeof node.userData.showroomSunroofBaseY === "number") {
+      node.position.y = node.userData.showroomSunroofBaseY;
     }
     node.rotation.set(0, 0, 0);
   }
@@ -203,14 +219,15 @@ async function prepareShowroomModel(
   url: string,
   onProgress?: (ratio: number) => void,
 ): Promise<PreparedShowroomModel> {
-  const existing = preparedCache.get(url);
+  const cacheKey = preparedCacheKey(url);
+  const existing = preparedCache.get(cacheKey);
   if (existing) {
-    touchMapEntry(preparedCache, url, existing);
+    touchMapEntry(preparedCache, cacheKey, existing);
     onProgress?.(1);
     return existing;
   }
 
-  const inflight = prepareInFlight.get(url);
+  const inflight = prepareInFlight.get(cacheKey);
   if (inflight) {
     return inflight;
   }
@@ -223,22 +240,17 @@ async function prepareShowroomModel(
     const instance = template.clone(true);
     await yieldToNextFrame();
     const rig = discoverAssetCarRig(instance, url);
-    for (const node of rig.sunroofNodes) {
-      if (typeof node.userData.showroomSunroofBaseY !== "number") {
-        node.userData.showroomSunroofBaseY = node.position.y;
-      }
-    }
     instance.userData.showroomRig = rig;
     const prepared: PreparedShowroomModel = { url, root: instance, rig };
-    touchMapEntry(preparedCache, url, prepared);
-    evictOldestPrepared(url);
+    touchMapEntry(preparedCache, cacheKey, prepared);
+    evictOldestPrepared(cacheKey);
     onProgress?.(1);
     return prepared;
   })().finally(() => {
-    prepareInFlight.delete(url);
+    prepareInFlight.delete(cacheKey);
   });
 
-  prepareInFlight.set(url, task);
+  prepareInFlight.set(cacheKey, task);
   return task;
 }
 
@@ -246,7 +258,8 @@ export async function loadGltfScene(
   url: string,
   onProgress?: (ratio: number) => void,
 ): Promise<LoadGltfSceneResult> {
-  const fromCache = preparedCache.has(url);
+  const cacheKey = preparedCacheKey(url);
+  const fromCache = preparedCache.has(cacheKey);
   const prepared = await prepareShowroomModel(url, onProgress);
   if (fromCache) {
     resetPreparedShowroomModel(prepared);
@@ -256,15 +269,16 @@ export async function loadGltfScene(
 
 /** Whether a fully prepared display package is already warm for this URL. */
 export function isShowroomModelPrepared(url: string): boolean {
-  return preparedCache.has(url);
+  return preparedCache.has(preparedCacheKey(url));
 }
 
 /** Warm template + prepared package without attaching to the scene. */
 export function preloadGltfScene(url: string): Promise<void> {
-  if (preparedCache.has(url)) {
+  const cacheKey = preparedCacheKey(url);
+  if (preparedCache.has(cacheKey)) {
     return Promise.resolve();
   }
-  const pending = preloadInFlight.get(url);
+  const pending = preloadInFlight.get(cacheKey);
   if (pending) {
     return pending;
   }
@@ -272,9 +286,9 @@ export function preloadGltfScene(url: string): Promise<void> {
   const task = prepareShowroomModel(url)
     .then(() => undefined)
     .finally(() => {
-      preloadInFlight.delete(url);
+      preloadInFlight.delete(cacheKey);
     });
-  preloadInFlight.set(url, task);
+  preloadInFlight.set(cacheKey, task);
   return task;
 }
 
@@ -314,7 +328,7 @@ export function scheduleIdleGltfPreloads(urls: string[], options?: IdlePreloadOp
     return () => undefined;
   }
 
-  let uniqueUrls = [...new Set(urls)].filter((url) => !preparedCache.has(url));
+  let uniqueUrls = [...new Set(urls)].filter((url) => !preparedCache.has(preparedCacheKey(url)));
   if (options?.currentOnly && uniqueUrls.length > 0) {
     uniqueUrls = uniqueUrls.slice(0, 1);
   }

@@ -7,6 +7,14 @@ export type MarketRigProfile = {
   urlPattern: RegExp;
   leftDoor?: RegExp[];
   rightDoor?: RegExp[];
+  /** Subset of door meshes used only to place the hinge (outer shell). */
+  leftDoorHinge?: RegExp[];
+  rightDoorHinge?: RegExp[];
+  /**
+   * One buffer that holds several doors' trim. Triangles inside each front-door
+   * volume are split off and parented to that hinge; the rest stays on the body.
+   */
+  spanningDoorTrim?: RegExp[];
   trunk?: RegExp[];
   headLight?: RegExp[];
   /** Match glTF material names when mesh nodes are generic (`Object_*`). */
@@ -36,21 +44,70 @@ const bmwM2Profile: MarketRigProfile = {
   wheel: [/3DWheel (Front|Rear) [LR]/i],
 };
 
-/** Audi Q3–style Sketchfab SUV (`suv-mainstream.glb`). */
+/**
+ * Audi Q3 (`suv-mainstream.glb`) — door lists are hand-authored for this asset only.
+ * Outer shell defines the hinge; remaining ids are every front-door mesh in that volume.
+ * Showroom left is +Z (driver side when facing -X). These ids were authored on the
+ * file's opposite side, so the lists are swapped to match that convention.
+ */
 const suvQ3Profile: MarketRigProfile = {
   id: "suv-q3",
   urlPattern: /suv-mainstream/i,
+  leftDoorHinge: [/polySurface2889_Mesh_140/i, /polySurface5632_Mesh_162/i],
+  rightDoorHinge: [/polySurface2908_Mesh_142/i, /polySurface5638_Mesh_165/i],
   leftDoor: [
-    /polySurface5638/i,
-    /polySurface3173_Mesh_159_Door_Soft_Black_Plastic_Q3/i,
-    /polySurface3103_Mesh_156_Door_Rubber/i,
-    /polySurface3104_Mesh_157_Door_Black_Plastic_Noise/i,
+    /polySurface2889_Mesh_140/i,
+    /polySurface5632_Mesh_162/i,
+    /Door_INT157_Mesh_087/i,
+    /polySurface3102_Mesh_155/i,
+    /Door_INT152_Mesh_084/i,
+    /polySurface3011_Mesh_148/i,
+    /polySurface2997_Mesh_144/i,
+    /Q3_Exteroir332_Mesh_171/i,
+    /polySurface3172_Mesh_158/i,
+    /polySurface3049_Mesh_152/i,
+    /polySurface3048_Mesh_151/i,
+    /polySurface5643_Mesh_168/i,
+    /Door_INT30_Mesh_096/i,
+    /Door_INT136_Mesh_080/i,
+    /Door_INT116_Mesh_074/i,
+    /Door_INT113_Mesh_073/i,
+    /Door_INT25_Mesh_094/i,
+    /Door_INT26_Mesh_095/i,
+    /Door_INT132_Mesh_079/i,
+    /Door_INT9_Mesh_123/i,
+    /Door_INT23_Mesh_093/i,
+  ],
+  // Beltline plastic (and its chrome lip) is one mesh for all four doors.
+  spanningDoorTrim: [
+    /Q3_Technology7_Mesh_232/i,
+    /Primeam_Q3_10_Mesh_217/i,
+    /Q3_Technology14_Mesh_230/i,
   ],
   rightDoor: [
-    /polySurface5634/i,
-    /polySurface5632/i,
-    /polySurface3102_Mesh_155_Door_Black_Plastic_Noise/i,
-    /polySurface3173_Mesh_159_Door_Soft_Black_Plastic_Q4/i,
+    /polySurface2908_Mesh_142/i,
+    /polySurface5638_Mesh_165/i,
+    /polySurface3103_Mesh_156/i,
+    /polySurface3104_Mesh_157/i,
+    /polySurface3173_Mesh_159/i,
+    /polySurface5628_Mesh_161/i,
+    /polySurface3001_Mesh_146/i,
+    /Q3_Exteroir331_Mesh_170/i,
+    /polySurface3095_Mesh_153/i,
+    /polySurface3097_Mesh_154/i,
+    /polySurface17_Mesh_139/i,
+    /polySurface5642_Mesh_167/i,
+    /Door_INT146_Mesh_081/i,
+    /Door_INT75_Mesh_116/i,
+    /Door_INT1_Mesh_063/i,
+    /Door_INT76_Mesh_117/i,
+    /Door_INT89_Mesh_122/i,
+    /Door_INT92_Mesh_126/i,
+    /Door_INT21_Mesh_092/i,
+    /Door_INT41_Mesh_102/i,
+    /Door_INT45_Mesh_104/i,
+    /Door_INT124_Mesh_077/i,
+    /Door_INT43_Mesh_103/i,
   ],
   trunk: [/Boot_ext2_Mesh_049_Carpaint/i, /Boot_ext17/i, /Boot_ext13_Mesh_045_Chrome/i, /Boot_ext5/i],
   headLight: [
@@ -85,6 +142,24 @@ export const MARKET_RIG_PROFILES: MarketRigProfile[] = [
   suvQ3Profile,
   offroadBrabusProfile,
 ];
+
+/** Fingerprint of profile door/trunk lists — used to invalidate warm prepared GLB packages. */
+export function marketRigProfilesFingerprint(): string {
+  return MARKET_RIG_PROFILES.map((profile) => {
+    const patterns = [
+      ...(profile.leftDoor ?? []),
+      ...(profile.rightDoor ?? []),
+      ...(profile.leftDoorHinge ?? []),
+      ...(profile.rightDoorHinge ?? []),
+      ...(profile.trunk ?? []),
+      ...(profile.spanningDoorTrim ?? []),
+      ...(profile.sunroof ?? []),
+    ]
+      .map((pattern) => pattern.source)
+      .join("|");
+    return `${profile.id}:${patterns.length}:${patterns}`;
+  }).join(";");
+}
 
 export function resolveMarketRigProfile(modelUrl?: string): MarketRigProfile | null {
   if (!modelUrl) {

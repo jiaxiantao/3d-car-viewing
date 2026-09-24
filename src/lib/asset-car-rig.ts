@@ -430,34 +430,305 @@ function collectMeshes(root: THREE.Object3D) {
   return entries;
 }
 
+/**
+ * Place a hinge under `root` at a world-space point, in root-local coordinates.
+ * Keep identity local rotation so children stay rigidly parented; choose the spin
+ * axis to match showroom world axes after normalize (`Ry(-90°)` on market GLBs):
+ * - doors: root-local Y (= world Y)
+ * - trunk: root-local X (= world Z / lateral)
+ */
+function createHingePivot(
+  root: THREE.Object3D,
+  worldPoint: THREE.Vector3,
+  hingeAxis: ShowroomSpinAxis,
+) {
+  const pivot = new THREE.Group();
+  root.updateWorldMatrix(true, true);
+  const localPoint = worldPoint.clone();
+  root.worldToLocal(localPoint);
+  pivot.position.copy(localPoint);
+  pivot.userData.showroomHingeAxis = hingeAxis;
+  root.add(pivot);
+  return pivot;
+}
+
+/** Convert a world-space translation into `object`'s parent-local delta. */
+export function worldDeltaToParentLocal(object: THREE.Object3D, worldDelta: THREE.Vector3) {
+  const parent = object.parent;
+  if (!parent) {
+    return worldDelta.clone();
+  }
+  parent.updateWorldMatrix(true, false);
+  const inverse = parent.matrixWorld.clone().invert();
+  const start = new THREE.Vector3().setFromMatrixPosition(parent.matrixWorld);
+  const end = start.clone().add(worldDelta);
+  start.applyMatrix4(inverse);
+  end.applyMatrix4(inverse);
+  return end.sub(start);
+}
+
 function createSideDoorPivot(
   root: THREE.Object3D,
   meshes: THREE.Mesh[],
   side: "left" | "right",
+  hingeMeshes?: THREE.Mesh[],
 ) {
-  if (meshes.length === 0) {
+  // One mesh must belong to only one door — steal-via-attach across sides causes floaters.
+  const unique: THREE.Mesh[] = [];
+  const seen = new Set<string>();
+  for (const mesh of meshes) {
+    if (seen.has(mesh.uuid) || mesh.userData.showroomDoorClaimed) {
+      continue;
+    }
+    seen.add(mesh.uuid);
+    unique.push(mesh);
+  }
+  if (unique.length === 0) {
     return null;
   }
 
-  const pivot = new THREE.Group();
+  // Hinge from outer-shell seeds only — INT trim must not shift the pivot.
+  const hingeSource = (hingeMeshes ?? []).filter((mesh) =>
+    unique.some((candidate) => candidate.uuid === mesh.uuid),
+  );
   const doorBox = new THREE.Box3();
-  for (const mesh of meshes) {
+  for (const mesh of hingeSource.length > 0 ? hingeSource : unique) {
     doorBox.expandByObject(mesh);
   }
 
-  const hingeX = doorBox.min.x + (doorBox.max.x - doorBox.min.x) * 0.06;
-  const hingeY = doorBox.min.y + (doorBox.max.y - doorBox.min.y) * 0.32;
-  const hingeZ = side === "left" ? doorBox.max.z : doorBox.min.z;
-  pivot.position.set(hingeX, hingeY, hingeZ);
-  pivot.userData.showroomHingeAxis = "y";
-  root.add(pivot);
+  const doorCenter = doorBox.getCenter(new THREE.Vector3());
+  const openSign = doorCenter.z >= 0 ? -1 : 1;
+  // Outer skin is max.z on +Z (left) and min.z on -Z (right). Pull the axis
+  // inboard so it sits against the body instead of on the outer paint.
+  const doorDepthZ = doorBox.max.z - doorBox.min.z;
+  const inward = Math.min(0.055, doorDepthZ * 0.4);
+  const hingeZ = doorCenter.z >= 0 ? doorBox.max.z - inward : doorBox.min.z + inward;
+  const doorSpanX = doorBox.max.x - doorBox.min.x;
+  // Showroom -X is forward. The axis sits on the leading face (slightly ahead of
+  // the paint) so the A-pillar edge stays against the fender as the door swings.
+  const hingeX = doorBox.min.x - doorSpanX * 0.01;
 
-  for (const mesh of meshes) {
+  const hingeWorld = new THREE.Vector3(
+    hingeX,
+    doorBox.min.y + (doorBox.max.y - doorBox.min.y) * 0.32,
+    hingeZ,
+  );
+  const pivot = createHingePivot(root, hingeWorld, "y");
+
+  for (const mesh of unique) {
+    mesh.userData.showroomDoorClaimed = side;
     pivot.attach(mesh);
   }
 
   pivot.userData.showroomSide = side;
+  pivot.userData.showroomOpenSign = openSign;
   return pivot;
+}
+
+function isUnderPivot(object: THREE.Object3D, pivot: THREE.Object3D | null) {
+  if (!pivot) {
+    return false;
+  }
+  let current: THREE.Object3D | null = object;
+  while (current) {
+    if (current === pivot) {
+      return true;
+    }
+    current = current.parent;
+  }
+  return false;
+}
+
+function closedDoorBounds(pivot: THREE.Object3D | null) {
+  if (!pivot) {
+    return null;
+  }
+  const box = new THREE.Box3();
+  let found = false;
+  pivot.updateWorldMatrix(true, true);
+  pivot.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    if (!mesh.isMesh) {
+      return;
+    }
+    box.expandByObject(mesh);
+    found = true;
+  });
+  return found ? box : null;
+}
+
+/**
+ * Front-door claim volume. Shrink the rear face so a shared beltline mesh
+ * does not donate the rear door's leading edge to the front hinge.
+ * Showroom forward is -X, so the rear face is `max.x`.
+ */
+function frontDoorClaimBox(doorBox: THREE.Box3) {
+  const size = doorBox.getSize(new THREE.Vector3());
+  const box = doorBox.clone();
+  box.max.x -= size.x * 0.08;
+  box.min.x -= 0.04;
+  box.min.y -= 0.04;
+  box.max.y += 0.04;
+  box.min.z -= 0.06;
+  box.max.z += 0.06;
+  return box;
+}
+
+function triangleCorner(geometry: THREE.BufferGeometry, triangle: number, corner: number) {
+  const index = geometry.getIndex();
+  return index ? index.getX(triangle * 3 + corner) : triangle * 3 + corner;
+}
+
+function extractTriangleGeometry(geometry: THREE.BufferGeometry, triangles: number[]) {
+  const remap = new Map<number, number>();
+  const corners: number[] = [];
+  for (const triangle of triangles) {
+    for (let corner = 0; corner < 3; corner += 1) {
+      const source = triangleCorner(geometry, triangle, corner);
+      if (!remap.has(source)) {
+        remap.set(source, remap.size);
+      }
+      corners.push(source);
+    }
+  }
+
+  const next = new THREE.BufferGeometry();
+  for (const name of Object.keys(geometry.attributes)) {
+    const attribute = geometry.getAttribute(name);
+    const itemSize = attribute.itemSize;
+    const ArrayCtor = attribute.array.constructor as Float32ArrayConstructor;
+    const packed = new ArrayCtor(remap.size * itemSize);
+    for (const [source, destination] of remap) {
+      for (let component = 0; component < itemSize; component += 1) {
+        packed[destination * itemSize + component] = attribute.getComponent(source, component);
+      }
+    }
+    next.setAttribute(name, new THREE.BufferAttribute(packed, itemSize, attribute.normalized));
+  }
+  next.setIndex(corners.map((source) => remap.get(source)!));
+  return next;
+}
+
+function adoptDoorPiece(source: THREE.Mesh, geometry: THREE.BufferGeometry, pivot: THREE.Group) {
+  const piece = new THREE.Mesh(geometry, source.material);
+  piece.name = source.name;
+  piece.castShadow = source.castShadow;
+  piece.receiveShadow = source.receiveShadow;
+  piece.position.copy(source.position);
+  piece.quaternion.copy(source.quaternion);
+  piece.scale.copy(source.scale);
+  source.parent?.add(piece);
+  piece.userData.showroomDoorClaimed = pivot.userData.showroomSide;
+  pivot.attach(piece);
+  return piece;
+}
+
+/**
+ * Q3 beltline covers are one mesh across every door. Cut the triangles that
+ * sit in each front-door volume and parent those pieces to that hinge.
+ */
+function splitSpanningDoorTrim(
+  leftPivot: THREE.Group | null,
+  rightPivot: THREE.Group | null,
+  patterns?: RegExp[],
+) {
+  const adopted: { left: THREE.Mesh[]; right: THREE.Mesh[] } = { left: [], right: [] };
+  if (!patterns?.length || (!leftPivot && !rightPivot)) {
+    return adopted;
+  }
+
+  const leftBox = closedDoorBounds(leftPivot);
+  const rightBox = closedDoorBounds(rightPivot);
+  const leftClaim = leftBox ? frontDoorClaimBox(leftBox) : null;
+  const rightClaim = rightBox ? frontDoorClaimBox(rightBox) : null;
+  if (!leftClaim && !rightClaim) {
+    return adopted;
+  }
+
+  const candidates: THREE.Mesh[] = [];
+  const root = leftPivot?.parent ?? rightPivot?.parent;
+  root?.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    if (!mesh.isMesh || !matchesAny(hierarchicalName(mesh), patterns)) {
+      return;
+    }
+    if (isUnderPivot(mesh, leftPivot) || isUnderPivot(mesh, rightPivot)) {
+      return;
+    }
+    if (Object.keys(mesh.geometry.morphAttributes).length > 0) {
+      return;
+    }
+    candidates.push(mesh);
+  });
+
+  const cornerA = new THREE.Vector3();
+  const cornerB = new THREE.Vector3();
+  const cornerC = new THREE.Vector3();
+  const centroid = new THREE.Vector3();
+
+  for (const mesh of candidates) {
+    const position = mesh.geometry.getAttribute("position");
+    if (!position) {
+      continue;
+    }
+    mesh.updateWorldMatrix(true, false);
+    const triangleCount = mesh.geometry.getIndex()
+      ? mesh.geometry.getIndex()!.count / 3
+      : position.count / 3;
+    const leftTriangles: number[] = [];
+    const rightTriangles: number[] = [];
+    const stayTriangles: number[] = [];
+
+    for (let triangle = 0; triangle < triangleCount; triangle += 1) {
+      cornerA.fromBufferAttribute(position, triangleCorner(mesh.geometry, triangle, 0));
+      cornerB.fromBufferAttribute(position, triangleCorner(mesh.geometry, triangle, 1));
+      cornerC.fromBufferAttribute(position, triangleCorner(mesh.geometry, triangle, 2));
+      cornerA.applyMatrix4(mesh.matrixWorld);
+      cornerB.applyMatrix4(mesh.matrixWorld);
+      cornerC.applyMatrix4(mesh.matrixWorld);
+      centroid.copy(cornerA).add(cornerB).add(cornerC).multiplyScalar(1 / 3);
+
+      const inLeft = Boolean(leftClaim?.containsPoint(centroid));
+      const inRight = Boolean(rightClaim?.containsPoint(centroid));
+      if (inLeft && inRight && leftBox && rightBox) {
+        const leftCenter = leftBox.getCenter(new THREE.Vector3());
+        const rightCenter = rightBox.getCenter(new THREE.Vector3());
+        if (centroid.distanceTo(leftCenter) <= centroid.distanceTo(rightCenter)) {
+          leftTriangles.push(triangle);
+        } else {
+          rightTriangles.push(triangle);
+        }
+      } else if (inLeft) {
+        leftTriangles.push(triangle);
+      } else if (inRight) {
+        rightTriangles.push(triangle);
+      } else {
+        stayTriangles.push(triangle);
+      }
+    }
+
+    if (leftTriangles.length === 0 && rightTriangles.length === 0) {
+      continue;
+    }
+
+    if (leftPivot && leftTriangles.length > 0) {
+      adopted.left.push(adoptDoorPiece(mesh, extractTriangleGeometry(mesh.geometry, leftTriangles), leftPivot));
+    }
+    if (rightPivot && rightTriangles.length > 0) {
+      adopted.right.push(
+        adoptDoorPiece(mesh, extractTriangleGeometry(mesh.geometry, rightTriangles), rightPivot),
+      );
+    }
+
+    if (stayTriangles.length === 0) {
+      mesh.removeFromParent();
+    } else if (stayTriangles.length !== triangleCount) {
+      // New geometry — the template still owns the original shared buffer.
+      mesh.geometry = extractTriangleGeometry(mesh.geometry, stayTriangles);
+    }
+  }
+
+  return adopted;
 }
 
 function createTrunkPivot(root: THREE.Object3D, meshes: THREE.Mesh[]) {
@@ -465,25 +736,38 @@ function createTrunkPivot(root: THREE.Object3D, meshes: THREE.Mesh[]) {
     return null;
   }
 
-  const pivot = new THREE.Group();
   const trunkBox = new THREE.Box3();
   for (const mesh of meshes) {
     trunkBox.expandByObject(mesh);
   }
 
-  pivot.position.set(
-    trunkBox.max.x,
-    trunkBox.min.y + (trunkBox.max.y - trunkBox.min.y) * 0.68,
+  // Hatch hinge at the top-rear; spin root-local X (= world lateral after Ry(-90°)).
+  const hingeWorld = new THREE.Vector3(
+    trunkBox.max.x - (trunkBox.max.x - trunkBox.min.x) * 0.08,
+    trunkBox.min.y + (trunkBox.max.y - trunkBox.min.y) * 0.88,
     (trunkBox.min.z + trunkBox.max.z) / 2,
   );
-  pivot.userData.showroomHingeAxis = "z";
-  root.add(pivot);
+  const pivot = createHingePivot(root, hingeWorld, "x");
 
   for (const mesh of meshes) {
     pivot.attach(mesh);
   }
 
   return pivot;
+}
+
+/** Store base local pose + parent-local open delta so the glass slides along the roof. */
+function prepareSunroofMotion(nodes: THREE.Object3D[]) {
+  for (const node of nodes) {
+    node.userData.showroomSunroofBasePos = node.position.clone();
+    const box = new THREE.Box3().setFromObject(node);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    // Slide toward rear (+X) with a slight lift — scale from the panel's world size.
+    const slide = Math.max(0.18, Math.max(size.x, size.z) * 0.42);
+    const worldDelta = new THREE.Vector3(slide, Math.max(0.02, size.y * 0.5 + 0.02), 0);
+    node.userData.showroomSunroofOpenDelta = worldDeltaToParentLocal(node, worldDelta);
+  }
 }
 
 /** Names that contain "wheel" but are not road wheels (spare, steering, trim). */
@@ -728,11 +1012,27 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
   const isLocalizedPanel = (meshSize: THREE.Vector3) =>
     meshSize.x <= depth * 0.55 && meshSize.z <= width * 0.62;
 
+  const profileHasDoors =
+    (profile?.leftDoor?.length ?? 0) > 0 || (profile?.rightDoor?.length ?? 0) > 0;
+
   for (const entry of entries) {
     const { mesh, name, materialName, center: meshCenter, size: meshSize } = entry;
     const nameLower = name.toLowerCase();
     const materialLower = materialName.toLowerCase();
     const label = `${nameLower} ${materialLower}`;
+
+    // Exclusive market door lists win first so INT trim (e.g. Soft_Black_Pattern)
+    // is never stolen by paint / lamp heuristics.
+    if (profileHasDoors) {
+      if (matchesAny(name, profile?.leftDoor)) {
+        leftDoorMeshes.push(mesh);
+        continue;
+      }
+      if (matchesAny(name, profile?.rightDoor)) {
+        rightDoorMeshes.push(mesh);
+        continue;
+      }
+    }
 
     if (matchesAny(name, profile?.sunroof) || isSunroofPart(nameLower)) {
       if (!isInteriorLight(nameLower)) {
@@ -845,6 +1145,11 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
       continue;
     }
 
+    // Exclusive profile doors already claimed above — skip auto-discovery.
+    if (profileHasDoors) {
+      continue;
+    }
+
     const profileDoor =
       matchesAny(name, profile?.leftDoor) || matchesAny(name, profile?.rightDoor);
     if (!profileDoor && !isDoorCandidate(nameLower, profile)) {
@@ -856,16 +1161,17 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
       continue;
     }
 
-    if (meshCenter.x > frontDoorX) {
+    // Profile-listed door skins always win; frontDoorX only filters auto-discovery.
+    if (!profileDoor && meshCenter.x > frontDoorX) {
       continue;
     }
 
-    if (matchesAny(name, profile?.leftDoor) || meshCenter.z > leftZ) {
+    if (matchesAny(name, profile?.leftDoor) || (!profileDoor && meshCenter.z > leftZ)) {
       leftDoorMeshes.push(mesh);
       continue;
     }
 
-    if (matchesAny(name, profile?.rightDoor) || meshCenter.z < rightZ) {
+    if (matchesAny(name, profile?.rightDoor) || (!profileDoor && meshCenter.z < rightZ)) {
       rightDoorMeshes.push(mesh);
     }
   }
@@ -903,10 +1209,20 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
     }
   }
 
-  const leftDoorPivot = createSideDoorPivot(root, leftDoorMeshes, "left");
-  const rightDoorPivot = createSideDoorPivot(root, rightDoorMeshes, "right");
+  const leftHingeMeshes = leftDoorMeshes.filter((mesh) =>
+    matchesAny(hierarchicalName(mesh), profile?.leftDoorHinge),
+  );
+  const rightHingeMeshes = rightDoorMeshes.filter((mesh) =>
+    matchesAny(hierarchicalName(mesh), profile?.rightDoorHinge),
+  );
+  const leftDoorPivot = createSideDoorPivot(root, leftDoorMeshes, "left", leftHingeMeshes);
+  const rightDoorPivot = createSideDoorPivot(root, rightDoorMeshes, "right", rightHingeMeshes);
+  const spanningTrim = splitSpanningDoorTrim(leftDoorPivot, rightDoorPivot, profile?.spanningDoorTrim);
+  leftDoorMeshes.push(...spanningTrim.left);
+  rightDoorMeshes.push(...spanningTrim.right);
   const trunkSorted = trunkMeshes.sort((a, b) => getMeshVolume(b) - getMeshVolume(a)).slice(0, 6);
   const trunkPivot = createTrunkPivot(root, trunkSorted);
+  prepareSunroofMotion(sunroofNodes);
 
   let frontWheels: THREE.Object3D[] = [];
   let rearWheels: THREE.Object3D[] = [];

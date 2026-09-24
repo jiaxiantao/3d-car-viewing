@@ -194,7 +194,7 @@ export function useShowroomPageState() {
       }
       return supportsInteraction(key)
         ? undefined
-        : "当前 GLB 车身为合并整体，未包含可独立活动的该部件，无法开合。";
+        : "当前 GLB 未包含可独立活动的该部件，无法开合。";
     },
     [assetModelLoading, supportsInteraction],
   );
@@ -214,7 +214,7 @@ export function useShowroomPageState() {
 
   const unsupportedInteractionNote =
     unsupportedInteractionLabels.length > 0
-      ? `当前 GLB 的「${unsupportedInteractionLabels.join("、")}」与车身合并，无法单独开合（对应按钮已禁用）。车灯、双闪、启动与整车动态仍可用；若要看到“真实四轮转动”，建议切换到小轿车。`
+      ? `当前 GLB 的「${unsupportedInteractionLabels.join("、")}」无法单独开合（按钮已禁用）。车灯、双闪、启动与整车动态仍可用；真实四轮转动请切换小轿车。`
       : null;
 
   const wheelSpinUnavailable = useAssetModel && assetRigCaps ? !assetRigCaps.wheels : false;

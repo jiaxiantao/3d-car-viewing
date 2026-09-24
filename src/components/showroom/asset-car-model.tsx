@@ -117,17 +117,11 @@ export function AssetModel({
   const lastVelocityRef = useRef(0);
   const prevEngineOnRef = useRef(state.engineOn);
   const ignitionTimeRef = useRef(0);
-  const sunroofBaseYRef = useRef<Map<string, number>>(new Map());
-
   useEffect(() => {
     wheelSpinAngleRef.current = 0;
     wheelSteerAngleRef.current = 0;
     prevEngineOnRef.current = false;
     ignitionTimeRef.current = 0;
-    sunroofBaseYRef.current.clear();
-    for (const node of rig.sunroofNodes) {
-      sunroofBaseYRef.current.set(node.uuid, node.position.y);
-    }
   }, [rig]);
 
   useEffect(() => {
@@ -258,7 +252,8 @@ export function AssetModel({
     const ignitionPulse = Math.sin(ignitionProgress * Math.PI);
 
     if (rig.leftDoorPivot) {
-      const target = state.leftDoorOpen ? -ASSET_DOOR_MAX_OPEN_RADIANS : 0;
+      const openSign = (rig.leftDoorPivot.userData.showroomOpenSign as number | undefined) ?? -1;
+      const target = state.leftDoorOpen ? openSign * ASSET_DOOR_MAX_OPEN_RADIANS : 0;
       rig.leftDoorPivot.rotation.y = THREE.MathUtils.damp(
         rig.leftDoorPivot.rotation.y,
         target,
@@ -267,7 +262,8 @@ export function AssetModel({
       );
     }
     if (rig.rightDoorPivot) {
-      const target = state.rightDoorOpen ? ASSET_DOOR_MAX_OPEN_RADIANS : 0;
+      const openSign = (rig.rightDoorPivot.userData.showroomOpenSign as number | undefined) ?? 1;
+      const target = state.rightDoorOpen ? openSign * ASSET_DOOR_MAX_OPEN_RADIANS : 0;
       rig.rightDoorPivot.rotation.y = THREE.MathUtils.damp(
         rig.rightDoorPivot.rotation.y,
         target,
@@ -276,18 +272,29 @@ export function AssetModel({
       );
     }
     if (rig.trunkPivot) {
+      // Root-local X == world lateral after market Ry(-90°) normalize.
+      const axis = (rig.trunkPivot.userData.showroomHingeAxis as "x" | "z" | undefined) ?? "x";
       const target = state.trunkOpen ? ASSET_TRUNK_MAX_OPEN_RADIANS : 0;
-      rig.trunkPivot.rotation.z = THREE.MathUtils.damp(rig.trunkPivot.rotation.z, target, 7, delta);
-    }
-
-    for (const node of rig.sunroofNodes) {
-      const baseY = sunroofBaseYRef.current.get(node.uuid) ?? node.position.y;
-      node.position.y = THREE.MathUtils.damp(
-        node.position.y,
-        state.sunroofOpen ? baseY + 0.14 : baseY,
+      rig.trunkPivot.rotation[axis] = THREE.MathUtils.damp(
+        rig.trunkPivot.rotation[axis],
+        target,
         7,
         delta,
       );
+    }
+
+    for (const node of rig.sunroofNodes) {
+      const base =
+        (node.userData.showroomSunroofBasePos as THREE.Vector3 | undefined) ?? node.position;
+      const openDelta =
+        (node.userData.showroomSunroofOpenDelta as THREE.Vector3 | undefined) ??
+        new THREE.Vector3(0, 0.08, 0);
+      const targetX = state.sunroofOpen ? base.x + openDelta.x : base.x;
+      const targetY = state.sunroofOpen ? base.y + openDelta.y : base.y;
+      const targetZ = state.sunroofOpen ? base.z + openDelta.z : base.z;
+      node.position.x = THREE.MathUtils.damp(node.position.x, targetX, 7, delta);
+      node.position.y = THREE.MathUtils.damp(node.position.y, targetY, 7, delta);
+      node.position.z = THREE.MathUtils.damp(node.position.z, targetZ, 7, delta);
     }
 
     const targetVelocity = state.engineOn ? state.speedKph / 3.6 : 0;

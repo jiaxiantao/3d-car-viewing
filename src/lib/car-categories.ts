@@ -25,7 +25,7 @@ export const CAR_CATEGORIES: Record<CarCategoryKey, CarCategory> = {
     primaryUrl: publicAssetPath("/models/market/suv-mainstream.glb"),
     approxBytes: 14_500_000,
     bakedWheels: true,
-    capabilityHint: "轮系烘焙 · 部分交互受限",
+    capabilityHint: "轮系烘焙 · 前门可开合",
   },
   sedan: {
     key: "sedan",
