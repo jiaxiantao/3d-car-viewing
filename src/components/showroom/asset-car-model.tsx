@@ -1,7 +1,7 @@
 "use client";
 
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import {
   ASSET_DOOR_MAX_OPEN_RADIANS,
@@ -21,12 +21,6 @@ import {
 
 type AssetInteractiveZone = "leftDoor" | "rightDoor" | "trunk";
 
-type PivotVolume = {
-  zone: AssetInteractiveZone;
-  pivot: THREE.Object3D;
-  box: THREE.Box3;
-};
-
 /** Door / trunk meshes are parented under these pivots. */
 function interactiveZone(object: THREE.Object3D, rig: AssetCarRig): AssetInteractiveZone | null {
   let current: THREE.Object3D | null = object;
@@ -43,49 +37,6 @@ function interactiveZone(object: THREE.Object3D, rig: AssetCarRig): AssetInterac
     current = current.parent;
   }
   return null;
-}
-
-/** Bounds of every mesh under the pivot, expressed in the pivot's local space. */
-function pivotLocalBounds(pivot: THREE.Object3D) {
-  const box = new THREE.Box3();
-  const inverse = new THREE.Matrix4();
-  const corner = new THREE.Vector3();
-  pivot.updateWorldMatrix(true, true);
-  inverse.copy(pivot.matrixWorld).invert();
-
-  let found = false;
-  pivot.traverse((child) => {
-    const mesh = child as THREE.Mesh;
-    if (!mesh.isMesh) {
-      return;
-    }
-    const geometry = mesh.geometry;
-    if (!geometry.boundingBox) {
-      geometry.computeBoundingBox();
-    }
-    const bounds = geometry.boundingBox;
-    if (!bounds || bounds.isEmpty()) {
-      return;
-    }
-    mesh.updateWorldMatrix(true, false);
-    const { min, max } = bounds;
-    for (const x of [min.x, max.x]) {
-      for (const y of [min.y, max.y]) {
-        for (const z of [min.z, max.z]) {
-          corner.set(x, y, z).applyMatrix4(mesh.matrixWorld).applyMatrix4(inverse);
-          box.expandByPoint(corner);
-          found = true;
-        }
-      }
-    }
-  });
-
-  if (!found) {
-    return null;
-  }
-  // A few centimetres so a hit on the outer skin or the inset glass still counts.
-  box.expandByScalar(0.03);
-  return box;
 }
 
 export function AssetModel({
@@ -115,28 +66,6 @@ export function AssetModel({
   const prevEngineOnRef = useRef(state.engineOn);
   const ignitionTimeRef = useRef(0);
   const doorHoverRef = useRef(false);
-  const doorVolumesRef = useRef<PivotVolume[]>([]);
-  const probeRef = useRef(new THREE.Vector3());
-  const pivotPointRef = useRef(new THREE.Vector3());
-
-  useLayoutEffect(() => {
-    const volumes: PivotVolume[] = [];
-    const specs = [
-      ["leftDoor", rig.leftDoorPivot],
-      ["rightDoor", rig.rightDoorPivot],
-      ["trunk", rig.trunkPivot],
-    ] as const;
-    for (const [zone, pivot] of specs) {
-      if (!pivot) {
-        continue;
-      }
-      const box = pivotLocalBounds(pivot);
-      if (box) {
-        volumes.push({ zone, pivot, box });
-      }
-    }
-    doorVolumesRef.current = volumes;
-  }, [rig]);
 
   const syncDoorCursor = (overDoor: boolean) => {
     if (overDoor === doorHoverRef.current) {
@@ -156,35 +85,8 @@ export function AssetModel({
     [],
   );
 
-  const zoneFromHit = (object: THREE.Object3D, point: THREE.Vector3) => {
-    const parented = interactiveZone(object, rig);
-    if (parented) {
-      return parented;
-    }
-
-    let best: AssetInteractiveZone | null = null;
-    let bestDistance = Number.POSITIVE_INFINITY;
-    const probe = probeRef.current;
-    const pivotPoint = pivotPointRef.current;
-    for (const volume of doorVolumesRef.current) {
-      volume.pivot.updateWorldMatrix(true, false);
-      probe.copy(point);
-      volume.pivot.worldToLocal(probe);
-      if (!volume.box.containsPoint(probe)) {
-        continue;
-      }
-      volume.pivot.getWorldPosition(pivotPoint);
-      const distance = pivotPoint.distanceToSquared(point);
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        best = volume.zone;
-      }
-    }
-    return best;
-  };
-
-  const toggleFromHit = (object: THREE.Object3D, point: THREE.Vector3) => {
-    const zone = zoneFromHit(object, point);
+  const toggleFromHit = (object: THREE.Object3D) => {
+    const zone = interactiveZone(object, rig);
     if (zone === "leftDoor") {
       onToggleLeftDoor();
     } else if (zone === "rightDoor") {
@@ -467,11 +369,11 @@ export function AssetModel({
       <primitive
         object={object}
         onClick={(event: ThreeEvent<MouseEvent>) => {
-          toggleFromHit(event.object, event.point);
+          toggleFromHit(event.object);
           event.stopPropagation();
         }}
         onPointerMove={(event: ThreeEvent<PointerEvent>) => {
-          syncDoorCursor(Boolean(zoneFromHit(event.object, event.point)));
+          syncDoorCursor(Boolean(interactiveZone(event.object, rig)));
           event.stopPropagation();
         }}
         onPointerOut={() => {
