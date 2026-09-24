@@ -167,4 +167,71 @@ describe("discoverAssetCarRig", () => {
     expect(centerOf(rightPiece!).distanceTo(rightBefore)).toBeLessThan(0.001);
     expect(centerOf(rearPiece!).distanceTo(rearBefore)).toBeLessThan(0.001);
   });
+
+  it("hinges the Q3 liftgate on the roof seam and takes the rear glass with it", () => {
+    const root = new THREE.Group();
+    root.name = "Q3";
+    root.add(mesh("Body_Carpaint", [0, 0.7, 0], [3.2, 1.2, 1.6]));
+    // Painted shell: top-forward corner is the roof seam (min.x, max.y).
+    root.add(mesh("Boot_ext2_Mesh_049_Carpaint_Q3", [1.55, 0.8, 0], [0.7, 0.8, 1.2]));
+    root.add(mesh("Boot_ext3_Mesh_050_Windshild_Q3", [1.6, 1.05, 0], [0.4, 0.22, 1.05]));
+    root.add(mesh("Boot_INT40_Mesh_054_Door_INT_Carpaint", [1.55, 0.8, 0], [0.66, 0.76, 1.1]));
+    root.add(mesh("Boot_ext26_Mesh_192_Thrmoline_phong2mat", [1.58, 1.08, 0], [0.3, 0.04, 0.8]));
+    // Front-screen defroster shares the Boot_ext26 prefix and must stay on the body.
+    const frontDefroster = mesh("Boot_ext26_Mesh_192_Thrmoline1_phong2mat", [-1.2, 0.9, 0], [0.02, 0.04, 1.2]);
+    root.add(frontDefroster);
+    const hatchLamp = mesh("Door_Tail_lamp36_Mesh_136_Tail_Cover_Red", [1.85, 0.55, 0], [0.08, 0.06, 1.1]);
+    const quarterLamp = mesh("polySurface3109_Mesh_188_Tail_Cover_Red", [1.7, 0.55, 0.85], [0.12, 0.1, 0.2]);
+    root.add(hatchLamp);
+    root.add(quarterLamp);
+
+    const rig = discoverAssetCarRig(root, "models/market/suv-mainstream.glb");
+    expect(rig.trunkPivot).not.toBeNull();
+
+    const underTrunk = (object: THREE.Object3D) => {
+      let current: THREE.Object3D | null = object;
+      while (current) {
+        if (current === rig.trunkPivot) {
+          return true;
+        }
+        current = current.parent;
+      }
+      return false;
+    };
+    const find = (name: string) => {
+      let found: THREE.Object3D | null = null;
+      root.traverse((node) => {
+        if (node.name === name) {
+          found = node;
+        }
+      });
+      return found;
+    };
+
+    const glass = find("Boot_ext3_Mesh_050_Windshild_Q3");
+    const inner = find("Boot_INT40_Mesh_054_Door_INT_Carpaint");
+    const defroster = find("Boot_ext26_Mesh_192_Thrmoline_phong2mat");
+    expect(glass && underTrunk(glass)).toBe(true);
+    expect(inner && underTrunk(inner)).toBe(true);
+    expect(defroster && underTrunk(defroster)).toBe(true);
+    expect(underTrunk(hatchLamp)).toBe(true);
+    expect(underTrunk(quarterLamp)).toBe(false);
+    expect(underTrunk(frontDefroster)).toBe(false);
+
+    const hinge = new THREE.Vector3();
+    rig.trunkPivot!.getWorldPosition(hinge);
+    const shell = new THREE.Box3().setFromObject(find("Boot_ext2_Mesh_049_Carpaint_Q3")!);
+    expect(hinge.x).toBeCloseTo(shell.min.x, 2);
+    expect(hinge.y).toBeCloseTo(shell.max.y, 2);
+    expect(hinge.x).toBeLessThan(shell.max.x - 0.2);
+
+    const glassBefore = new THREE.Box3().setFromObject(glass!).getCenter(new THREE.Vector3());
+    const frontBefore = new THREE.Box3().setFromObject(frontDefroster).getCenter(new THREE.Vector3());
+    rig.trunkPivot!.rotation.x = 1.1;
+    root.updateWorldMatrix(true, true);
+    const glassAfter = new THREE.Box3().setFromObject(glass!).getCenter(new THREE.Vector3());
+    const frontAfter = new THREE.Box3().setFromObject(frontDefroster).getCenter(new THREE.Vector3());
+    expect(glassAfter.distanceTo(glassBefore)).toBeGreaterThan(0.05);
+    expect(frontAfter.distanceTo(frontBefore)).toBeLessThan(0.001);
+  });
 });

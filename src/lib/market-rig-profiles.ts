@@ -16,6 +16,8 @@ export type MarketRigProfile = {
    */
   spanningDoorTrim?: RegExp[];
   trunk?: RegExp[];
+  /** Outer shell used only to place the liftgate axis (roof seam). */
+  trunkHinge?: RegExp[];
   headLight?: RegExp[];
   /** Match glTF material names when mesh nodes are generic (`Object_*`). */
   headLightMaterial?: RegExp[];
@@ -109,7 +111,40 @@ const suvQ3Profile: MarketRigProfile = {
     /Door_INT124_Mesh_077/i,
     /Door_INT43_Mesh_103/i,
   ],
-  trunk: [/Boot_ext2_Mesh_049_Carpaint/i, /Boot_ext17/i, /Boot_ext13_Mesh_045_Chrome/i, /Boot_ext5/i],
+  // Liftgate is one piece: painted shell, rear glass, badge, and inner trim.
+  // The front-screen defroster shares the Boot_ext26 prefix (`Thrmoline1`) and stays on the body.
+  trunkHinge: [/Boot_ext2_Mesh_049_Carpaint/i],
+  trunk: [
+    /Boot_ext2_Mesh_049_Carpaint/i,
+    /Boot_ext3_Mesh_050_Windshild/i,
+    /Boot_ext5_Mesh_051/i,
+    /Boot_ext13_Mesh_045/i,
+    /Boot_ext14_Mesh_046_Nameboard/i,
+    /Boot_ext15_Mesh_047/i,
+    /Boot_ext17_Mesh_048/i,
+    /Boot_ext26_Mesh_192_Thrmoline_phong2mat/i,
+    /Boot_INT10_Mesh_052/i,
+    /Boot_INT30_Mesh_053/i,
+    /Boot_INT40_Mesh_054/i,
+    /Boot_INT41_Mesh_055/i,
+    /Boot_INT52_Mesh_056/i,
+    /Boot_INT53_Mesh_057/i,
+    /Boot_INT54_Mesh_058/i,
+    /Boot_INT55_Mesh_059/i,
+    /Boot_INT57_Mesh_061/i,
+    /Boot_INT58_Mesh_062/i,
+    /boot_clamp1_Mesh_043/i,
+    /boot_clamp12_Mesh_044/i,
+    // Inner blades on the hatch. Quarter lamps (polySurface31*) stay on the body.
+    /Door_Tail_lamp21_Mesh_131/i,
+    /Door_Tail_lamp22_Mesh_132/i,
+    /Door_Tail_lamp23_Mesh_133/i,
+    /Door_Tail_lamp26_Mesh_134/i,
+    /Door_Tail_lamp3_Mesh_135/i,
+    /Door_Tail_lamp36_Mesh_136/i,
+    /Door_Tail_lamp8_Mesh_137/i,
+    /Door_Tail_lamp11_Mesh_130/i,
+  ],
   headLight: [
     /\bHL\d_Mesh/i,
     /Hl_Projection_lamp/i,
@@ -152,6 +187,7 @@ export function marketRigProfilesFingerprint(): string {
       ...(profile.leftDoorHinge ?? []),
       ...(profile.rightDoorHinge ?? []),
       ...(profile.trunk ?? []),
+      ...(profile.trunkHinge ?? []),
       ...(profile.spanningDoorTrim ?? []),
       ...(profile.sunroof ?? []),
     ]

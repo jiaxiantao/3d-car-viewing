@@ -731,21 +731,30 @@ function splitSpanningDoorTrim(
   return adopted;
 }
 
-function createTrunkPivot(root: THREE.Object3D, meshes: THREE.Mesh[]) {
+function createTrunkPivot(
+  root: THREE.Object3D,
+  meshes: THREE.Mesh[],
+  hingeMeshes?: THREE.Mesh[],
+) {
   if (meshes.length === 0) {
     return null;
   }
 
-  const trunkBox = new THREE.Box3();
-  for (const mesh of meshes) {
-    trunkBox.expandByObject(mesh);
+  // Interior trim must not pull the axis off the roof seam.
+  const hingeSource = (hingeMeshes ?? []).filter((mesh) =>
+    meshes.some((candidate) => candidate.uuid === mesh.uuid),
+  );
+  const hingeBox = new THREE.Box3();
+  for (const mesh of hingeSource.length > 0 ? hingeSource : meshes) {
+    hingeBox.expandByObject(mesh);
   }
 
-  // Hatch hinge at the top-rear; spin root-local X (= world lateral after Ry(-90°)).
+  // Showroom -X is forward. The liftgate spins about the shell's top-forward
+  // edge (the roof seam). A rearward axis swings that edge away from the roof.
   const hingeWorld = new THREE.Vector3(
-    trunkBox.max.x - (trunkBox.max.x - trunkBox.min.x) * 0.08,
-    trunkBox.min.y + (trunkBox.max.y - trunkBox.min.y) * 0.88,
-    (trunkBox.min.z + trunkBox.max.z) / 2,
+    hingeBox.min.x,
+    hingeBox.max.y,
+    (hingeBox.min.z + hingeBox.max.z) / 2,
   );
   const pivot = createHingePivot(root, hingeWorld, "x");
 
@@ -1105,12 +1114,17 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
     const profileHazardLight =
       matchesAny(name, profile?.hazardLight) ||
       matchesAny(materialName, profile?.hazardLightMaterial);
+    const onTrunk = Boolean(profile?.trunk?.length && matchesAny(name, profile.trunk));
     if (
       profileHazardLight ||
       isHazardPart(label) ||
       profileTailLight ||
       isTailLightPart(label, meshCenter, rearX)
     ) {
+      // Hatch blades are also tail lamps. Keep the emissive material, and still parent them.
+      if (onTrunk) {
+        trunkMeshes.push(mesh);
+      }
       if (
         profileTailLight &&
         !taillampPositionAllowed(profile, profileTailLight, materialName, meshCenter, bounds)
@@ -1139,8 +1153,12 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
       continue;
     }
 
-    const profileTrunk = matchesAny(name, profile?.trunk);
-    if (profileTrunk || (isTrunkPart(nameLower) && isLocalizedPanel(meshSize))) {
+    if (profile?.trunk?.length) {
+      if (matchesAny(name, profile.trunk)) {
+        trunkMeshes.push(mesh);
+        continue;
+      }
+    } else if (isTrunkPart(nameLower) && isLocalizedPanel(meshSize)) {
       trunkMeshes.push(mesh);
       continue;
     }
@@ -1220,8 +1238,13 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
   const spanningTrim = splitSpanningDoorTrim(leftDoorPivot, rightDoorPivot, profile?.spanningDoorTrim);
   leftDoorMeshes.push(...spanningTrim.left);
   rightDoorMeshes.push(...spanningTrim.right);
-  const trunkSorted = trunkMeshes.sort((a, b) => getMeshVolume(b) - getMeshVolume(a)).slice(0, 6);
-  const trunkPivot = createTrunkPivot(root, trunkSorted);
+  const trunkForPivot = profile?.trunk?.length
+    ? trunkMeshes
+    : [...trunkMeshes].sort((a, b) => getMeshVolume(b) - getMeshVolume(a)).slice(0, 6);
+  const trunkHingeMeshes = trunkMeshes.filter((mesh) =>
+    matchesAny(hierarchicalName(mesh), profile?.trunkHinge),
+  );
+  const trunkPivot = createTrunkPivot(root, trunkForPivot, trunkHingeMeshes);
   prepareSunroofMotion(sunroofNodes);
 
   let frontWheels: THREE.Object3D[] = [];

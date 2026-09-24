@@ -1,7 +1,7 @@
 "use client";
 
-import { useFrame } from "@react-three/fiber";
-import { useEffect, useMemo, useRef } from "react";
+import { useFrame, type ThreeEvent } from "@react-three/fiber";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import * as THREE from "three";
 import {
   ASSET_DOOR_MAX_OPEN_RADIANS,
@@ -12,83 +12,80 @@ import {
   SHOWROOM_HAZARD_INTENSITY,
   type AssetCarRig,
 } from "@/lib/asset-car-rig";
-import { interactivePointerHandlers } from "@/components/showroom/interactive-pointer";
+import { applyHoverCursor } from "@/components/showroom/interactive-pointer";
 import {
   ENGINE_IGNITION_DURATION,
   HAZARD_MIN_EMISSIVE,
   type CarShowroomState,
 } from "@/components/showroom/types";
 
-function pivotHitbox(pivot: THREE.Group | null, padding = 0.12) {
-  if (!pivot) {
-    return null;
+type AssetInteractiveZone = "leftDoor" | "rightDoor" | "trunk";
+
+type PivotVolume = {
+  zone: AssetInteractiveZone;
+  pivot: THREE.Object3D;
+  box: THREE.Box3;
+};
+
+/** Door / trunk meshes are parented under these pivots. */
+function interactiveZone(object: THREE.Object3D, rig: AssetCarRig): AssetInteractiveZone | null {
+  let current: THREE.Object3D | null = object;
+  while (current) {
+    if (current === rig.leftDoorPivot) {
+      return "leftDoor";
+    }
+    if (current === rig.rightDoorPivot) {
+      return "rightDoor";
+    }
+    if (current === rig.trunkPivot) {
+      return "trunk";
+    }
+    current = current.parent;
   }
-  const box = new THREE.Box3().setFromObject(pivot);
-  const size = new THREE.Vector3();
-  const center = new THREE.Vector3();
-  box.getSize(size);
-  box.getCenter(center);
-  return {
-    center,
-    size: new THREE.Vector3(
-      Math.max(size.x, 0.35) + padding,
-      Math.max(size.y, 0.28) + padding,
-      Math.max(size.z, 0.12) + padding,
-    ),
-  };
+  return null;
 }
 
-function AssetInteractionZones({
-  rig,
-  onToggleLeftDoor,
-  onToggleRightDoor,
-  onToggleTrunk,
-}: {
-  rig: AssetCarRig;
-  onToggleLeftDoor: () => void;
-  onToggleRightDoor: () => void;
-  onToggleTrunk: () => void;
-}) {
-  const hiddenMaterial = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        transparent: true,
-        opacity: 0.001,
-        depthWrite: false,
-      }),
-    [],
-  );
+/** Bounds of every mesh under the pivot, expressed in the pivot's local space. */
+function pivotLocalBounds(pivot: THREE.Object3D) {
+  const box = new THREE.Box3();
+  const inverse = new THREE.Matrix4();
+  const corner = new THREE.Vector3();
+  pivot.updateWorldMatrix(true, true);
+  inverse.copy(pivot.matrixWorld).invert();
 
-  const zones = [
-    { pivot: rig.leftDoorPivot, onClick: onToggleLeftDoor },
-    { pivot: rig.rightDoorPivot, onClick: onToggleRightDoor },
-    { pivot: rig.trunkPivot, onClick: onToggleTrunk },
-  ];
-
-  return (
-    <>
-      {zones.map((zone, index) => {
-        const hit = pivotHitbox(zone.pivot);
-        if (!hit) {
-          return null;
+  let found = false;
+  pivot.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    if (!mesh.isMesh) {
+      return;
+    }
+    const geometry = mesh.geometry;
+    if (!geometry.boundingBox) {
+      geometry.computeBoundingBox();
+    }
+    const bounds = geometry.boundingBox;
+    if (!bounds || bounds.isEmpty()) {
+      return;
+    }
+    mesh.updateWorldMatrix(true, false);
+    const { min, max } = bounds;
+    for (const x of [min.x, max.x]) {
+      for (const y of [min.y, max.y]) {
+        for (const z of [min.z, max.z]) {
+          corner.set(x, y, z).applyMatrix4(mesh.matrixWorld).applyMatrix4(inverse);
+          box.expandByPoint(corner);
+          found = true;
         }
-        return (
-          <mesh
-            key={`asset-hit-${index}`}
-            position={hit.center}
-            onClick={(event) => {
-              event.stopPropagation();
-              zone.onClick();
-            }}
-            {...interactivePointerHandlers}
-          >
-            <boxGeometry args={[hit.size.x, hit.size.y, hit.size.z]} />
-            <primitive object={hiddenMaterial} attach="material" />
-          </mesh>
-        );
-      })}
-    </>
-  );
+      }
+    }
+  });
+
+  if (!found) {
+    return null;
+  }
+  // A few centimetres so a hit on the outer skin or the inset glass still counts.
+  box.expandByScalar(0.03);
+  return box;
 }
 
 export function AssetModel({
@@ -117,6 +114,86 @@ export function AssetModel({
   const lastVelocityRef = useRef(0);
   const prevEngineOnRef = useRef(state.engineOn);
   const ignitionTimeRef = useRef(0);
+  const doorHoverRef = useRef(false);
+  const doorVolumesRef = useRef<PivotVolume[]>([]);
+  const probeRef = useRef(new THREE.Vector3());
+  const pivotPointRef = useRef(new THREE.Vector3());
+
+  useLayoutEffect(() => {
+    const volumes: PivotVolume[] = [];
+    const specs = [
+      ["leftDoor", rig.leftDoorPivot],
+      ["rightDoor", rig.rightDoorPivot],
+      ["trunk", rig.trunkPivot],
+    ] as const;
+    for (const [zone, pivot] of specs) {
+      if (!pivot) {
+        continue;
+      }
+      const box = pivotLocalBounds(pivot);
+      if (box) {
+        volumes.push({ zone, pivot, box });
+      }
+    }
+    doorVolumesRef.current = volumes;
+  }, [rig]);
+
+  const syncDoorCursor = (overDoor: boolean) => {
+    if (overDoor === doorHoverRef.current) {
+      return;
+    }
+    doorHoverRef.current = overDoor;
+    applyHoverCursor(overDoor ? 1 : -1);
+  };
+
+  useEffect(
+    () => () => {
+      if (doorHoverRef.current) {
+        applyHoverCursor(-1);
+        doorHoverRef.current = false;
+      }
+    },
+    [],
+  );
+
+  const zoneFromHit = (object: THREE.Object3D, point: THREE.Vector3) => {
+    const parented = interactiveZone(object, rig);
+    if (parented) {
+      return parented;
+    }
+
+    let best: AssetInteractiveZone | null = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    const probe = probeRef.current;
+    const pivotPoint = pivotPointRef.current;
+    for (const volume of doorVolumesRef.current) {
+      volume.pivot.updateWorldMatrix(true, false);
+      probe.copy(point);
+      volume.pivot.worldToLocal(probe);
+      if (!volume.box.containsPoint(probe)) {
+        continue;
+      }
+      volume.pivot.getWorldPosition(pivotPoint);
+      const distance = pivotPoint.distanceToSquared(point);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = volume.zone;
+      }
+    }
+    return best;
+  };
+
+  const toggleFromHit = (object: THREE.Object3D, point: THREE.Vector3) => {
+    const zone = zoneFromHit(object, point);
+    if (zone === "leftDoor") {
+      onToggleLeftDoor();
+    } else if (zone === "rightDoor") {
+      onToggleRightDoor();
+    } else if (zone === "trunk") {
+      onToggleTrunk();
+    }
+    return zone;
+  };
   useEffect(() => {
     wheelSpinAngleRef.current = 0;
     wheelSteerAngleRef.current = 0;
@@ -387,12 +464,19 @@ export function AssetModel({
 
   return (
     <group ref={rootRef}>
-      <primitive object={object} />
-      <AssetInteractionZones
-        rig={rig}
-        onToggleLeftDoor={onToggleLeftDoor}
-        onToggleRightDoor={onToggleRightDoor}
-        onToggleTrunk={onToggleTrunk}
+      <primitive
+        object={object}
+        onClick={(event: ThreeEvent<MouseEvent>) => {
+          toggleFromHit(event.object, event.point);
+          event.stopPropagation();
+        }}
+        onPointerMove={(event: ThreeEvent<PointerEvent>) => {
+          syncDoorCursor(Boolean(zoneFromHit(event.object, event.point)));
+          event.stopPropagation();
+        }}
+        onPointerOut={() => {
+          syncDoorCursor(false);
+        }}
       />
     </group>
   );
