@@ -1132,11 +1132,108 @@ function prepareSunroofMotion(nodes: THREE.Object3D[]) {
 }
 
 /**
+ * SU7 Max bakes the steering wheel into the cabin shell, so there is no named rim.
+ * A vertical ring in the front cabin is the wheel. The generic cockpit guess sits
+ * behind that ring, inside the rear structure, and looks through an octagonal hole.
+ */
+function findCabinSteeringRing(root: THREE.Object3D, bounds: THREE.Box3) {
+  const size = bounds.getSize(new THREE.Vector3());
+  const center = bounds.getCenter(new THREE.Vector3());
+  const points: THREE.Vector3[] = [];
+  const sample = new THREE.Vector3();
+  root.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    if (!mesh.isMesh || mesh.userData.showroomWheel) {
+      return;
+    }
+    const name = hierarchicalName(mesh);
+    if (/(3DWheel|Wheel1A|tyre|tire|\bwheel\b|brake|caliper|calliper)/i.test(name)) {
+      return;
+    }
+    const position = mesh.geometry.getAttribute("position");
+    if (!position) {
+      return;
+    }
+    mesh.updateWorldMatrix(true, false);
+    const stride = Math.max(1, Math.floor(position.count / 900));
+    for (let index = 0; index < position.count; index += stride) {
+      sample.fromBufferAttribute(position, index).applyMatrix4(mesh.matrixWorld);
+      const inFront =
+        sample.x > bounds.min.x + size.x * 0.22 && sample.x < center.x + size.x * 0.02;
+      const inCabin =
+        sample.y > bounds.min.y + size.y * 0.5 && sample.y < bounds.min.y + size.y * 0.84;
+      const offCenter = Math.abs(sample.z - center.z);
+      const onSide = offCenter > size.z * 0.08 && offCenter < size.z * 0.4;
+      if (inFront && inCabin && onSide) {
+        points.push(sample.clone());
+      }
+    }
+  });
+  if (points.length < 40) {
+    return null;
+  }
+
+  let bestScore = 0;
+  let best: THREE.Vector3 | null = null;
+  const xStart = bounds.min.x + size.x * 0.3;
+  const xEnd = center.x - size.x * 0.05;
+  for (let x = xStart; x <= xEnd; x += 0.05) {
+    for (let y = bounds.min.y + size.y * 0.55; y <= bounds.min.y + size.y * 0.78; y += 0.04) {
+      for (let side = -1; side <= 1; side += 2) {
+        for (let lateral = size.z * 0.12; lateral <= size.z * 0.32; lateral += 0.04) {
+          const z = center.z + side * lateral;
+          const radii: number[] = [];
+          const sectors = new Set<number>();
+          for (const point of points) {
+            if (Math.abs(point.x - x) > 0.08) {
+              continue;
+            }
+            const dy = point.y - y;
+            const dz = point.z - z;
+            const radius = Math.hypot(dy, dz);
+            if (radius < 0.1 || radius > 0.22) {
+              continue;
+            }
+            radii.push(radius);
+            const angle = Math.atan2(dy, dz);
+            sectors.add(Math.floor(((angle + Math.PI) / (Math.PI * 2)) * 8) % 8);
+          }
+          if (radii.length < 28 || sectors.size < 6) {
+            continue;
+          }
+          radii.sort((left, right) => left - right);
+          const median = radii[Math.floor(radii.length / 2)] ?? 0;
+          let deviation = 0;
+          for (const radius of radii) {
+            deviation += Math.abs(radius - median);
+          }
+          deviation /= radii.length;
+          if (deviation > 0.03) {
+            continue;
+          }
+          const score = radii.length / (deviation + 0.004);
+          if (score > bestScore) {
+            bestScore = score;
+            best = new THREE.Vector3(x, y, z);
+          }
+        }
+      }
+    }
+  }
+  return best;
+}
+
+/**
  * Steering-wheel rim center in world space.
  * Q3 names the wheel `Staring` (and its stitch `Stich_SW`). Dashboard shells that
  * share that prefix span the cabin and are ignored.
  */
-function findSteeringWheelCenter(root: THREE.Object3D, carSize: THREE.Vector3) {
+function findSteeringWheelCenter(
+  root: THREE.Object3D,
+  carSize: THREE.Vector3,
+  bounds: THREE.Box3,
+  profile: MarketRigProfile | null,
+) {
   type Candidate = { mesh: THREE.Mesh; center: THREE.Vector3; volume: number };
   const candidates: Candidate[] = [];
   root.traverse((child) => {
@@ -1159,7 +1256,7 @@ function findSteeringWheelCenter(root: THREE.Object3D, carSize: THREE.Vector3) {
     });
   });
   if (candidates.length === 0) {
-    return null;
+    return profile?.id === "xiaomi-su7-max" ? findCabinSteeringRing(root, bounds) : null;
   }
   const hub = candidates.reduce((best, item) => (item.volume > best.volume ? item : best));
   const reach = Math.min(0.34, Math.max(carSize.y, carSize.z) * 0.22);
@@ -1623,17 +1720,38 @@ function fitDiscAxle(mesh: THREE.Mesh): { center: THREE.Vector3; axis: THREE.Vec
   return { center, axis };
 }
 
+function discDiameter(mesh: THREE.Mesh) {
+  const size = new THREE.Box3().setFromObject(mesh).getSize(new THREE.Vector3());
+  return Math.max(size.x, size.y, size.z);
+}
+
+/**
+ * Thin rotor / rim inside a wheel unit.
+ * SU7 and M2 expose `3DWheel` as a group, so the disc is a descendant, not the
+ * unit node itself. Spinning the group around world Z instead of that disc's
+ * normal makes a cambered wheel shimmy once per turn.
+ */
 function discWheelMesh(nodes: THREE.Object3D[]) {
-  const meshes = nodes.filter((node): node is THREE.Mesh => (node as THREE.Mesh).isMesh);
+  const meshes: THREE.Mesh[] = [];
+  for (const node of nodes) {
+    node.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (mesh.isMesh) {
+        meshes.push(mesh);
+      }
+    });
+  }
   const discLike = meshes.filter((mesh) => {
     const size = new THREE.Box3().setFromObject(mesh).getSize(new THREE.Vector3());
     const dims = [size.x, size.y, size.z].sort((left, right) => left - right);
     return dims[0] < dims[2] * 0.25 && dims[1] > dims[2] * 0.75;
   });
+  const ranked = [...discLike].sort((left, right) => discDiameter(right) - discDiameter(left));
   return (
-    discLike.find((mesh) => /diamondcutrim/i.test(mesh.name)) ??
-    discLike.find((mesh) => /rim/i.test(mesh.name)) ??
-    discLike[0] ??
+    ranked.find((mesh) => /diamondcutrim/i.test(mesh.name)) ??
+    ranked.find((mesh) => /disk|disc/i.test(mesh.name)) ??
+    ranked.find((mesh) => /rim/i.test(mesh.name)) ??
+    ranked[0] ??
     null
   );
 }
@@ -1931,7 +2049,7 @@ function findWheelNodes(root: THREE.Object3D, profile: MarketRigProfile | null) 
   for (const [key, unit] of quadrantBest) {
     const isFront = key.startsWith("F");
     rollRadii.push(Math.max(unit.size.y, Math.min(unit.size.x, unit.size.z)) * 0.5);
-    // Front rims sit a little off the world lateral axis. Spinning them around
+    // A cambered rim is tilted off the world lateral axis. Spinning it around
     // world Z makes the face shimmy left-right once per turn. Use the disc normal.
     const disc = discWheelMesh(unit.nodes);
     const fitted = disc ? fitDiscAxle(disc) : null;
@@ -2047,7 +2165,9 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
     const sunroofMatch = listedSunroof
       ? matchesAny(name, profile?.sunroof)
       : isSunroofPart(nameLower);
-    if (sunroofMatch && !isInteriorLight(nameLower)) {
+    // Authored names win. The generic interior-light filter treats `Paint_` as `int_`,
+    // which rejects a sunroof whose parent node is a body-paint material.
+    if (sunroofMatch && (listedSunroof || !isInteriorLight(nameLower))) {
       sunroofNodes.push(mesh);
       continue;
     }
@@ -2305,7 +2425,7 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
     wheelRollRadius = realWheels.wheelRollRadius;
   }
 
-  const steeringWheelCenter = findSteeringWheelCenter(root, size);
+  const steeringWheelCenter = findSteeringWheelCenter(root, size, bounds, profile);
 
   if (hazardMaterials.length === 0 && tailLightMaterials.length > 0) {
     hazardMaterials.push(...tailLightMaterials.slice(0, 6));
