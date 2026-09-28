@@ -5,7 +5,13 @@ import { AdaptiveDpr, AdaptiveEvents, OrbitControls } from "@react-three/drei";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import * as THREE from "three";
 import type { AssetCarRig } from "@/lib/asset-car-rig";
-import { isShowroomModelPrepared, loadGltfScene, releaseDisplayedScene } from "@/lib/gltf-scene-cache";
+import {
+  isShowroomModelPrepared,
+  loadGltfScene,
+  releaseCancelledScene,
+  releaseDisplayedScene,
+  retainDisplayedScene,
+} from "@/lib/gltf-scene-cache";
 import { publicAssetPath } from "@/lib/public-asset-path";
 import { getOrbitDistanceLimits } from "@/lib/showroom-camera";
 import {
@@ -287,9 +293,10 @@ export function CarShowroomScene({
           }
         });
         if (!active) {
-          releaseDisplayedScene(loaded.root);
+          releaseCancelledScene(loaded.root);
           return;
         }
+        retainDisplayedScene(loaded.root);
         if (displayedRootRef.current && displayedRootRef.current !== loaded.root) {
           // Keep GPU resources in the prepared-model cache for instant switch-back.
           releaseDisplayedScene(displayedRootRef.current);

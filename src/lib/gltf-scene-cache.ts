@@ -25,6 +25,7 @@ const preloadInFlight = new Map<string, Promise<void>>();
 let preparedCacheProfileStamp = marketRigProfilesFingerprint();
 
 const TEMPLATE_CACHE_LIMIT = 6;
+/** Idle preload can exceed the category count. Live showroom roots are never evicted. */
 const PREPARED_CACHE_LIMIT = 4;
 
 function preparedCacheKey(url: string) {
@@ -76,11 +77,59 @@ function disposeTemplateResources(root: THREE.Object3D) {
 }
 
 /**
+ * Roots the showroom is about to mount or is already showing.
+ * Idle preload must not detach these when the prepared cache overflows.
+ */
+const retainedDisplayRoots = new Set<THREE.Object3D>();
+
+/** Keep this root if a later preload needs to evict cache entries. */
+export function retainDisplayedScene(root: THREE.Object3D | null | undefined) {
+  if (!root) {
+    return;
+  }
+  retainedDisplayRoots.add(root);
+}
+
+function isLiveDisplay(root: THREE.Object3D) {
+  return retainedDisplayRoots.has(root) || root.parent != null;
+}
+
+/**
+ * Oldest cache key that can be dropped.
+ * Skips the key just inserted and any entry the caller marks as still in use.
+ */
+export function selectOldestEvictableKey<K>(
+  keys: Iterable<K>,
+  except: K | undefined,
+  isPinned: (key: K) => boolean,
+): K | undefined {
+  for (const key of keys) {
+    if (key === except || isPinned(key)) {
+      continue;
+    }
+    return key;
+  }
+  return undefined;
+}
+
+/**
  * Display instances share geometry/materials with the template.
  * Only detach from the scene graph — never dispose GPU resources here.
  */
 export function releaseDisplayedScene(root: THREE.Object3D | null | undefined) {
   if (!root) {
+    return;
+  }
+  retainedDisplayRoots.delete(root);
+  root.removeFromParent();
+}
+
+/**
+ * Drop a load that lost a race with a newer request.
+ * A cached root already retained for display stays in the scene.
+ */
+export function releaseCancelledScene(root: THREE.Object3D | null | undefined) {
+  if (!root || retainedDisplayRoots.has(root)) {
     return;
   }
   root.removeFromParent();
@@ -96,38 +145,48 @@ function touchMapEntry<K, V>(map: Map<K, V>, key: K, value: V) {
   map.set(key, value);
 }
 
+function preparedForTemplateUrl(url: string) {
+  return preparedCache.get(preparedCacheKey(url));
+}
+
 function evictOldestTemplate(exceptUrl?: string) {
   while (templateCache.size > TEMPLATE_CACHE_LIMIT) {
-    const oldestKey = templateCache.keys().next().value as string | undefined;
-    if (!oldestKey || oldestKey === exceptUrl) {
-      break;
+    const victimUrl = selectOldestEvictableKey(templateCache.keys(), exceptUrl, (url) => {
+      const prepared = preparedForTemplateUrl(url);
+      return Boolean(prepared && isLiveDisplay(prepared.root));
+    });
+    if (!victimUrl) {
+      return;
     }
-    // Drop prepared package first so we can safely dispose shared GPU resources.
-    const prepared = preparedCache.get(oldestKey);
-    if (prepared) {
+    // Drop the display clone first. It shares GPU buffers with the template.
+    const prepared = preparedForTemplateUrl(victimUrl);
+    if (prepared && !isLiveDisplay(prepared.root)) {
       releaseDisplayedScene(prepared.root);
-      preparedCache.delete(oldestKey);
+      preparedCache.delete(preparedCacheKey(victimUrl));
     }
-    const stale = templateCache.get(oldestKey);
+    const stale = templateCache.get(victimUrl);
     if (stale) {
       disposeTemplateResources(stale);
     }
-    templateCache.delete(oldestKey);
+    templateCache.delete(victimUrl);
   }
 }
 
-function evictOldestPrepared(exceptUrl?: string) {
+function evictOldestPrepared(exceptKey?: string) {
   while (preparedCache.size > PREPARED_CACHE_LIMIT) {
-    const oldestKey = preparedCache.keys().next().value as string | undefined;
-    if (!oldestKey || oldestKey === exceptUrl) {
-      break;
+    const victimKey = selectOldestEvictableKey(preparedCache.keys(), exceptKey, (key) => {
+      const entry = preparedCache.get(key);
+      return Boolean(entry && isLiveDisplay(entry.root));
+    });
+    if (!victimKey) {
+      return;
     }
-    const stale = preparedCache.get(oldestKey);
+    const stale = preparedCache.get(victimKey);
     if (stale) {
+      // Off-screen clone only. The live showroom root is pinned above.
       releaseDisplayedScene(stale.root);
-      // Drop object graph only; template still owns GPU resources.
     }
-    preparedCache.delete(oldestKey);
+    preparedCache.delete(victimKey);
   }
 }
 
