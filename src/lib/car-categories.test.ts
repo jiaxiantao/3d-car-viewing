@@ -8,6 +8,7 @@ import {
   carCategoryForModelUrl,
   glbCandidateUrls,
   isCarCategoryKey,
+  isCarInteractionDisabled,
   resolveCarCategoryKey,
 } from "@/lib/car-categories";
 
@@ -18,6 +19,7 @@ describe("car-categories", () => {
       "小米 YU7",
       "小米 SU7 Max",
       "奥迪 Q3",
+      "奔驰 G63",
       "巴博斯 G900",
       "宝马 M2",
     ]);
@@ -33,6 +35,7 @@ describe("car-categories", () => {
       CAR_CATEGORIES.yu7.primaryUrl,
       CAR_CATEGORIES["su7-max"].primaryUrl,
       CAR_CATEGORIES.suv.primaryUrl,
+      CAR_CATEGORIES.g63.primaryUrl,
       CAR_CATEGORIES.offroad.primaryUrl,
     ]);
     expect(new Set(glbCandidateUrls("yu7")).size).toBe(CAR_CATEGORY_OPTIONS.length);
@@ -49,14 +52,23 @@ describe("car-categories", () => {
   it("validates category keys", () => {
     expect(isCarCategoryKey("sedan")).toBe(true);
     expect(isCarCategoryKey("suv")).toBe(true);
+    expect(isCarCategoryKey("g63")).toBe(true);
     expect(isCarCategoryKey("truck")).toBe(false);
   });
 
   it("exposes approxBytes for progress fallback", () => {
     expect(CAR_CATEGORIES.sedan.approxBytes).toBeGreaterThan(0);
     expect(CAR_CATEGORIES.suv.label).toBe("奥迪 Q3");
+    expect(CAR_CATEGORIES.g63.label).toBe("奔驰 G63");
     expect(CAR_CATEGORIES.sedan.label).toBe("宝马 M2");
     expect(CAR_CATEGORIES.offroad.label).toBe("巴博斯 G900");
+    expect(isCarInteractionDisabled(CAR_CATEGORIES.g63, "leftDoor")).toBe(false);
+    expect(isCarInteractionDisabled(CAR_CATEGORIES.g63, "trunk")).toBe(false);
+    expect(isCarInteractionDisabled(CAR_CATEGORIES.offroad, "leftDoor")).toBe(true);
+    expect(isCarInteractionDisabled(CAR_CATEGORIES.offroad, "rightDoor")).toBe(true);
+    expect(isCarInteractionDisabled(CAR_CATEGORIES.offroad, "trunk")).toBe(true);
+    expect(isCarInteractionDisabled(CAR_CATEGORIES.offroad, "sunroof")).toBe(false);
+    expect(isCarInteractionDisabled(CAR_CATEGORIES.suv, "leftDoor")).toBe(false);
     expect(CAR_CATEGORIES["su7-max"].label).toBe("小米 SU7 Max");
     expect(CAR_CATEGORIES["su7-ultra"].label).toBe("小米 SU7 Ultra");
     expect(CAR_CATEGORIES.yu7.label).toBe("小米 YU7");
@@ -65,6 +77,7 @@ describe("car-categories", () => {
     expect(isCarCategoryKey("yu7")).toBe(true);
     expect(CAR_CATEGORIES.sedan.bakedWheels).toBe(false);
     expect(CAR_CATEGORIES.suv.bakedWheels).toBe(false);
+    expect(CAR_CATEGORIES.g63.bakedWheels).toBe(false);
     expect(CAR_CATEGORIES.offroad.bakedWheels).toBe(false);
     expect(CAR_CATEGORIES.yu7.bakedWheels).toBe(false);
     expect(approxBytesForModelUrl(CAR_CATEGORIES.sedan.primaryUrl)).toBe(

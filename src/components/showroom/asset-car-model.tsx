@@ -50,6 +50,7 @@ export function AssetModel({
   onToggleLeftDoor,
   onToggleRightDoor,
   onToggleTrunk,
+  bodyInteractions,
   reduceMotion = false,
 }: {
   object: THREE.Object3D;
@@ -58,6 +59,11 @@ export function AssetModel({
   onToggleLeftDoor: () => void;
   onToggleRightDoor: () => void;
   onToggleTrunk: () => void;
+  bodyInteractions?: {
+    leftDoor?: boolean;
+    rightDoor?: boolean;
+    trunk?: boolean;
+  };
   reduceMotion?: boolean;
 }) {
   const rootRef = useRef<THREE.Group>(null);
@@ -89,8 +95,16 @@ export function AssetModel({
     [],
   );
 
-  const toggleFromHit = (object: THREE.Object3D) => {
-    const zone = interactiveZone(object, rig);
+  const allowedZone = (hit: THREE.Object3D): AssetInteractiveZone | null => {
+    const zone = interactiveZone(hit, rig);
+    if (!zone || bodyInteractions?.[zone] === false) {
+      return null;
+    }
+    return zone;
+  };
+
+  const toggleFromHit = (hit: THREE.Object3D) => {
+    const zone = allowedZone(hit);
     if (zone === "leftDoor") {
       onToggleLeftDoor();
     } else if (zone === "rightDoor") {
@@ -378,7 +392,7 @@ export function AssetModel({
           event.stopPropagation();
         }}
         onPointerMove={(event: ThreeEvent<PointerEvent>) => {
-          syncDoorCursor(Boolean(interactiveZone(event.object, rig)));
+          syncDoorCursor(Boolean(allowedZone(event.object)));
           event.stopPropagation();
         }}
         onPointerOut={() => {

@@ -106,6 +106,7 @@ export function CarShowroomScene({
   onToggleLeftDoor,
   onToggleRightDoor,
   onToggleTrunk,
+  bodyInteractions,
   controlHandleRef,
   reduceMotion = false,
 }: CarShowroomSceneProps) {
@@ -417,6 +418,7 @@ export function CarShowroomScene({
             onToggleLeftDoor={onToggleLeftDoor}
             onToggleRightDoor={onToggleRightDoor}
             onToggleTrunk={onToggleTrunk}
+            bodyInteractions={bodyInteractions}
           />
         ) : showGeometricCar ? (
           <CarModel

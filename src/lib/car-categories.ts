@@ -6,11 +6,15 @@ import { publicAssetPath } from "@/lib/public-asset-path";
 
 export type CarCategoryKey =
   | "suv"
+  | "g63"
   | "sedan"
   | "offroad"
   | "su7-max"
   | "su7-ultra"
   | "yu7";
+
+/** Body controls the showroom can turn off per model, even when the rig can move them. */
+export type CarBodyInteraction = "leftDoor" | "rightDoor" | "trunk" | "sunroof";
 
 export type CarCategory = {
   key: CarCategoryKey;
@@ -22,6 +26,8 @@ export type CarCategory = {
   bakedWheels: boolean;
   /** Short capability hint shown in the category picker. */
   capabilityHint?: string;
+  /** Buttons, keyboard, and mesh clicks for these parts stay off. */
+  disabledInteractions?: readonly CarBodyInteraction[];
 };
 
 export const CAR_CATEGORIES: Record<CarCategoryKey, CarCategory> = {
@@ -57,6 +63,14 @@ export const CAR_CATEGORIES: Record<CarCategoryKey, CarCategory> = {
     bakedWheels: false,
     capabilityHint: "",
   },
+  g63: {
+    key: "g63",
+    label: "奔驰 G63",
+    primaryUrl: publicAssetPath("/models/market/mercedes-benz_g63_amg.glb"),
+    approxBytes: 74_000_000,
+    bakedWheels: false,
+    capabilityHint: "",
+  },
   offroad: {
     key: "offroad",
     label: "巴博斯 G900",
@@ -64,6 +78,7 @@ export const CAR_CATEGORIES: Record<CarCategoryKey, CarCategory> = {
     approxBytes: 9_500_000,
     bakedWheels: false,
     capabilityHint: "",
+    disabledInteractions: ["leftDoor", "rightDoor", "trunk"],
   },
   sedan: {
     key: "sedan",
@@ -101,9 +116,14 @@ export function carCategoryForModelUrl(url: string): CarCategory | undefined {
   );
 }
 
+export function isCarInteractionDisabled(category: CarCategory, key: string): boolean {
+  return (category.disabledInteractions ?? []).some((item) => item === key);
+}
+
 export function isCarCategoryKey(value: unknown): value is CarCategoryKey {
   return (
     value === "suv" ||
+    value === "g63" ||
     value === "sedan" ||
     value === "offroad" ||
     value === "su7-max" ||

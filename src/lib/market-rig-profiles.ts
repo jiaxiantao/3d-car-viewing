@@ -222,6 +222,24 @@ const offroadBrabusProfile: MarketRigProfile = {
 };
 
 /**
+ * Mercedes-Benz G63 AMG (Sketchfab G700). Doors and the barn tailgate reuse
+ * the file's own meshes. Meshes that span the body stay on the body.
+ * Lamps use `lights_lod0`. The steering rim is `leather_wheel`.
+ * Road wheels are discrete Tire / monoblock nodes.
+ */
+const mercedesG63Profile: MarketRigProfile = {
+  id: "mercedes-g63",
+  urlPattern: /mercedes-benz_g63_amg/i,
+  doorHingeLead: -0.02,
+  doorHingeOutset: 0.02,
+  headLight: [/lights_lod0/i, /nlightsf\d/i],
+  tailLight: [/red_b/i, /g500_brake/i],
+  hazardLight: [/red_b/i, /g500_brake/i],
+  paintMaterial: [/bodypaint/i],
+  wheelPart: [/\btire\b/i, /monoblock/i],
+};
+
+/**
  * Xiaomi SU7 Max: body kits are fused (no separable doors, hatch, or sunroof).
  * Headlamp and tail-lamp lenses are the FrontKit / RearKit light materials.
  * Each corner is a `3DWheel` group; brake calipers are children and stay fixed.
@@ -383,6 +401,7 @@ export const MARKET_RIG_PROFILES: MarketRigProfile[] = [
   bmwM2Profile,
   suvQ3Profile,
   offroadBrabusProfile,
+  mercedesG63Profile,
   xiaomiSu7MaxProfile,
   xiaomiSu7UltraProfile,
   xiaomiYu7Profile,

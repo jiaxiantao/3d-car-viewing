@@ -19,6 +19,7 @@ const MARKET_DIR = path.join(ROOT, "public", "models", "market");
 
 const FILES = [
   "suv-mainstream.glb",
+  "mercedes-benz_g63_amg.glb",
   "sedan-mainstream.glb",
   "offroad-mainstream.glb",
   "2024_xiaomi_su7_max.glb",

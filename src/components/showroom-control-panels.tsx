@@ -2,11 +2,25 @@
 
 import { Button } from "@/components/ui/button";
 import {
+  CAR_CATEGORIES,
   CAR_CATEGORY_OPTIONS,
+  isCarInteractionDisabled,
+  type CarBodyInteraction,
   type CarCategoryKey,
 } from "@/lib/car-categories";
 import type { AssetRigCapabilities } from "@/components/car-showroom-scene";
 import type { ShowroomPresetId } from "@/lib/showroom-presets";
+
+function interactionMark(
+  categoryKey: CarCategoryKey,
+  key: CarBodyInteraction,
+  recognized: boolean,
+) {
+  if (isCarInteractionDisabled(CAR_CATEGORIES[categoryKey], key)) {
+    return "禁用";
+  }
+  return recognized ? "✓" : "—";
+}
 
 type ShowroomControlPanelsProps = {
   useAssetModel: boolean;
@@ -69,10 +83,12 @@ export function ShowroomControlPanels({
         </p>
         {useAssetModel && assetRigCaps ? (
           <p className="w-full text-xs text-slate-500">
-            GLB 部件识别：左前门 {assetRigCaps.leftDoor ? "✓" : "—"} · 右前门{" "}
-            {assetRigCaps.rightDoor ? "✓" : "—"} · 后备箱 {assetRigCaps.trunk ? "✓" : "—"} · 车灯{" "}
+            GLB 部件识别：左前门 {interactionMark(selectedCategory, "leftDoor", assetRigCaps.leftDoor)}{" "}
+            · 右前门 {interactionMark(selectedCategory, "rightDoor", assetRigCaps.rightDoor)} ·
+            后备箱 {interactionMark(selectedCategory, "trunk", assetRigCaps.trunk)} · 车灯{" "}
             {assetRigCaps.headLights ? "✓" : "—"} · 尾灯 {assetRigCaps.tailLights ? "✓" : "—"} ·
-            天窗 {assetRigCaps.sunroof ? "✓" : "—"} · 车轮 {assetRigCaps.wheels ? "✓" : "—"}
+            天窗 {interactionMark(selectedCategory, "sunroof", assetRigCaps.sunroof)} · 车轮{" "}
+            {assetRigCaps.wheels ? "✓" : "—"}
             {assetRigCaps.leftDoor ? "" : "（未识别到的部件见 documentation/market-glb-rig.md）"}
           </p>
         ) : null}

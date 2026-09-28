@@ -5,6 +5,7 @@ Place licensed GLB files in this folder with these exact names:
 | File | Category |
 |------|----------|
 | `suv-mainstream.glb` | SUV |
+| `mercedes-benz_g63_amg.glb` | Mercedes-Benz G63 AMG |
 | `sedan-mainstream.glb` | Sedan |
 | `offroad-mainstream.glb` | Off-road |
 | `2024_xiaomi_su7_max.glb` | Xiaomi SU7 Max |
@@ -20,6 +21,7 @@ The original three showroom GLBs are **Draco-compressed** (`pnpm compress:models
 | `sedan-mainstream.glb` | ~2.7 MB |
 | `offroad-mainstream.glb` | ~9.5 MB |
 | `suv-mainstream.glb` | ~14.5 MB |
+| `mercedes-benz_g63_amg.glb` | ~70 MB |
 | `2024_xiaomi_su7_max.glb` | ~5.3 MB |
 | `2025_xiaomi_su7_ultra.glb` | ~31 MB |
 | `2025_xiaomi_yu7.glb` | ~28 MB |
@@ -29,6 +31,7 @@ The original three showroom GLBs are **Draco-compressed** (`pnpm compress:models
 | File | Source (documented) | License |
 |------|---------------------|---------|
 | `suv-mainstream.glb` | Poly Pizza — Quaternius "SUV" | CC0 1.0 (verify at source) |
+| `mercedes-benz_g63_amg.glb` | Sketchfab — Echoo, "Mercedes-Benz G63 AMG BRABUS G700" | **CC BY-NC-ND 4.0** |
 | `offroad-mainstream.glb` | Poly Pizza — Quaternius "Rover" | CC0 1.0 (verify at source) |
 | `sedan-mainstream.glb` | BMW M2 Coupe (high-poly demo) | **Verify before use** — see [documentation/ATTRIBUTION.md](../../../documentation/ATTRIBUTION.md) |
 | `2024_xiaomi_su7_max.glb` | Xiaomi SU7 Max | **Verify before use** — see [documentation/ATTRIBUTION.md](../../../documentation/ATTRIBUTION.md) |

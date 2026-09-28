@@ -120,6 +120,37 @@ describe("BMW M2 headlamp covers", () => {
     expect(coverCenter.x).toBeLessThan(rig.bounds.min.x + carSize.x * 0.2);
     expect(coverSize.z).toBeGreaterThan(carSize.z * 0.4);
 
+    const cabinGlass = new Set<THREE.Material>();
+    let glassTriangles = 0;
+    let opaqueWindowTriangles = 0;
+    root.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.isMesh || mesh.userData.showroomHeadlampCover) {
+        return;
+      }
+      const material = mesh.material as THREE.Material;
+      if (!/Window_Material/i.test(material.name ?? "")) {
+        return;
+      }
+      if (mesh.userData.showroomCabinGlass) {
+        cabinGlass.add(material);
+        glassTriangles += triangleCount(mesh);
+      } else {
+        opaqueWindowTriangles += triangleCount(mesh);
+      }
+    });
+    expect(cabinGlass.size).toBe(1);
+    const glass = [...cabinGlass][0] as THREE.MeshPhysicalMaterial;
+    expect(glass).toBeInstanceOf(THREE.MeshPhysicalMaterial);
+    expect(glass.userData.showroomCabinGlass).toBe(true);
+    expect(glass.transmission).toBeGreaterThan(0.8);
+    expect(glass.transparent).toBe(true);
+    expect(glass.opacity).toBeLessThan(0.6);
+    expect(glass.depthWrite).toBe(false);
+    expect(glass.color.r + glass.color.g + glass.color.b).toBeGreaterThan(2);
+    expect(glassTriangles).toBeGreaterThan(1800);
+    expect(opaqueWindowTriangles).toBeGreaterThan(400);
+
     const lens = rig.headLightMaterials.find((material) => /HeadlampLens/i.test(material.name));
     expect(lens).toBeDefined();
     boostShowroomMaterialEmissive(

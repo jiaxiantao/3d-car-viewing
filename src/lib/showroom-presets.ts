@@ -50,23 +50,35 @@ export const SHOWROOM_PRESETS: Record<ShowroomPresetId, ShowroomPresetSnapshot> 
 
 const PRESET_IDS: ShowroomPresetId[] = ["welcome", "drive"];
 
-export function matchShowroomPreset(state: ShowroomPresetSnapshot): ShowroomPresetId | null {
-  return PRESET_IDS.find((id) => presetEquals(state, SHOWROOM_PRESETS[id])) ?? null;
+/** Body fields a model may ignore when matching the highlighted preset. */
+export type ShowroomPresetBodyKey = "leftDoorOpen" | "rightDoorOpen" | "trunkOpen" | "sunroofOpen";
+
+export function matchShowroomPreset(
+  state: ShowroomPresetSnapshot,
+  ignore: readonly ShowroomPresetBodyKey[] = [],
+): ShowroomPresetId | null {
+  return PRESET_IDS.find((id) => presetEquals(state, SHOWROOM_PRESETS[id], ignore)) ?? null;
 }
 
-function presetEquals(left: ShowroomPresetSnapshot, right: ShowroomPresetSnapshot): boolean {
+function presetEquals(
+  left: ShowroomPresetSnapshot,
+  right: ShowroomPresetSnapshot,
+  ignore: readonly ShowroomPresetBodyKey[] = [],
+): boolean {
+  const same = (key: keyof ShowroomPresetSnapshot) =>
+    (ignore as readonly string[]).includes(key) || left[key] === right[key];
   return (
-    left.leftDoorOpen === right.leftDoorOpen &&
-    left.rightDoorOpen === right.rightDoorOpen &&
-    left.trunkOpen === right.trunkOpen &&
-    left.lightsOn === right.lightsOn &&
-    left.engineOn === right.engineOn &&
-    left.steeringAngle === right.steeringAngle &&
-    left.hazardOn === right.hazardOn &&
-    left.sunroofOpen === right.sunroofOpen &&
-    left.speedKph === right.speedKph &&
-    left.braking === right.braking &&
-    left.cameraPreset === right.cameraPreset &&
-    left.autoTour === right.autoTour
+    same("leftDoorOpen") &&
+    same("rightDoorOpen") &&
+    same("trunkOpen") &&
+    same("lightsOn") &&
+    same("engineOn") &&
+    same("steeringAngle") &&
+    same("hazardOn") &&
+    same("sunroofOpen") &&
+    same("speedKph") &&
+    same("braking") &&
+    same("cameraPreset") &&
+    same("autoTour")
   );
 }

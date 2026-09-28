@@ -32,7 +32,7 @@
 
 ## 功能特性
 
-- **车型切换**：小米 SU7 Ultra / 小米 YU7 / 小米 SU7 Max / 奥迪 Q3 / 巴博斯 G900 / 宝马 M2（`public/models/market/*.glb`；默认小米 SU7 Ultra）
+- **车型切换**：小米 SU7 Ultra / 小米 YU7 / 小米 SU7 Max / 奥迪 Q3 / 奔驰 G63 / 巴博斯 G900 / 宝马 M2（`public/models/market/*.glb`；默认小米 SU7 Ultra）
 - **部件交互**：车门、后备箱、天窗、车灯、双闪、启动、制动（依 GLB 网格命名自动识别）
 - **物理拟真**：怠速发动机微抖、加速 / 制动俯仰、**轿车完整四轮旋转**（SUV / 越野为轮系烘焙，部分交互受限）、制动时尾灯刹车灯亮起、双闪频闪
 - **场景模式**：影棚 / 白天 / 夜晚，一键切换灯光、地面材质与雾效，夜晚自带湿地反射
@@ -155,6 +155,7 @@ pnpm build:pages   # 输出到 out/，basePath 为 /3d-car-viewing
 | `2025_xiaomi_yu7.glb` | 小米 YU7 | ~28 MB | 前门、后备箱、天窗、车灯、四轮 |
 | `2024_xiaomi_su7_max.glb` | 小米 SU7 Max | ~5.3 MB | 四轮、车灯；门与车身合并 |
 | `suv-mainstream.glb` | 奥迪 Q3 | ~14.5 MB | 烘焙 |
+| `mercedes-benz_g63_amg.glb` | 奔驰 G63 | ~70 MB | 备胎尾门 / 车灯 / 四轮 / 车漆（车门与车壳是同一块网格） |
 | `offroad-mainstream.glb` | 巴博斯 G900 | ~9.5 MB | 烘焙 |
 | `sedan-mainstream.glb` | 宝马 M2 | ~2.7 MB | 完整四轮动画 |
 

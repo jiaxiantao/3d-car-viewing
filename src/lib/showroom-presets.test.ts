@@ -15,4 +15,13 @@ describe("matchShowroomPreset", () => {
     expect(matchShowroomPreset({ ...SHOWROOM_PRESETS.welcome, lightsOn: false })).toBeNull();
     expect(matchShowroomPreset({ ...SHOWROOM_PRESETS.drive, speedKph: 28 })).toBeNull();
   });
+
+  it("still matches welcome when disabled doors stay shut", () => {
+    expect(
+      matchShowroomPreset(
+        { ...SHOWROOM_PRESETS.welcome, leftDoorOpen: false, rightDoorOpen: false },
+        ["leftDoorOpen", "rightDoorOpen"],
+      ),
+    ).toBe("welcome");
+  });
 });

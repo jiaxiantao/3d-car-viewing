@@ -399,6 +399,35 @@ function isOffroadHeadlampMesh(name: string) {
   return /lights_lod0|nlightsf\d/i.test(name);
 }
 
+/** G900 and G63 share the G-Class buffer layout (doors, barn tailgate, round lamps). */
+function isGClassMarketProfile(profile: MarketRigProfile | null) {
+  return profile?.id === "offroad-brabus" || profile?.id === "mercedes-g63";
+}
+
+/**
+ * The G63 file keeps the G900 wheel buffers and also adds discrete Tire /
+ * monoblock corners in the same place. Leave the packed copies in the scene
+ * but out of the spinner, so only the Brabus wheels roll.
+ */
+function retirePackedG63Wheels(root: THREE.Object3D) {
+  const packed: THREE.Mesh[] = [];
+  root.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    if (!mesh.isMesh || mesh.userData.showroomWheelResidual) {
+      return;
+    }
+    const packedWheel =
+      /right_wheel|left_wheel|_gt_34_|_gt_35_|michelin|diamondcutrim|rimdetail|wheel_track/i;
+    if (packedWheel.test(hierarchicalName(mesh))) {
+      packed.push(mesh);
+    }
+  });
+  for (const mesh of packed) {
+    mesh.visible = false;
+    mesh.userData.showroomWheelResidual = true;
+  }
+}
+
 function isBmwM2HeadlampMaterial(materialName: string) {
   return /LightA(?:_Material\d*)?/i.test(materialName) || /LightA(?!.*Emissive)/i.test(materialName);
 }
@@ -464,7 +493,7 @@ function shouldApplyHeadlampLensPreset(
 ) {
   return (
     profileHeadLight &&
-    (profile?.id === "offroad-brabus" ||
+    (isGClassMarketProfile(profile) ||
       profile?.id === "suv-q3" ||
       profile?.id === "bmw-m2" ||
       profile?.id === "xiaomi-su7-max" ||
@@ -485,7 +514,7 @@ function headlampPositionAllowed(
   depth: number,
   width: number,
 ) {
-  if (profile?.id === "offroad-brabus" && profileHeadLight && isOffroadHeadlampMesh(name)) {
+  if (isGClassMarketProfile(profile) && profileHeadLight && isOffroadHeadlampMesh(name)) {
     return true;
   }
   if (profile?.id === "suv-q3" && profileHeadLight && isSuvHeadlampMesh(name)) {
@@ -740,15 +769,15 @@ function createSideDoorPivot(
     doorBox.expandByObject(mesh);
   }
 
-  const doorCenter = doorBox.getCenter(new THREE.Vector3());
-  const openSign = doorCenter.z >= 0 ? -1 : 1;
-  // Outer skin is max.z on +Z (left) and min.z on -Z (right). Pull the axis
+  const openSign = side === "left" ? -1 : 1;
+  // Outer skin is max.z on the left and min.z on the right. Pull the axis
   // inboard so it sits against the body instead of on the outer paint.
+  // Use the door side, not world Z = 0: the G63 sits left of the origin.
   const doorDepthZ = doorBox.max.z - doorBox.min.z;
   const inward = Math.min(0.055, doorDepthZ * 0.4);
   // `hingeOutset` moves the axis back toward the outer skin (left is +Z).
   const hingeZ =
-    doorCenter.z >= 0 ? doorBox.max.z - inward + hingeOutset : doorBox.min.z + inward - hingeOutset;
+    side === "left" ? doorBox.max.z - inward + hingeOutset : doorBox.min.z + inward - hingeOutset;
   const doorSpanX = doorBox.max.x - doorBox.min.x;
   // Showroom -X is forward. Positive lead places the axis ahead of the leading
   // face; negative lead (Xiaomi) places it behind that face, toward the rear.
@@ -862,7 +891,8 @@ function isBmwM2WindowCoverMaterial(materialName: string) {
 /**
  * M2 packs both cabin glass and the headlamp lenses into one opaque black
  * `Window_Material`. The lenses sit at the front corners and hide `LightA`,
- * so the showroom spots hit the floor while the lamps stay dark.
+ * so the showroom spots hit the floor while the lamps stay dark. After the
+ * split, the leftover faces are reassigned to clear cabin glass.
  */
 function isBmwM2HeadlampCoverTriangle(
   centroid: THREE.Vector3,
@@ -891,6 +921,128 @@ function createBmwM2HeadlampCoverMaterial() {
   material.polygonOffsetFactor = -2;
   material.polygonOffsetUnits = -2;
   return material;
+}
+
+/**
+ * The export paints every remaining `Window_Material` face solid black.
+ * Cabin glass needs a clear physical pane so the interior shows through.
+ * The name stays `Window_Material` so later discovery still finds these faces.
+ */
+function createBmwM2CabinGlassMaterial(name: string) {
+  const material = new THREE.MeshPhysicalMaterial({
+    name,
+    color: new THREE.Color("#e7f0f8"),
+    metalness: 0,
+    roughness: 0.05,
+    transmission: 0.92,
+    thickness: 0.02,
+    ior: 1.5,
+    attenuationColor: new THREE.Color("#d5e2ee"),
+    attenuationDistance: 2,
+    transparent: true,
+    opacity: 0.38,
+    envMapIntensity: 1,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  material.userData.showroomCabinGlass = true;
+  return material;
+}
+
+/** Greenhouse starts about halfway up the body. Below that the same material is the front shell. */
+const BMW_M2_CABIN_GLASS_MIN_HEIGHT = 0.5;
+
+function applyBmwM2CabinGlass(root: THREE.Object3D) {
+  const bounds = new THREE.Box3().setFromObject(root);
+  const size = bounds.getSize(new THREE.Vector3());
+  if (size.y < 1e-4) {
+    return;
+  }
+  const glassFloor = bounds.min.y + size.y * BMW_M2_CABIN_GLASS_MIN_HEIGHT;
+  const targets: THREE.Mesh[] = [];
+  let sourceName = "Window_Material";
+  root.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    if (!mesh.isMesh || mesh.userData.showroomHeadlampCover || Array.isArray(mesh.material)) {
+      return;
+    }
+    const material = mesh.material;
+    if (!material || material.userData.showroomCabinGlass || !mesh.geometry) {
+      return;
+    }
+    const materialName = material.name ?? "";
+    if (!isBmwM2WindowCoverMaterial(materialName)) {
+      return;
+    }
+    sourceName = materialName;
+    targets.push(mesh);
+  });
+  if (targets.length === 0) {
+    return;
+  }
+
+  // One shared pane. The pristine GLB template still owns the black material,
+  // so leave that material on the lower shell and only reassign the greenhouse.
+  const glass = createBmwM2CabinGlassMaterial(sourceName);
+  const cornerA = new THREE.Vector3();
+  const cornerB = new THREE.Vector3();
+  const cornerC = new THREE.Vector3();
+  const centroid = new THREE.Vector3();
+  let claimed = 0;
+
+  for (const mesh of targets) {
+    const position = mesh.geometry.getAttribute("position");
+    if (!position) {
+      continue;
+    }
+    mesh.updateWorldMatrix(true, false);
+    const triangleCount = mesh.geometry.getIndex()
+      ? mesh.geometry.getIndex()!.count / 3
+      : position.count / 3;
+    const glassTriangles: number[] = [];
+    const stayTriangles: number[] = [];
+    for (let triangle = 0; triangle < triangleCount; triangle += 1) {
+      cornerA.fromBufferAttribute(position, triangleCorner(mesh.geometry, triangle, 0));
+      cornerB.fromBufferAttribute(position, triangleCorner(mesh.geometry, triangle, 1));
+      cornerC.fromBufferAttribute(position, triangleCorner(mesh.geometry, triangle, 2));
+      cornerA.applyMatrix4(mesh.matrixWorld);
+      cornerB.applyMatrix4(mesh.matrixWorld);
+      cornerC.applyMatrix4(mesh.matrixWorld);
+      centroid.copy(cornerA).add(cornerB).add(cornerC).multiplyScalar(1 / 3);
+      if (centroid.y >= glassFloor) {
+        glassTriangles.push(triangle);
+      } else {
+        stayTriangles.push(triangle);
+      }
+    }
+    if (glassTriangles.length === 0) {
+      continue;
+    }
+    claimed += glassTriangles.length;
+    if (stayTriangles.length === 0) {
+      mesh.material = glass;
+      mesh.renderOrder = 3;
+      mesh.userData.showroomCabinGlass = true;
+      continue;
+    }
+    const piece = new THREE.Mesh(extractTriangleGeometry(mesh.geometry, glassTriangles), glass);
+    piece.name = `${mesh.name}_CabinGlass`;
+    piece.userData.showroomCabinGlass = true;
+    piece.castShadow = mesh.castShadow;
+    piece.receiveShadow = mesh.receiveShadow;
+    piece.renderOrder = 3;
+    piece.position.copy(mesh.position);
+    piece.quaternion.copy(mesh.quaternion);
+    piece.scale.copy(mesh.scale);
+    mesh.parent?.add(piece);
+    const sourceGeometry = mesh.geometry;
+    mesh.geometry = extractTriangleGeometry(sourceGeometry, stayTriangles);
+    sourceGeometry.dispose();
+  }
+
+  if (claimed === 0) {
+    glass.dispose();
+  }
 }
 
 function adoptHeadlampCover(source: THREE.Mesh, geometry: THREE.BufferGeometry, material: THREE.Material) {
@@ -2336,6 +2488,98 @@ type OffroadCabinPanels = {
   tailgate: THREE.Mesh[];
 };
 
+type OffroadPanelClaim = { panel: OffroadPanelId; shell: boolean };
+
+function meshMaterialLabel(mesh: THREE.Mesh) {
+  const material = mesh.material;
+  if (Array.isArray(material)) {
+    return material.map((entry) => entry.name).join(" ");
+  }
+  return material?.name ?? "";
+}
+
+/**
+ * G63 keeps every authored mesh intact. A mesh joins a hinge only when that
+ * whole mesh already is one door, one window, or the barn door.
+ */
+function matchG63OriginalMesh(
+  box: THREE.Box3,
+  materialName: string,
+  nodeName: string,
+): OffroadPanelClaim | null {
+  if (/light|lamp|brake|red_b|nlight|tire|monoblock|\bwheel\b|steering|leather.?wheel|seat|bumper|doortag/i.test(nodeName)) {
+    return null;
+  }
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  if (center.y < 0.28) {
+    return null;
+  }
+  const spareDisc = size.y > 0.45 && size.z > 0.45 && size.x < 0.4 && center.x > 1.05;
+  if ((/spare/i.test(nodeName) || spareDisc) && center.x > 1 && size.x < 0.5 && center.y > 0.35) {
+    return { panel: "tail", shell: false };
+  }
+  // A door mesh from this file is one authored object on one side. Shared
+  // body, glass, and handle buffers stay on the body.
+  if (!/door|window|glass/i.test(nodeName)) {
+    return null;
+  }
+  if (size.z > 0.55 || size.x > 1.15 || size.y > 1.25 || size.y < 0.08 || size.x < 0.08) {
+    return null;
+  }
+  const left = center.z > -0.4 && box.min.z > -0.72;
+  const right = center.z < -1.0 && box.max.z < -0.68;
+  if (!left && !right) {
+    return null;
+  }
+  const front = center.x < -0.55 && center.x > -1.9 && box.max.x < -0.15 && box.min.x > -2.05;
+  const rear = center.x >= -0.45 && center.x < 0.6 && box.min.x > -0.75 && box.max.x < 0.8;
+  const axle = front ? "F" : rear ? "R" : null;
+  if (!axle) {
+    return null;
+  }
+  return {
+    panel: `${axle}${left ? "L" : "R"}`,
+    shell: /bodypaint/i.test(materialName),
+  };
+}
+
+function collectG63OriginalPanels(root: THREE.Object3D): OffroadCabinPanels {
+  const panels: OffroadCabinPanels = {
+    leftFront: [],
+    rightFront: [],
+    leftRear: [],
+    rightRear: [],
+    tailgate: [],
+  };
+  const meshes: THREE.Mesh[] = [];
+  root.updateWorldMatrix(true, true);
+  root.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    if (!mesh.isMesh || mesh.userData.showroomWheelResidual) {
+      return;
+    }
+    meshes.push(mesh);
+  });
+  for (const mesh of meshes) {
+    const box = new THREE.Box3().setFromObject(mesh);
+    const claim = matchG63OriginalMesh(box, meshMaterialLabel(mesh), hierarchicalName(mesh));
+    if (!claim) {
+      continue;
+    }
+    mesh.userData.showroomCabinPanel = claim.panel;
+    if (claim.shell) {
+      mesh.userData.showroomDoorShell = true;
+    }
+    if (claim.panel === "FL") panels.leftFront.push(mesh);
+    else if (claim.panel === "FR") panels.rightFront.push(mesh);
+    else if (claim.panel === "RL") panels.leftRear.push(mesh);
+    else if (claim.panel === "RR") panels.rightRear.push(mesh);
+    else panels.tailgate.push(mesh);
+  }
+  return panels;
+}
+
 /**
  * G900 door skins, window frames, and the barn-door tailgate are loose triangle
  * islands inside material-wide buffers. Fractions are of the normalized showroom
@@ -2382,7 +2626,7 @@ function shouldSkipOffroadPanelMesh(mesh: THREE.Mesh) {
   if (Object.keys(mesh.geometry.morphAttributes).length > 0) {
     return true;
   }
-  return /left_wheel|right_wheel|michelin|rimdetail|diamondcutrim|wheel_track|_gt_34_|_gt_35_|smallspecmap|leather.?wheel|steering/i.test(
+  return /left_wheel|right_wheel|michelin|rimdetail|diamondcutrim|wheel_track|_gt_34_|_gt_35_|smallspecmap|leather.?wheel|steering|\btire\b|monoblock/i.test(
     hierarchicalName(mesh),
   );
 }
@@ -2416,7 +2660,12 @@ function adoptOffroadPanelPiece(
  * panel can hinge on its own. The roof sheet has no sunroof opening and is left
  * on the body.
  */
-function splitOffroadCabinPanels(root: THREE.Object3D, bounds: THREE.Box3): OffroadCabinPanels {
+function splitOffroadCabinPanels(
+  root: THREE.Object3D,
+  bounds: THREE.Box3,
+  classify: (point: THREE.Vector3, materialName: string) => OffroadPanelClaim | null = (point) =>
+    classifyOffroadCabinTriangle(point, bounds),
+): OffroadCabinPanels {
   const panels: OffroadCabinPanels = {
     leftFront: [],
     rightFront: [],
@@ -2465,7 +2714,7 @@ function splitOffroadCabinPanels(root: THREE.Object3D, bounds: THREE.Box3): Offr
       cornerB.applyMatrix4(mesh.matrixWorld);
       cornerC.applyMatrix4(mesh.matrixWorld);
       centroid.copy(cornerA).add(cornerB).add(cornerC).multiplyScalar(1 / 3);
-      const claim = classifyOffroadCabinTriangle(centroid, bounds);
+      const claim = classify(centroid, meshMaterialLabel(mesh));
       if (!claim) {
         stay.push(triangle);
         continue;
@@ -2513,13 +2762,17 @@ function createBarnTailgatePivot(root: THREE.Object3D, meshes: THREE.Mesh[]) {
   if (meshes.length === 0) {
     return null;
   }
-  const shells = meshes.filter((mesh) => {
-    if (/spare|m_carbon_a/i.test(mesh.name)) {
-      return false;
-    }
-    const shellSize = new THREE.Box3().setFromObject(mesh).getSize(new THREE.Vector3());
-    return shellSize.x < 0.22 && shellSize.z > 0.35;
-  });
+  const markedShells = meshes.filter((mesh) => mesh.userData.showroomDoorShell);
+  const shells =
+    markedShells.length > 0
+      ? markedShells
+      : meshes.filter((mesh) => {
+          if (/spare|m_carbon_a/i.test(mesh.name)) {
+            return false;
+          }
+          const shellSize = new THREE.Box3().setFromObject(mesh).getSize(new THREE.Vector3());
+          return shellSize.x < 0.22 && shellSize.z > 0.35;
+        });
   const hingeBox = new THREE.Box3();
   for (const mesh of shells.length > 0 ? shells : meshes) {
     hingeBox.expandByObject(mesh);
@@ -2549,6 +2802,7 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
   if (profile?.id === "bmw-m2") {
     root.updateWorldMatrix(true, true);
     splitBmwM2HeadlampCovers(root, new THREE.Box3().setFromObject(root));
+    applyBmwM2CabinGlass(root);
   }
   const bounds = new THREE.Box3().setFromObject(root);
   const size = new THREE.Vector3();
@@ -2557,7 +2811,10 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
   bounds.getCenter(center);
 
   let offroadPanels: OffroadCabinPanels | null = null;
-  if (profile?.id === "offroad-brabus") {
+  if (profile?.id === "mercedes-g63") {
+    retirePackedG63Wheels(root);
+    offroadPanels = collectG63OriginalPanels(root);
+  } else if (isGClassMarketProfile(profile)) {
     isolateOffroadHeadlampIslands(root, bounds);
     splitOffroadHeadlampCovers(root, bounds);
     offroadPanels = splitOffroadCabinPanels(root, bounds);

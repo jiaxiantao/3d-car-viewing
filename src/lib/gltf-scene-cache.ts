@@ -24,7 +24,7 @@ const preloadInFlight = new Map<string, Promise<void>>();
 /** Drop prepared packages when door/trunk pattern lists change (HMR / hot profile edits). */
 let preparedCacheProfileStamp = marketRigProfilesFingerprint();
 
-const TEMPLATE_CACHE_LIMIT = 6;
+const TEMPLATE_CACHE_LIMIT = 7;
 /** Idle preload can exceed the category count. Live showroom roots are never evicted. */
 const PREPARED_CACHE_LIMIT = 4;
 

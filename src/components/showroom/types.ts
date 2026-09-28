@@ -61,6 +61,15 @@ export type CarShowroomSceneProps = {
   onToggleLeftDoor: () => void;
   onToggleRightDoor: () => void;
   onToggleTrunk: () => void;
+  /**
+   * When a flag is false, clicks and the hover cursor on that panel are ignored.
+   * Omitted flags stay interactive.
+   */
+  bodyInteractions?: {
+    leftDoor?: boolean;
+    rightDoor?: boolean;
+    trunk?: boolean;
+  };
   /** Imperative handle for screenshot / fullscreen actions. */
   controlHandleRef?: RefObject<ShowroomSceneHandle | null>;
 };

@@ -15,6 +15,7 @@ import {
   DEFAULT_CAR_CATEGORY_KEY,
   carCategoryForModelUrl,
   glbCandidateUrls,
+  isCarInteractionDisabled,
   resolveCarCategoryKey,
   type CarCategoryKey,
 } from "@/lib/car-categories";
@@ -33,6 +34,7 @@ import { useShowroomShortcuts } from "@/lib/use-showroom-shortcuts";
 import {
   SHOWROOM_PRESETS,
   matchShowroomPreset,
+  type ShowroomPresetBodyKey,
   type ShowroomPresetSnapshot,
 } from "@/lib/showroom-presets";
 import { usePrefersReducedMotion } from "@/lib/use-prefers-reduced-motion";
@@ -201,16 +203,38 @@ export function useShowroomPageState() {
       if (!useAssetModel) {
         return true;
       }
+      if (isCarInteractionDisabled(activeCategory, key)) {
+        return false;
+      }
       if (!assetRigCaps) {
         return false;
       }
       return assetRigCaps[key];
     },
-    [assetRigCaps, useAssetModel],
+    [activeCategory, assetRigCaps, useAssetModel],
   );
+
+  const toggleLeftDoor = useCallback(() => {
+    if (supportsInteraction("leftDoor")) {
+      setLeftDoorOpen((open) => !open);
+    }
+  }, [supportsInteraction]);
+  const toggleRightDoor = useCallback(() => {
+    if (supportsInteraction("rightDoor")) {
+      setRightDoorOpen((open) => !open);
+    }
+  }, [supportsInteraction]);
+  const toggleTrunk = useCallback(() => {
+    if (supportsInteraction("trunk")) {
+      setTrunkOpen((open) => !open);
+    }
+  }, [supportsInteraction]);
 
   const interactionHint = useCallback(
     (key: keyof AssetRigCapabilities) => {
+      if (useAssetModel && isCarInteractionDisabled(activeCategory, key)) {
+        return "当前车型暂不提供该项开合。";
+      }
       if (assetModelLoading) {
         return "车模加载中，请稍候…";
       }
@@ -218,7 +242,7 @@ export function useShowroomPageState() {
         ? undefined
         : "当前 GLB 未包含可独立活动的该部件，无法开合。";
     },
-    [assetModelLoading, supportsInteraction],
+    [activeCategory, assetModelLoading, supportsInteraction, useAssetModel],
   );
 
   const unsupportedInteractionLabels = useMemo(() => {
@@ -237,10 +261,26 @@ export function useShowroomPageState() {
   const wheelSwitchAdvice = unsupportedInteractionLabels.includes("车轮转动")
     ? `真实四轮转动请切换${CAR_CATEGORIES.sedan.label}。`
     : "";
+  const blockedInteractionLabels = useMemo(() => {
+    if (!useAssetModel) {
+      return [] as string[];
+    }
+    const labels: string[] = [];
+    if (isCarInteractionDisabled(activeCategory, "leftDoor")) labels.push("左门");
+    if (isCarInteractionDisabled(activeCategory, "rightDoor")) labels.push("右门");
+    if (isCarInteractionDisabled(activeCategory, "trunk")) labels.push("后备箱");
+    if (isCarInteractionDisabled(activeCategory, "sunroof")) labels.push("天窗");
+    return labels;
+  }, [activeCategory, useAssetModel]);
+  const blockedInteractionNote =
+    blockedInteractionLabels.length > 0
+      ? `${activeCategory.label} 暂不提供${blockedInteractionLabels.join("、")}开合。`
+      : "";
+
   const unsupportedInteractionNote =
     unsupportedInteractionLabels.length > 0
-      ? `当前 GLB 的「${unsupportedInteractionLabels.join("、")}」无法单独开合（按钮已禁用）。车灯、双闪、启动与整车动态仍可用。${wheelSwitchAdvice}`
-      : null;
+      ? `${blockedInteractionNote}当前 GLB 的「${unsupportedInteractionLabels.join("、")}」无法单独开合（按钮已禁用）。车灯、双闪、启动与整车动态仍可用。${wheelSwitchAdvice}`
+      : blockedInteractionNote || null;
 
   const wheelSpinUnavailable = useAssetModel && assetRigCaps ? !assetRigCaps.wheels : false;
   const wheelSpinHint = wheelSpinUnavailable
@@ -417,29 +457,39 @@ export function useShowroomPageState() {
     onToggleEngine: () => setEngineOn((value) => !value),
     onToggleLights: () => setLightsOn((value) => !value),
     onToggleHazard: () => setHazardOn((value) => !value),
-    onToggleLeftDoor: () => {
-      if (supportsInteraction("leftDoor")) setLeftDoorOpen((value) => !value);
-    },
-    onToggleRightDoor: () => {
-      if (supportsInteraction("rightDoor")) setRightDoorOpen((value) => !value);
-    },
-    onToggleTrunk: () => {
-      if (supportsInteraction("trunk")) setTrunkOpen((value) => !value);
-    },
+    onToggleLeftDoor: toggleLeftDoor,
+    onToggleRightDoor: toggleRightDoor,
+    onToggleTrunk: toggleTrunk,
     onCaptureScreenshot: handleScreenshot,
     onToggleFullscreen: handleToggleFullscreen,
     onCopyShareLink: handleCopyShareLink,
   });
 
+  const ignoredPresetBodyKeys: ShowroomPresetBodyKey[] = [];
+  if (useAssetModel && isCarInteractionDisabled(activeCategory, "leftDoor")) {
+    ignoredPresetBodyKeys.push("leftDoorOpen");
+  }
+  if (useAssetModel && isCarInteractionDisabled(activeCategory, "rightDoor")) {
+    ignoredPresetBodyKeys.push("rightDoorOpen");
+  }
+  if (useAssetModel && isCarInteractionDisabled(activeCategory, "trunk")) {
+    ignoredPresetBodyKeys.push("trunkOpen");
+  }
+  if (useAssetModel && isCarInteractionDisabled(activeCategory, "sunroof")) {
+    ignoredPresetBodyKeys.push("sunroofOpen");
+  }
+
   function applyShowroomPreset(preset: ShowroomPresetSnapshot) {
-    setLeftDoorOpen(preset.leftDoorOpen);
-    setRightDoorOpen(preset.rightDoorOpen);
-    setTrunkOpen(preset.trunkOpen);
+    setLeftDoorOpen(ignoredPresetBodyKeys.includes("leftDoorOpen") ? false : preset.leftDoorOpen);
+    setRightDoorOpen(
+      ignoredPresetBodyKeys.includes("rightDoorOpen") ? false : preset.rightDoorOpen,
+    );
+    setTrunkOpen(ignoredPresetBodyKeys.includes("trunkOpen") ? false : preset.trunkOpen);
     setLightsOn(preset.lightsOn);
     setEngineOn(preset.engineOn);
     setSteeringAngle(preset.steeringAngle);
     setHazardOn(preset.hazardOn);
-    setSunroofOpen(preset.sunroofOpen);
+    setSunroofOpen(ignoredPresetBodyKeys.includes("sunroofOpen") ? false : preset.sunroofOpen);
     setSpeedKph(preset.speedKph);
     setBraking(preset.braking);
     setCameraPreset(preset.cameraPreset);
@@ -467,7 +517,7 @@ export function useShowroomPageState() {
     braking,
     cameraPreset,
     autoTour,
-  });
+  }, ignoredPresetBodyKeys);
 
   function resetAll() {
     setLeftDoorOpen(false);
@@ -491,10 +541,13 @@ export function useShowroomPageState() {
     reduceMotion,
     leftDoorOpen,
     setLeftDoorOpen,
+    toggleLeftDoor,
     rightDoorOpen,
     setRightDoorOpen,
+    toggleRightDoor,
     trunkOpen,
     setTrunkOpen,
+    toggleTrunk,
     lightsOn,
     setLightsOn,
     engineOn,

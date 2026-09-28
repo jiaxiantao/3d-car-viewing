@@ -70,9 +70,9 @@ export default function HomePage() {
         autoTour={showroom.autoTour}
         reduceMotion={showroom.reduceMotion}
         cameraPreset={showroom.cameraPreset}
-        onToggleLeftDoor={() => showroom.setLeftDoorOpen((value) => !value)}
-        onToggleRightDoor={() => showroom.setRightDoorOpen((value) => !value)}
-        onToggleTrunk={() => showroom.setTrunkOpen((value) => !value)}
+        onToggleLeftDoor={showroom.toggleLeftDoor}
+        onToggleRightDoor={showroom.toggleRightDoor}
+        onToggleTrunk={showroom.toggleTrunk}
         onToggleSunroof={() => showroom.setSunroofOpen((value) => !value)}
         onToggleLights={() => showroom.setLightsOn((value) => !value)}
         onToggleHazard={() => showroom.setHazardOn((value) => !value)}
@@ -102,9 +102,14 @@ export default function HomePage() {
           onAssetRigDebug={showroom.handleAssetRigDebug}
           onAssetModelResolved={showroom.handleAssetModelResolved}
           onAllAssetModelsFailed={showroom.handleAllAssetModelsFailed}
-          onToggleLeftDoor={() => showroom.setLeftDoorOpen((value) => !value)}
-          onToggleRightDoor={() => showroom.setRightDoorOpen((value) => !value)}
-          onToggleTrunk={() => showroom.setTrunkOpen((value) => !value)}
+          onToggleLeftDoor={showroom.toggleLeftDoor}
+          onToggleRightDoor={showroom.toggleRightDoor}
+          onToggleTrunk={showroom.toggleTrunk}
+          bodyInteractions={{
+            leftDoor: showroom.supportsInteraction("leftDoor"),
+            rightDoor: showroom.supportsInteraction("rightDoor"),
+            trunk: showroom.supportsInteraction("trunk"),
+          }}
         />
       </ShowroomViewportChrome>
 
