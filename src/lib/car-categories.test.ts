@@ -3,16 +3,28 @@ import { describe, expect, it } from "vitest";
 import {
   approxBytesForModelUrl,
   CAR_CATEGORIES,
+  CAR_CATEGORY_OPTIONS,
   DEFAULT_CAR_CATEGORY_KEY,
   isCarCategoryKey,
   resolveCarCategoryKey,
 } from "@/lib/car-categories";
 
 describe("car-categories", () => {
-  it("defaults to sedan for unknown keys", () => {
-    expect(DEFAULT_CAR_CATEGORY_KEY).toBe("sedan");
-    expect(resolveCarCategoryKey("nope")).toBe("sedan");
-    expect(resolveCarCategoryKey(undefined)).toBe("sedan");
+  it("lists models in the showroom picker order", () => {
+    expect(CAR_CATEGORY_OPTIONS.map((category) => category.label)).toEqual([
+      "小米 SU7 Ultra",
+      "小米 YU7",
+      "小米 SU7 Max",
+      "奥迪 Q3",
+      "巴博斯 G900",
+      "宝马 M2",
+    ]);
+  });
+
+  it("defaults to SU7 Ultra for unknown keys", () => {
+    expect(DEFAULT_CAR_CATEGORY_KEY).toBe("su7-ultra");
+    expect(resolveCarCategoryKey("nope")).toBe("su7-ultra");
+    expect(resolveCarCategoryKey(undefined)).toBe("su7-ultra");
   });
 
   it("validates category keys", () => {

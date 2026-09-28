@@ -25,38 +25,6 @@ export type CarCategory = {
 };
 
 export const CAR_CATEGORIES: Record<CarCategoryKey, CarCategory> = {
-  suv: {
-    key: "suv",
-    label: "奥迪 Q3",
-    primaryUrl: publicAssetPath("/models/market/suv-mainstream.glb"),
-    approxBytes: 14_500_000,
-    bakedWheels: false,
-    capabilityHint: "",
-  },
-  sedan: {
-    key: "sedan",
-    label: "宝马 M2",
-    primaryUrl: publicAssetPath("/models/market/sedan-mainstream.glb"),
-    approxBytes: 2_800_000,
-    bakedWheels: false,
-    capabilityHint: "",
-  },
-  offroad: {
-    key: "offroad",
-    label: "巴博斯 G900",
-    primaryUrl: publicAssetPath("/models/market/offroad-mainstream.glb"),
-    approxBytes: 9_500_000,
-    bakedWheels: false,
-    capabilityHint: "",
-  },
-  "su7-max": {
-    key: "su7-max",
-    label: "小米 SU7 Max",
-    primaryUrl: publicAssetPath("/models/market/2024_xiaomi_su7_max.glb"),
-    approxBytes: 5_500_000,
-    bakedWheels: false,
-    capabilityHint: "",
-  },
   "su7-ultra": {
     key: "su7-ultra",
     label: "小米 SU7 Ultra",
@@ -73,12 +41,44 @@ export const CAR_CATEGORIES: Record<CarCategoryKey, CarCategory> = {
     bakedWheels: false,
     capabilityHint: "",
   },
+  "su7-max": {
+    key: "su7-max",
+    label: "小米 SU7 Max",
+    primaryUrl: publicAssetPath("/models/market/2024_xiaomi_su7_max.glb"),
+    approxBytes: 5_500_000,
+    bakedWheels: false,
+    capabilityHint: "",
+  },
+  suv: {
+    key: "suv",
+    label: "奥迪 Q3",
+    primaryUrl: publicAssetPath("/models/market/suv-mainstream.glb"),
+    approxBytes: 14_500_000,
+    bakedWheels: false,
+    capabilityHint: "",
+  },
+  offroad: {
+    key: "offroad",
+    label: "巴博斯 G900",
+    primaryUrl: publicAssetPath("/models/market/offroad-mainstream.glb"),
+    approxBytes: 9_500_000,
+    bakedWheels: false,
+    capabilityHint: "",
+  },
+  sedan: {
+    key: "sedan",
+    label: "宝马 M2",
+    primaryUrl: publicAssetPath("/models/market/sedan-mainstream.glb"),
+    approxBytes: 2_800_000,
+    bakedWheels: false,
+    capabilityHint: "",
+  },
 };
 
 export const CAR_CATEGORY_OPTIONS: CarCategory[] = Object.values(CAR_CATEGORIES);
 
-/** Default showroom category — lightest model with full wheel rig. */
-export const DEFAULT_CAR_CATEGORY_KEY: CarCategoryKey = "sedan";
+/** Default showroom category when the page is opened without a model query. */
+export const DEFAULT_CAR_CATEGORY_KEY: CarCategoryKey = "su7-ultra";
 
 export function isCarCategoryKey(value: unknown): value is CarCategoryKey {
   return (

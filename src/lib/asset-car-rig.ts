@@ -709,6 +709,8 @@ function createSideDoorPivot(
   meshes: THREE.Mesh[],
   side: "left" | "right",
   hingeMeshes?: THREE.Mesh[],
+  hingeLead?: number,
+  hingeOutset = 0,
 ) {
   // One mesh must belong to only one door — steal-via-attach across sides causes floaters.
   const unique: THREE.Mesh[] = [];
@@ -739,11 +741,13 @@ function createSideDoorPivot(
   // inboard so it sits against the body instead of on the outer paint.
   const doorDepthZ = doorBox.max.z - doorBox.min.z;
   const inward = Math.min(0.055, doorDepthZ * 0.4);
-  const hingeZ = doorCenter.z >= 0 ? doorBox.max.z - inward : doorBox.min.z + inward;
+  // `hingeOutset` moves the axis back toward the outer skin (left is +Z).
+  const hingeZ =
+    doorCenter.z >= 0 ? doorBox.max.z - inward + hingeOutset : doorBox.min.z + inward - hingeOutset;
   const doorSpanX = doorBox.max.x - doorBox.min.x;
-  // Showroom -X is forward. The axis sits on the leading face (slightly ahead of
-  // the paint) so the A-pillar edge stays against the fender as the door swings.
-  const hingeX = doorBox.min.x - doorSpanX * 0.01;
+  // Showroom -X is forward. Positive lead places the axis ahead of the leading
+  // face; negative lead (Xiaomi) places it behind that face, toward the rear.
+  const hingeX = doorBox.min.x - (hingeLead ?? doorSpanX * 0.01);
 
   const hingeWorld = new THREE.Vector3(
     hingeX,
@@ -1261,16 +1265,74 @@ function createTrunkPivot(
   return pivot;
 }
 
+/** How far the glass travels rearward, as a fraction of its fore-aft span. */
+const SUNROOF_SLIDE_FRACTION = 0.55;
+
+/**
+ * Rise of the outer skin from front to rear, in showroom world units (Y per X).
+ * Showroom -X is forward, so a fastback roof is a small negative slope.
+ */
+function roofChordSlope(node: THREE.Object3D) {
+  const mesh = node as THREE.Mesh;
+  const position = mesh.isMesh ? mesh.geometry.getAttribute("position") : null;
+  if (!position || position.count < 3) {
+    return 0;
+  }
+  mesh.updateWorldMatrix(true, false);
+  const sample = new THREE.Vector3();
+  let minX = Infinity;
+  let maxX = -Infinity;
+  const stride = Math.max(1, Math.floor(position.count / 2500));
+  const points: THREE.Vector3[] = [];
+  for (let index = 0; index < position.count; index += stride) {
+    sample.fromBufferAttribute(position, index).applyMatrix4(mesh.matrixWorld);
+    points.push(sample.clone());
+    minX = Math.min(minX, sample.x);
+    maxX = Math.max(maxX, sample.x);
+  }
+  const span = maxX - minX;
+  if (span < 1e-3) {
+    return 0;
+  }
+  const band = span * 0.18;
+  let frontY = -Infinity;
+  let rearY = -Infinity;
+  let frontX = 0;
+  let rearX = 0;
+  let frontCount = 0;
+  let rearCount = 0;
+  for (const point of points) {
+    if (point.x <= minX + band) {
+      frontY = Math.max(frontY, point.y);
+      frontX += point.x;
+      frontCount += 1;
+    } else if (point.x >= maxX - band) {
+      rearY = Math.max(rearY, point.y);
+      rearX += point.x;
+      rearCount += 1;
+    }
+  }
+  if (frontCount === 0 || rearCount === 0) {
+    return 0;
+  }
+  const run = rearX / rearCount - frontX / frontCount;
+  if (Math.abs(run) < 1e-3) {
+    return 0;
+  }
+  return (rearY - frontY) / run;
+}
+
 /** Store base local pose + parent-local open delta so the glass slides along the roof. */
-function prepareSunroofMotion(nodes: THREE.Object3D[]) {
+function prepareSunroofMotion(nodes: THREE.Object3D[], slideFraction = SUNROOF_SLIDE_FRACTION) {
   for (const node of nodes) {
     node.userData.showroomSunroofBasePos = node.position.clone();
     const box = new THREE.Box3().setFromObject(node);
     const size = new THREE.Vector3();
     box.getSize(size);
-    // Slide toward rear (+X) with a slight lift — scale from the panel's world size.
-    const slide = Math.max(0.18, Math.max(size.x, size.z) * 0.42);
-    const worldDelta = new THREE.Vector3(slide, Math.max(0.02, size.y * 0.5 + 0.02), 0);
+    // Showroom +X is rearward. Follow the roof chord so the panel stays on the
+    // body instead of popping up above it.
+    const slide = Math.max(0.16, size.x * slideFraction);
+    const worldDelta = new THREE.Vector3(slide, roofChordSlope(node) * slide, 0);
     node.userData.showroomSunroofOpenDelta = worldDeltaToParentLocal(node, worldDelta);
   }
 }
@@ -2259,6 +2321,7 @@ function findWheelNodes(root: THREE.Object3D, profile: MarketRigProfile | null) 
   return { frontWheels, rearWheels, wheelRollRadius };
 }
 
+
 export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): AssetCarRig {
   const profile = resolveMarketRigProfile(modelUrl);
   if (profile?.id === "bmw-m2") {
@@ -2573,8 +2636,22 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
   const rightHingeMeshes = rightDoorMeshes.filter((mesh) =>
     matchesAny(hierarchicalName(mesh), profile?.rightDoorHinge),
   );
-  const leftDoorPivot = createSideDoorPivot(root, leftDoorMeshes, "left", leftHingeMeshes);
-  const rightDoorPivot = createSideDoorPivot(root, rightDoorMeshes, "right", rightHingeMeshes);
+  const leftDoorPivot = createSideDoorPivot(
+    root,
+    leftDoorMeshes,
+    "left",
+    leftHingeMeshes,
+    profile?.doorHingeLead,
+    profile?.doorHingeOutset,
+  );
+  const rightDoorPivot = createSideDoorPivot(
+    root,
+    rightDoorMeshes,
+    "right",
+    rightHingeMeshes,
+    profile?.doorHingeLead,
+    profile?.doorHingeOutset,
+  );
   const spanningTrim = splitSpanningDoorTrim(leftDoorPivot, rightDoorPivot, profile?.spanningDoorTrim);
   leftDoorMeshes.push(...spanningTrim.left);
   rightDoorMeshes.push(...spanningTrim.right);
@@ -2585,7 +2662,7 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
     matchesAny(hierarchicalName(mesh), profile?.trunkHinge),
   );
   const trunkPivot = createTrunkPivot(root, trunkForPivot, trunkHingeMeshes);
-  prepareSunroofMotion(sunroofNodes);
+  prepareSunroofMotion(sunroofNodes, profile?.sunroofSlideFraction ?? SUNROOF_SLIDE_FRACTION);
 
   let frontWheels: THREE.Object3D[] = [];
   let rearWheels: THREE.Object3D[] = [];

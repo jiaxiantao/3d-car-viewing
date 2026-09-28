@@ -29,7 +29,7 @@
 | 开启车灯 | `lightsOn` | 名称含 `HL`、`Hl_Projection`、`Lamp` 等前部灯件 + 场景点光源 |
 | 启动车辆 | `engineOn` | 车身轻微振动 + 车轮旋转 + 前灯更亮 |
 | 开启双闪 | `hazardOn` | 尾灯 / `Emiss` 材质闪烁 |
-| 打开天窗 | `sunroofOpen` | 名称含 `Roof_glass` 等，向上平移 |
+| 打开天窗 | `sunroofOpen` | 天窗玻璃沿车顶向后滑开，贴着车身，不向上抬起 |
 
 实现文件：
 

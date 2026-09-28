@@ -274,7 +274,7 @@ export function AssetModel({
         (node.userData.showroomSunroofBasePos as THREE.Vector3 | undefined) ?? node.position;
       const openDelta =
         (node.userData.showroomSunroofOpenDelta as THREE.Vector3 | undefined) ??
-        new THREE.Vector3(0, 0.08, 0);
+        new THREE.Vector3();
       const targetX = state.sunroofOpen ? base.x + openDelta.x : base.x;
       const targetY = state.sunroofOpen ? base.y + openDelta.y : base.y;
       const targetZ = state.sunroofOpen ? base.z + openDelta.z : base.z;

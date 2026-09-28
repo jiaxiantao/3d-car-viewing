@@ -28,6 +28,11 @@ import {
   useShowroomUrlState,
 } from "@/lib/use-showroom-url-state";
 import { useShowroomShortcuts } from "@/lib/use-showroom-shortcuts";
+import {
+  SHOWROOM_PRESETS,
+  matchShowroomPreset,
+  type ShowroomPresetSnapshot,
+} from "@/lib/showroom-presets";
 import { usePrefersReducedMotion } from "@/lib/use-prefers-reduced-motion";
 
 const VALID_CAMERA_PRESETS: CarCameraPreset[] = [
@@ -395,35 +400,43 @@ export function useShowroomPageState() {
     onCopyShareLink: handleCopyShareLink,
   });
 
+  function applyShowroomPreset(preset: ShowroomPresetSnapshot) {
+    setLeftDoorOpen(preset.leftDoorOpen);
+    setRightDoorOpen(preset.rightDoorOpen);
+    setTrunkOpen(preset.trunkOpen);
+    setLightsOn(preset.lightsOn);
+    setEngineOn(preset.engineOn);
+    setSteeringAngle(preset.steeringAngle);
+    setHazardOn(preset.hazardOn);
+    setSunroofOpen(preset.sunroofOpen);
+    setSpeedKph(preset.speedKph);
+    setBraking(preset.braking);
+    setCameraPreset(preset.cameraPreset);
+    setAutoTour(preset.autoTour);
+  }
+
   function applyWelcomeMode() {
-    setLeftDoorOpen(true);
-    setRightDoorOpen(true);
-    setTrunkOpen(false);
-    setLightsOn(true);
-    setEngineOn(false);
-    setSteeringAngle(0);
-    setHazardOn(true);
-    setSunroofOpen(false);
-    setSpeedKph(0);
-    setBraking(false);
-    setCameraPreset("overview");
-    setAutoTour(false);
+    applyShowroomPreset(SHOWROOM_PRESETS.welcome);
   }
 
   function applyDriveMode() {
-    setLeftDoorOpen(false);
-    setRightDoorOpen(false);
-    setTrunkOpen(false);
-    setLightsOn(true);
-    setEngineOn(true);
-    setSteeringAngle(-16);
-    setHazardOn(false);
-    setSunroofOpen(false);
-    setSpeedKph(45);
-    setBraking(false);
-    setCameraPreset("side-right");
-    setAutoTour(false);
+    applyShowroomPreset(SHOWROOM_PRESETS.drive);
   }
+
+  const activePreset = matchShowroomPreset({
+    leftDoorOpen,
+    rightDoorOpen,
+    trunkOpen,
+    lightsOn,
+    engineOn,
+    steeringAngle,
+    hazardOn,
+    sunroofOpen,
+    speedKph,
+    braking,
+    cameraPreset,
+    autoTour,
+  });
 
   function resetAll() {
     setLeftDoorOpen(false);
@@ -508,6 +521,7 @@ export function useShowroomPageState() {
     handleToggleAutoTour,
     applyWelcomeMode,
     applyDriveMode,
+    activePreset,
     resetAll,
   };
 }

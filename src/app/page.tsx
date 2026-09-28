@@ -139,6 +139,7 @@ export default function HomePage() {
         unsupportedInteractionNote={showroom.unsupportedInteractionNote}
         onApplyWelcomeMode={showroom.applyWelcomeMode}
         onApplyDriveMode={showroom.applyDriveMode}
+        activePreset={showroom.activePreset}
         onResetAll={showroom.resetAll}
       />
     </main>

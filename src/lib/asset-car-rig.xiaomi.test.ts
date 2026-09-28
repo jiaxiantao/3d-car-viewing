@@ -8,7 +8,7 @@ import draco3d from "draco3dgltf";
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 
-import { applyWheelMotion, discoverAssetCarRig } from "@/lib/asset-car-rig";
+import { applyWheelMotion, ASSET_DOOR_MAX_OPEN_RADIANS, discoverAssetCarRig } from "@/lib/asset-car-rig";
 import { normalizeMarketModel } from "@/lib/normalize-market-model";
 import { resolveShowroomCameraPose } from "@/lib/showroom-camera";
 
@@ -73,6 +73,13 @@ async function loadRig(fileName: string) {
   }
   normalizeMarketModel(root);
   return discoverAssetCarRig(root, `models/market/${fileName}`);
+}
+
+function sunroofWorldTravel(node: THREE.Object3D) {
+  const delta = (node.userData.showroomSunroofOpenDelta as THREE.Vector3).clone();
+  const linear = node.parent!.matrixWorld.clone();
+  linear.setPosition(0, 0, 0);
+  return delta.applyMatrix4(linear);
 }
 
 /** How far the top of the outer rim lip slides sideways during one revolution. */
@@ -154,6 +161,50 @@ function wheelCenterTravel(wheel: THREE.Object3D) {
   return Math.hypot(maxX - minX, maxY - minY);
 }
 
+/** Outward travel of the door shell's leading edge at full open, in showroom meters. */
+function leadingEdgeSwing(pivot: THREE.Object3D) {
+  let shell: THREE.Mesh | null = null;
+  pivot.traverse((node) => {
+    const mesh = node as THREE.Mesh;
+    if (!shell && mesh.isMesh && /carPaint_\d/i.test(mesh.name)) {
+      shell = mesh;
+    }
+  });
+  if (!shell) {
+    return { lead: 0, swing: 0, outset: 0 };
+  }
+  const door = shell as THREE.Mesh;
+  const box = new THREE.Box3().setFromObject(door);
+  const hinge = new THREE.Vector3();
+  pivot.getWorldPosition(hinge);
+  const openSign = pivot.userData.showroomOpenSign as number;
+  const outerZ = openSign === -1 ? box.max.z : box.min.z;
+  const defaultInward = Math.min(0.055, (box.max.z - box.min.z) * 0.4);
+  const hingeFromOuter = openSign === -1 ? hinge.z - outerZ : outerZ - hinge.z;
+  const outset = defaultInward + hingeFromOuter;
+  const outward = -openSign;
+  const rot = new THREE.Quaternion().setFromAxisAngle(
+    new THREE.Vector3(0, 1, 0),
+    openSign * ASSET_DOOR_MAX_OPEN_RADIANS,
+  );
+  const position = door.geometry.getAttribute("position");
+  door.updateWorldMatrix(true, true);
+  const point = new THREE.Vector3();
+  const limit = box.min.x + 0.04;
+  let sum = 0;
+  let count = 0;
+  for (let index = 0; index < position.count; index += 2) {
+    point.fromBufferAttribute(position, index).applyMatrix4(door.matrixWorld);
+    if (point.x > limit) {
+      continue;
+    }
+    const opened = point.clone().sub(hinge).applyQuaternion(rot).add(hinge);
+    sum += (opened.z - point.z) * outward;
+    count += 1;
+  }
+  return { lead: box.min.x - hinge.x, swing: count > 0 ? sum / count : 0, outset };
+}
+
 function partItems(rig: ReturnType<typeof discoverAssetCarRig>, key: string) {
   return rig.debug.parts.find((part) => part.key === key)?.items.join("\n") ?? "";
 }
@@ -230,8 +281,72 @@ describe("Xiaomi showroom rigs", () => {
     expect(partItems(rig, "trunk")).not.toMatch(/trunk_9/i);
     expect(partItems(rig, "trunk")).not.toMatch(/trunk_6_carPlastic/i);
     expect(partItems(rig, "trunk")).not.toMatch(/Glass_back_2_Side_carGlass/i);
+    expect(partItems(rig, "trunk")).not.toMatch(/carGlass_back_1_carGlass_back_1/i);
+    expect(partItems(rig, "trunk")).not.toMatch(/carHeaterStrip_/i);
+    expect(partItems(rig, "trunk")).toMatch(/carLightGlass_Back_2_/i);
+    expect(partItems(rig, "trunk")).toMatch(/carLightPlastic_BrilliantBlack_2_/i);
+    expect(partItems(rig, "trunk")).toMatch(/carLight_bulb_2_/i);
+    expect(partItems(rig, "trunk")).not.toMatch(/carLightGlass_Back_1_/i);
+    expect(partItems(rig, "trunk")).not.toMatch(/carLightPlastic_BrilliantBlack_1_/i);
+    expect(partItems(rig, "tailLights")).toMatch(/carLightGlass_Back_1_/i);
+    expect(partItems(rig, "tailLights")).toMatch(/carLightGlass_Back_2_/i);
+    let heaterVisible = false;
+    rig.trunkPivot?.parent?.traverse((node) => {
+      const mesh = node as THREE.Mesh;
+      if (mesh.isMesh && /carHeaterStrip_/i.test(mesh.name)) {
+        heaterVisible = mesh.visible;
+      }
+    });
+    expect(heaterVisible).toBe(true);
+    const findMesh = (pattern: RegExp) => {
+      let found: THREE.Mesh | null = null;
+      rig.trunkPivot?.parent?.traverse((node) => {
+        const mesh = node as THREE.Mesh;
+        if (!found && mesh.isMesh && pattern.test(mesh.name)) {
+          found = mesh;
+        }
+      });
+      return found;
+    };
+    const sideLens = findMesh(/carLightGlass_Back_1_/i);
+    const centerLens = findMesh(/carLightGlass_Back_2_/i);
+    const centerHousing = findMesh(/carLightPlastic_BrilliantBlack_2_/i);
+    expect(sideLens).toBeTruthy();
+    expect(centerLens).toBeTruthy();
+    expect(centerHousing).toBeTruthy();
+    const sideRest = new THREE.Box3().setFromObject(sideLens!).getCenter(new THREE.Vector3());
+    const centerRest = new THREE.Box3().setFromObject(centerLens!).getCenter(new THREE.Vector3());
+    const housingRest = new THREE.Box3().setFromObject(centerHousing!).getCenter(new THREE.Vector3());
+    const housingReach = new THREE.Box3().setFromObject(centerHousing!).max.z;
+    // The cover already ends on the lamp line. A plane cut used to leave a straight stub.
+    expect(housingReach).toBeGreaterThan(0.46);
+    rig.trunkPivot!.rotation.x = 1.1;
+    rig.trunkPivot!.updateWorldMatrix(true, true);
+    expect(
+      new THREE.Box3().setFromObject(sideLens!).getCenter(new THREE.Vector3()).distanceTo(sideRest),
+    ).toBeLessThan(0.01);
+    expect(
+      new THREE.Box3()
+        .setFromObject(centerLens!)
+        .getCenter(new THREE.Vector3())
+        .distanceTo(centerRest),
+    ).toBeGreaterThan(0.08);
+    expect(
+      new THREE.Box3()
+        .setFromObject(centerHousing!)
+        .getCenter(new THREE.Vector3())
+        .distanceTo(housingRest),
+    ).toBeGreaterThan(0.08);
     expect(partItems(rig, "sunroof")).toMatch(/carRoof_su7Pro/i);
     expect(partItems(rig, "sunroof")).not.toMatch(/carGlass_front_2_carGlass_front_2/i);
+    const ultraRoofTravel = sunroofWorldTravel(rig.sunroofNodes[0]);
+    const ultraRoofSpan = new THREE.Box3()
+      .setFromObject(rig.sunroofNodes[0])
+      .getSize(new THREE.Vector3()).x;
+    expect(ultraRoofTravel.x).toBeCloseTo(ultraRoofSpan * 0.275, 2);
+    expect(ultraRoofTravel.y).toBeLessThan(0.012);
+    expect(ultraRoofTravel.y).toBeGreaterThan(-0.08);
+    expect(Math.abs(ultraRoofTravel.z)).toBeLessThan(0.02);
     expect(rig.frontWheels.length).toBeGreaterThanOrEqual(2);
     expect(rig.rearWheels.length).toBeGreaterThanOrEqual(2);
     expect(partItems(rig, "frontWheels")).not.toMatch(/BrakeDisc|Caliper/i);
@@ -244,6 +359,13 @@ describe("Xiaomi showroom rigs", () => {
       expect(wheelCenterTravel(tyre)).toBeLessThan(0.004);
     }
     expect(rig.paintMaterials.length).toBeGreaterThan(0);
+    for (const pivot of [rig.leftDoorPivot, rig.rightDoorPivot]) {
+      const swing = leadingEdgeSwing(pivot!);
+      expect(swing.lead).toBeCloseTo(0, 2);
+      expect(swing.outset).toBeCloseTo(0.06, 2);
+      expect(swing.swing).toBeGreaterThan(0);
+      expect(swing.swing).toBeLessThan(0.05);
+    }
   }, 60_000);
 
   it("opens YU7 front doors, hatch, and panoramic roof", async () => {
@@ -262,12 +384,95 @@ describe("Xiaomi showroom rigs", () => {
     expect(partItems(rig, "rightDoor")).not.toMatch(/carPaint_13/i);
     expect(partItems(rig, "trunk")).toMatch(/carPaint_8_carPaint_8/i);
     expect(partItems(rig, "trunk")).not.toMatch(/TrunkInternal/i);
+    expect(partItems(rig, "trunk")).toMatch(/carDuckTail_/i);
+    expect(partItems(rig, "trunk")).toMatch(/carLightGlass_Back_2_/i);
+    expect(partItems(rig, "trunk")).toMatch(/carLightPlastic_BrilliantBlack_2_/i);
+    expect(partItems(rig, "trunk")).toMatch(/carLight_bulb_2_/i);
+    expect(partItems(rig, "trunk")).toMatch(/carXiaoMi_1_/i);
+    expect(partItems(rig, "trunk")).toMatch(/carXiaoMi_3_yu7_/i);
+    expect(partItems(rig, "trunk")).toMatch(/carXiaoMi_3_carXiaoMi_3/i);
+    expect(partItems(rig, "trunk")).toMatch(/carGlass_back_1_carGlass_back_1/i);
+    expect(partItems(rig, "trunk")).toMatch(/carHeaterStrip_/i);
+    expect(partItems(rig, "trunk")).not.toMatch(/carLightGlass_Back_1_/i);
+    expect(partItems(rig, "tailLights")).toMatch(/carLightGlass_Back_1_/i);
+    expect(partItems(rig, "tailLights")).toMatch(/carLightGlass_Back_2_/i);
+    let heaterVisible = false;
+    rig.trunkPivot?.parent?.traverse((node) => {
+      const mesh = node as THREE.Mesh;
+      if (mesh.isMesh && /carHeaterStrip_/i.test(mesh.name)) {
+        heaterVisible = mesh.visible;
+      }
+    });
+    expect(heaterVisible).toBe(true);
+    const findMesh = (pattern: RegExp) => {
+      let found: THREE.Mesh | null = null;
+      rig.trunkPivot?.parent?.traverse((node) => {
+        const mesh = node as THREE.Mesh;
+        if (!found && mesh.isMesh && pattern.test(mesh.name)) {
+          found = mesh;
+        }
+      });
+      return found;
+    };
+    const sideLens = findMesh(/carLightGlass_Back_1_/i);
+    const centerLens = findMesh(/carLightGlass_Back_2_/i);
+    const centerHousing = findMesh(/carLightPlastic_BrilliantBlack_2_/i);
+    const rearGlass = findMesh(/carGlass_back_1_carGlass_back_1/i);
+    const sideBadge = findMesh(/carXiaoMi_3_yu7_/i);
+    expect(sideLens).toBeTruthy();
+    expect(centerLens).toBeTruthy();
+    expect(centerHousing).toBeTruthy();
+    expect(rearGlass).toBeTruthy();
+    expect(sideBadge).toBeTruthy();
+    const sideRest = new THREE.Box3().setFromObject(sideLens!).getCenter(new THREE.Vector3());
+    const centerRest = new THREE.Box3().setFromObject(centerLens!).getCenter(new THREE.Vector3());
+    const housingRest = new THREE.Box3().setFromObject(centerHousing!).getCenter(new THREE.Vector3());
+    const glassRest = new THREE.Box3().setFromObject(rearGlass!).getCenter(new THREE.Vector3());
+    const badgeRest = new THREE.Box3().setFromObject(sideBadge!).getCenter(new THREE.Vector3());
+    rig.trunkPivot!.rotation.x = 1.1;
+    rig.trunkPivot!.updateWorldMatrix(true, true);
+    expect(
+      new THREE.Box3().setFromObject(sideLens!).getCenter(new THREE.Vector3()).distanceTo(sideRest),
+    ).toBeLessThan(0.01);
+    expect(
+      new THREE.Box3().setFromObject(rearGlass!).getCenter(new THREE.Vector3()).distanceTo(glassRest),
+    ).toBeGreaterThan(0.04);
+    expect(
+      new THREE.Box3().setFromObject(sideBadge!).getCenter(new THREE.Vector3()).distanceTo(badgeRest),
+    ).toBeGreaterThan(0.08);
+    expect(
+      new THREE.Box3()
+        .setFromObject(centerLens!)
+        .getCenter(new THREE.Vector3())
+        .distanceTo(centerRest),
+    ).toBeGreaterThan(0.08);
+    expect(
+      new THREE.Box3()
+        .setFromObject(centerHousing!)
+        .getCenter(new THREE.Vector3())
+        .distanceTo(housingRest),
+    ).toBeGreaterThan(0.08);
     expect(partItems(rig, "sunroof")).toMatch(/carRoof_yu7/i);
     expect(partItems(rig, "sunroof")).not.toMatch(/carRoofSpoiler/i);
+    const yu7RoofTravel = sunroofWorldTravel(rig.sunroofNodes[0]);
+    const yu7RoofSpan = new THREE.Box3()
+      .setFromObject(rig.sunroofNodes[0])
+      .getSize(new THREE.Vector3()).x;
+    expect(yu7RoofTravel.x).toBeCloseTo(yu7RoofSpan * 0.275, 2);
+    expect(yu7RoofTravel.y).toBeLessThan(0.012);
+    expect(yu7RoofTravel.y).toBeGreaterThan(-0.08);
+    expect(Math.abs(yu7RoofTravel.z)).toBeLessThan(0.02);
     expect(rig.frontWheels.length).toBeGreaterThanOrEqual(2);
     expect(rig.rearWheels.length).toBeGreaterThanOrEqual(2);
     expect(partItems(rig, "frontWheels")).not.toMatch(/BrakeDisc|Caliper/i);
     expect(partItems(rig, "headLights")).not.toMatch(/carLight_bulb_3/i);
     expect(rig.paintMaterials.length).toBeGreaterThan(0);
+    for (const pivot of [rig.leftDoorPivot, rig.rightDoorPivot]) {
+      const swing = leadingEdgeSwing(pivot!);
+      expect(swing.lead).toBeCloseTo(0, 2);
+      expect(swing.outset).toBeCloseTo(0.06, 2);
+      expect(swing.swing).toBeGreaterThan(0);
+      expect(swing.swing).toBeLessThan(0.05);
+    }
   }, 60_000);
 });

@@ -12,7 +12,7 @@ import {
   releaseDisplayedScene,
   retainDisplayedScene,
 } from "@/lib/gltf-scene-cache";
-import { publicAssetPath } from "@/lib/public-asset-path";
+import { CAR_CATEGORIES, DEFAULT_CAR_CATEGORY_KEY } from "@/lib/car-categories";
 import { getOrbitDistanceLimits } from "@/lib/showroom-camera";
 import {
   ShowroomHeadlightSpotlights,
@@ -95,7 +95,7 @@ export function CarShowroomScene({
   cameraPreset,
   autoTour,
   useAssetModel,
-  modelUrl = publicAssetPath("/models/market/sedan-mainstream.glb"),
+  modelUrl = CAR_CATEGORIES[DEFAULT_CAR_CATEGORY_KEY].primaryUrl,
   modelAlternateUrls,
   modelFallbackUrl,
   sceneMode = "studio",

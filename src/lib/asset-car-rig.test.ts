@@ -97,7 +97,47 @@ describe("discoverAssetCarRig", () => {
 
     const sunroof = rig.sunroofNodes[0];
     expect(sunroof.userData.showroomSunroofBasePos).toBeInstanceOf(THREE.Vector3);
-    expect(sunroof.userData.showroomSunroofOpenDelta).toBeInstanceOf(THREE.Vector3);
+    const openDelta = sunroof.userData.showroomSunroofOpenDelta as THREE.Vector3;
+    const travel = openDelta.clone();
+    const linear = sunroof.parent!.matrixWorld.clone();
+    linear.setPosition(0, 0, 0);
+    travel.applyMatrix4(linear);
+    expect(travel.x).toBeGreaterThan(0.15);
+    expect(Math.abs(travel.y)).toBeLessThan(0.015);
+    expect(Math.abs(travel.z)).toBeLessThan(0.02);
+  });
+
+  it("slides sunroof glass rearward along the roof instead of lifting it", () => {
+    const sloped = new THREE.Group();
+    sloped.add(mesh("Body_Carpaint", [0, 0.5, 0], [3.2, 0.8, 1.6]));
+    const glass = mesh("Roof_glass_Sunroof", [0.2, 1.08, 0], [1.2, 0.02, 0.7]);
+    glass.rotation.z = -0.18;
+    sloped.add(glass);
+    sloped.updateWorldMatrix(true, true);
+
+    const slopedRig = discoverAssetCarRig(sloped, "models/market/test-generic.glb");
+    const slopedTravel = (slopedRig.sunroofNodes[0].userData.showroomSunroofOpenDelta as THREE.Vector3).clone();
+    const slopedLinear = slopedRig.sunroofNodes[0].parent!.matrixWorld.clone();
+    slopedLinear.setPosition(0, 0, 0);
+    slopedTravel.applyMatrix4(slopedLinear);
+    expect(slopedTravel.x).toBeGreaterThan(0.4);
+    expect(slopedTravel.y).toBeLessThan(-0.04);
+    expect(Math.abs(slopedTravel.z)).toBeLessThan(0.03);
+
+    const turned = new THREE.Group();
+    turned.add(mesh("Body_Carpaint", [0, 0.5, 0], [3.2, 0.8, 1.6]));
+    turned.add(mesh("Roof_glass_Sunroof", [0.1, 1.05, 0], [0.9, 0.03, 0.6]));
+    turned.rotation.y = -Math.PI / 2;
+    turned.updateWorldMatrix(true, true);
+    const turnedRig = discoverAssetCarRig(turned, "models/market/test-turned.glb");
+    const turnedNode = turnedRig.sunroofNodes[0];
+    const turnedTravel = (turnedNode.userData.showroomSunroofOpenDelta as THREE.Vector3).clone();
+    const turnedLinear = turnedNode.parent!.matrixWorld.clone();
+    turnedLinear.setPosition(0, 0, 0);
+    turnedTravel.applyMatrix4(turnedLinear);
+    expect(turnedTravel.x).toBeGreaterThan(0.3);
+    expect(Math.abs(turnedTravel.y)).toBeLessThan(0.015);
+    expect(Math.abs(turnedTravel.z)).toBeLessThan(0.03);
   });
 
   it("parents only the front-door slice of a shared beltline cover", () => {

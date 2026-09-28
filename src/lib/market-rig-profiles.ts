@@ -11,6 +11,18 @@ export type MarketRigProfile = {
   leftDoorHinge?: RegExp[];
   rightDoorHinge?: RegExp[];
   /**
+   * Signed offset of the door axis from the outer shell's leading face.
+   * Positive sits ahead of that face (showroom -X). Negative sits behind it,
+   * toward the rear of the car. Omit to use 1% of the door length ahead of the face.
+   */
+  doorHingeLead?: number;
+  /**
+   * Extra outward shift of the door axis, away from the cabin.
+   * The default axis is inset from the outer paint. A large enough value
+   * places the axis outside that skin so the open door leaves the body.
+   */
+  doorHingeOutset?: number;
+  /**
    * One buffer that holds several doors' trim. Triangles inside each front-door
    * volume are split off and parented to that hinge; the rest stays on the body.
    */
@@ -26,6 +38,11 @@ export type MarketRigProfile = {
   hazardLight?: RegExp[];
   hazardLightMaterial?: RegExp[];
   sunroof?: RegExp[];
+  /**
+   * Rearward travel as a fraction of the glass fore-aft span.
+   * Omit to use the default (0.55). Xiaomi panoramic roofs use half of that.
+   */
+  sunroofSlideFraction?: number;
   wheel?: RegExp[];
   /**
    * Road-wheel meshes that may pack several corners into one buffer (split, then spun).
@@ -223,6 +240,10 @@ const xiaomiSu7MaxProfile: MarketRigProfile = {
 const xiaomiSu7UltraProfile: MarketRigProfile = {
   id: "xiaomi-su7-ultra",
   urlPattern: /2025_xiaomi_su7_ultra/i,
+  // Axis sits on the shut line, only slightly outside the skin, so the open
+  // door clears the fender without a wide gap.
+  doorHingeLead: 0,
+  doorHingeOutset: 0.06,
   leftDoorHinge: [/carPaint_4_carPaint_4/i],
   rightDoorHinge: [/carPaint_6_carPaint_6/i],
   leftDoor: [
@@ -250,12 +271,11 @@ const xiaomiSu7UltraProfile: MarketRigProfile = {
     /carPaint_8_carPaint_8/i,
     /carPaint_2_carPaint_2/i,
     /carPlastic_MatteBlack_trunk_7_/i,
-    /carGlass_back_1_carGlass_back_1/i,
-    /carHeaterStrip_/i,
-    /carLightGlass_Back/i,
-    /carLightPlastic_BrilliantBlack_2_carLightPlastic/i,
+    // Rear glass stays. The center bar's own rim is the seam, so the whole
+    // cover rises; the two corner lenses stay on the fascia. `trunk_9` is the front bumper.
+    /carLightGlass_Back_2_/i,
+    /carLightPlastic_BrilliantBlack_2_/i,
     /carLight_bulb_2_/i,
-    // Wing, brackets, and the rear badge sit on the lid. `trunk_9` is the front bumper.
     /carSpoilers_/i,
     /empennage_/i,
     /carTailBracket_/i,
@@ -263,6 +283,7 @@ const xiaomiSu7UltraProfile: MarketRigProfile = {
     /carPlastic_BrilliantBlack_4_2_/i,
   ],
   sunroof: [/carRoof_su7Pro/i],
+  sunroofSlideFraction: 0.275,
   headLight: [
     /carLightGlass_Front/i,
     /carLightPlastic_MatteBlack/i,
@@ -288,6 +309,10 @@ const xiaomiSu7UltraProfile: MarketRigProfile = {
 const xiaomiYu7Profile: MarketRigProfile = {
   id: "xiaomi-yu7",
   urlPattern: /2025_xiaomi_yu7/i,
+  // Axis sits on the shut line, only slightly outside the skin, so the open
+  // door clears the fender without a wide gap.
+  doorHingeLead: 0,
+  doorHingeOutset: 0.06,
   leftDoorHinge: [/carPaint_4_carPaint_4/i],
   rightDoorHinge: [/carPaint_4_1__/i],
   leftDoor: [
@@ -316,14 +341,19 @@ const xiaomiYu7Profile: MarketRigProfile = {
   trunk: [
     /carPaint_8_carPaint_8/i,
     /carInternal_TrunkExternal/i,
+    /carDuckTail_/i,
+    // The rear glass is part of this hatch. The center tail bar rises with it;
+    // the corner lenses (`Back_1`) stay on the fascia.
     /carGlass_back_1_carGlass_back_1/i,
     /carHeaterStrip_/i,
-    /carDuckTail_/i,
-    /carLightGlass_Back/i,
+    /carLightGlass_Back_2_/i,
     /carLightPlastic_BrilliantBlack_2_carLightPlastic/i,
     /carLight_bulb_2_/i,
+    /carXiaoMi_1_/i,
+    /carXiaoMi_3_/i,
   ],
   sunroof: [/carRoof_yu7_/i],
+  sunroofSlideFraction: 0.275,
   headLight: [
     /carLightGlass_Front/i,
     /carLight_bulb_1_/i,
@@ -371,7 +401,7 @@ export function marketRigProfilesFingerprint(): string {
     ]
       .map((pattern) => pattern.source)
       .join("|");
-    return `${profile.id}:${profile.bakedWheels ? 1 : 0}:${patterns.length}:${patterns}`;
+    return `${profile.id}:${profile.bakedWheels ? 1 : 0}:${profile.sunroofSlideFraction ?? ""}:${profile.doorHingeLead ?? ""}:${profile.doorHingeOutset ?? ""}:${patterns.length}:${patterns}`;
   }).join(";");
 }
 

@@ -6,6 +6,7 @@ import {
   type CarCategoryKey,
 } from "@/lib/car-categories";
 import type { AssetRigCapabilities } from "@/components/car-showroom-scene";
+import type { ShowroomPresetId } from "@/lib/showroom-presets";
 
 type ShowroomControlPanelsProps = {
   useAssetModel: boolean;
@@ -19,6 +20,7 @@ type ShowroomControlPanelsProps = {
   unsupportedInteractionNote: string | null;
   onApplyWelcomeMode: () => void;
   onApplyDriveMode: () => void;
+  activePreset: ShowroomPresetId | null;
   onResetAll: () => void;
 };
 
@@ -34,6 +36,7 @@ export function ShowroomControlPanels({
   unsupportedInteractionNote,
   onApplyWelcomeMode,
   onApplyDriveMode,
+  activePreset,
   onResetAll,
 }: ShowroomControlPanelsProps) {
   return (
@@ -88,10 +91,18 @@ export function ShowroomControlPanels({
         </div>
 
         <div className="flex flex-wrap gap-2 sm:gap-3">
-          <Button variant="secondary" onClick={onApplyWelcomeMode}>
+          <Button
+            variant={activePreset === "welcome" ? "default" : "secondary"}
+            aria-pressed={activePreset === "welcome"}
+            onClick={onApplyWelcomeMode}
+          >
             迎宾模式
           </Button>
-          <Button variant="secondary" onClick={onApplyDriveMode}>
+          <Button
+            variant={activePreset === "drive" ? "default" : "secondary"}
+            aria-pressed={activePreset === "drive"}
+            onClick={onApplyDriveMode}
+          >
             驾驶预备模式
           </Button>
           <Button variant="outline" onClick={onResetAll}>
