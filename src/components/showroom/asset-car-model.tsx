@@ -6,6 +6,7 @@ import * as THREE from "three";
 import {
   ASSET_DOOR_MAX_OPEN_RADIANS,
   ASSET_TRUNK_MAX_OPEN_RADIANS,
+  applyShowroomBodyPaint,
   applyWheelMotion,
   boostShowroomMaterialEmissive,
   SHOWROOM_HEADLAMP_INTENSITY,
@@ -193,11 +194,17 @@ export function AssetModel({
   }, [object, rig.paintMaterials]);
 
   useEffect(() => {
-    const primary = new THREE.Color(state.bodyColor);
-    const secondary = state.bodyColorSecondary ? new THREE.Color(state.bodyColorSecondary) : null;
     const targets = paintMaterialRefs.current.length
       ? paintMaterialRefs.current
       : allColorMaterialRefs.current;
+    if (state.bodyPaintFactory) {
+      for (const material of targets) {
+        applyShowroomBodyPaint(material, null);
+      }
+      return;
+    }
+    const primary = new THREE.Color(state.bodyColor);
+    const secondary = state.bodyColorSecondary ? new THREE.Color(state.bodyColorSecondary) : null;
     const denominator = Math.max(1, targets.length - 1);
     for (const [index, material] of targets.entries()) {
       if (!("color" in material)) {
@@ -207,9 +214,9 @@ export function AssetModel({
       const target = secondary
         ? primary.clone().lerp(secondary, THREE.MathUtils.clamp(gradientRatio, 0, 1))
         : primary;
-      (material as { color: THREE.Color }).color.copy(target);
+      applyShowroomBodyPaint(material, target);
     }
-  }, [state.bodyColor, state.bodyColorSecondary, rig.paintMaterials]);
+  }, [state.bodyColor, state.bodyColorSecondary, state.bodyPaintFactory, rig.paintMaterials]);
 
   /* eslint-disable react-hooks/immutability -- three.js scene graph is mutated each frame */
   useFrame((renderState, delta) => {

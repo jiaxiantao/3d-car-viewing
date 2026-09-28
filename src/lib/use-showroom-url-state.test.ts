@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { SHOWROOM_DEFAULT_PAINT_ID, resolveShowroomPaint } from "@/lib/showroom-paint-options";
 import {
   buildShowroomShareUrl,
   parseShowroomUrlSearchParams,
@@ -41,5 +42,13 @@ describe("showroom url state", () => {
     expect(url).toContain("paint=obsidian-black");
     expect(url).toContain("camera=rear");
     expect(url).toContain("mode=day");
+  });
+
+  it("accepts the factory paint id and treats it as the default", () => {
+    const params = new URLSearchParams("model=su7-max&paint=factory&camera=overview&mode=studio");
+    expect(parseShowroomUrlSearchParams(params).paintId).toBe("factory");
+    expect(SHOWROOM_DEFAULT_PAINT_ID).toBe("factory");
+    expect(resolveShowroomPaint(undefined).factory).toBe(true);
+    expect(resolveShowroomPaint("missing").factory).toBe(true);
   });
 });

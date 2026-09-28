@@ -143,26 +143,49 @@ export function ShowroomViewportChrome({
       {SHOWROOM_PAINT_OPTIONS.map((paint) => {
         const active = selectedPaintId === paint.id;
         return (
-          <button
-            key={paint.id}
-            type="button"
-            role="option"
-            aria-selected={active}
-            aria-label={paint.label}
-            title={paint.label}
-            onClick={() => onSelectPaint(paint.id)}
-            className={cn(
-              "h-7 w-7 shrink-0 rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60 sm:h-8 sm:w-8",
-              active
-                ? "border-cyan-200 scale-110 shadow-[0_0_0_2px_rgba(34,211,238,0.45)]"
-                : "border-white/25 hover:border-white/50 hover:scale-105",
-            )}
-            style={{
-              background: paint.secondary
-                ? `linear-gradient(135deg, ${paint.primary}, ${paint.secondary})`
-                : paint.primary,
-            }}
-          />
+          <span key={paint.id} className="group relative">
+            <button
+              type="button"
+              role="option"
+              aria-selected={active}
+              aria-label={paint.label}
+              title={paint.label}
+              onClick={() => onSelectPaint(paint.id)}
+              className={cn(
+                "relative h-7 w-7 shrink-0 rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60 sm:h-8 sm:w-8",
+                paint.factory && "bg-slate-900",
+                active
+                  ? "border-cyan-200 scale-110 shadow-[0_0_0_2px_rgba(34,211,238,0.45)]"
+                  : "border-white/25 hover:border-white/50 hover:scale-105",
+              )}
+              style={
+                paint.factory
+                  ? undefined
+                  : {
+                      background: paint.secondary
+                        ? `linear-gradient(135deg, ${paint.primary ?? "#ffffff"}, ${paint.secondary})`
+                        : (paint.primary ?? "#ffffff"),
+                    }
+              }
+            >
+              {paint.factory ? (
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-[5px] rounded-full"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, transparent 42%, rgba(248,113,113,0.95) 42%, rgba(248,113,113,0.95) 58%, transparent 58%)",
+                  }}
+                />
+              ) : null}
+            </button>
+            <span
+              role="tooltip"
+              className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-950 px-2 py-1 text-[11px] text-slate-100 shadow-lg ring-1 ring-white/15 group-hover:block"
+            >
+              {paint.label}
+            </span>
+          </span>
         );
       })}
     </div>
@@ -390,14 +413,14 @@ export function ShowroomViewportChrome({
 
       {/* Desktop paint bar — bottom center of canvas */}
       <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 hidden justify-center px-28 md:flex lg:px-36">
-        <div className="pointer-events-auto max-w-full overflow-x-auto rounded-2xl border border-white/12 bg-slate-950/75 px-3 py-2 shadow-lg backdrop-blur-md">
+        <div className="pointer-events-auto max-w-full overflow-visible rounded-2xl border border-white/12 bg-slate-950/75 px-3 py-2 shadow-lg backdrop-blur-md">
           {paintSwatches}
         </div>
       </div>
 
       {/* Mobile quick strip — replaces side rails */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col gap-1.5 p-2 md:hidden">
-        <div className="pointer-events-auto overflow-x-auto rounded-2xl border border-white/12 bg-slate-950/80 px-2.5 py-2 shadow-lg backdrop-blur-md">
+        <div className="pointer-events-auto overflow-visible rounded-2xl border border-white/12 bg-slate-950/80 px-2.5 py-2 shadow-lg backdrop-blur-md">
           {paintSwatches}
         </div>
         <div className="pointer-events-auto flex gap-1.5 overflow-x-auto rounded-2xl border border-white/12 bg-slate-950/80 p-1.5 shadow-lg backdrop-blur-md">

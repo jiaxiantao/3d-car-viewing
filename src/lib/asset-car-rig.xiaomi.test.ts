@@ -136,6 +136,24 @@ function rimLipLateralSpan(wheel: THREE.Object3D) {
   return { span: maxZ - minZ, moved };
 }
 
+/** How far a round wheel's bounds center wanders during one revolution. */
+function wheelCenterTravel(wheel: THREE.Object3D) {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (let step = 0; step < 24; step += 1) {
+    applyWheelMotion(wheel, (step / 24) * Math.PI * 2, 0);
+    const center = new THREE.Box3().setFromObject(wheel).getCenter(new THREE.Vector3());
+    minX = Math.min(minX, center.x);
+    maxX = Math.max(maxX, center.x);
+    minY = Math.min(minY, center.y);
+    maxY = Math.max(maxY, center.y);
+  }
+  applyWheelMotion(wheel, 0, 0);
+  return Math.hypot(maxX - minX, maxY - minY);
+}
+
 function partItems(rig: ReturnType<typeof discoverAssetCarRig>, key: string) {
   return rig.debug.parts.find((part) => part.key === key)?.items.join("\n") ?? "";
 }
@@ -204,12 +222,27 @@ describe("Xiaomi showroom rigs", () => {
     expect(partItems(rig, "rightDoor")).toMatch(/carPaint_6_carPaint_6/i);
     expect(partItems(rig, "leftDoor")).not.toMatch(/carPaint_1_carPaint_1/i);
     expect(partItems(rig, "trunk")).toMatch(/carPaint_8_carPaint_8/i);
+    expect(partItems(rig, "trunk")).toMatch(/carSpoilers_/i);
+    expect(partItems(rig, "trunk")).toMatch(/empennage_PlasticBack/i);
+    expect(partItems(rig, "trunk")).toMatch(/carTailBracket_/i);
+    expect(partItems(rig, "trunk")).toMatch(/carXiaoMi_1_/i);
+    expect(partItems(rig, "trunk")).toMatch(/BrilliantBlack_4_2_/i);
     expect(partItems(rig, "trunk")).not.toMatch(/trunk_9/i);
+    expect(partItems(rig, "trunk")).not.toMatch(/trunk_6_carPlastic/i);
+    expect(partItems(rig, "trunk")).not.toMatch(/Glass_back_2_Side_carGlass/i);
     expect(partItems(rig, "sunroof")).toMatch(/carRoof_su7Pro/i);
     expect(partItems(rig, "sunroof")).not.toMatch(/carGlass_front_2_carGlass_front_2/i);
     expect(rig.frontWheels.length).toBeGreaterThanOrEqual(2);
     expect(rig.rearWheels.length).toBeGreaterThanOrEqual(2);
     expect(partItems(rig, "frontWheels")).not.toMatch(/BrakeDisc|Caliper/i);
+    const tyres = [...rig.frontWheels, ...rig.rearWheels].filter((wheel) =>
+      /tire|tyre/i.test(wheel.name),
+    );
+    expect(tyres.length).toBeGreaterThanOrEqual(4);
+    for (const tyre of tyres) {
+      // Hub-logo triangles used to pull the axle off the rim, so a round tyre hopped.
+      expect(wheelCenterTravel(tyre)).toBeLessThan(0.004);
+    }
     expect(rig.paintMaterials.length).toBeGreaterThan(0);
   }, 60_000);
 

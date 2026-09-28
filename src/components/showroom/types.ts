@@ -24,6 +24,8 @@ export type CarShowroomState = {
   sunroofOpen: boolean;
   bodyColor: string;
   bodyColorSecondary: string | null;
+  /** True when the factory swatch is selected: leave the model's own paint alone. */
+  bodyPaintFactory: boolean;
   speedKph: number;
   braking: boolean;
 };

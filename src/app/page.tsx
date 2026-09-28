@@ -129,7 +129,7 @@ export default function HomePage() {
 
       <ShowroomControlPanels
         useAssetModel={showroom.useAssetModel}
-        onToggleAssetModel={() => showroom.setUseAssetModel((value) => !value)}
+        onToggleAssetModel={showroom.handleToggleAssetModel}
         selectedCategory={showroom.selectedCategory}
         onSelectCategory={showroom.handleSelectCategory}
         selectedModelLabel={showroom.selectedModelLabel}

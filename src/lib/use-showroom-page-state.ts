@@ -144,11 +144,17 @@ export function useShowroomPageState() {
     });
   }, [selectedModelUrl, useAssetModel]);
 
+  const handleToggleAssetModel = useCallback(() => {
+    setUseAssetModel((value) => !value);
+    setSelectedPaintId(SHOWROOM_DEFAULT_PAINT_ID);
+  }, []);
+
   const handleSelectCategory = useCallback((categoryKey: CarCategoryKey) => {
     const nextKey = resolveCarCategoryKey(categoryKey);
     const nextUrl = CAR_CATEGORIES[nextKey].primaryUrl;
     setSelectedCategory(nextKey);
     setUseAssetModel(true);
+    setSelectedPaintId(SHOWROOM_DEFAULT_PAINT_ID);
     setLeftDoorOpen(false);
     setRightDoorOpen(false);
     setTrunkOpen(false);
@@ -237,8 +243,9 @@ export function useShowroomPageState() {
       steeringAngle,
       hazardOn,
       sunroofOpen,
-      bodyColor: selectedPaint.primary,
-      bodyColorSecondary: selectedPaint.secondary ?? null,
+      bodyColor: selectedPaint.primary ?? "#ffffff",
+      bodyColorSecondary: selectedPaint.factory ? null : (selectedPaint.secondary ?? null),
+      bodyPaintFactory: Boolean(selectedPaint.factory),
       speedKph,
       braking,
     }),
@@ -464,6 +471,7 @@ export function useShowroomPageState() {
     setSelectedPaintId,
     useAssetModel,
     setUseAssetModel,
+    handleToggleAssetModel,
     selectedCategory,
     speedKph,
     setSpeedKph,

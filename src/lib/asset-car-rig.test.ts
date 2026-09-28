@@ -2,7 +2,12 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { describe, expect, it } from "vitest";
 
-import { applyWheelMotion, discoverAssetCarRig } from "@/lib/asset-car-rig";
+import {
+  applyShowroomBodyPaint,
+  applyWheelMotion,
+  discoverAssetCarRig,
+  rewriteChromaticPaintAlbedo,
+} from "@/lib/asset-car-rig";
 import { getOrbitDistanceLimits, resolveShowroomCameraPose } from "@/lib/showroom-camera";
 
 function mesh(
@@ -338,5 +343,36 @@ describe("discoverAssetCarRig", () => {
     expect(rig.steeringWheelCenter).not.toBeNull();
     expect(rig.steeringWheelCenter!.z).toBeGreaterThan(0.2);
     expect(rig.steeringWheelCenter!.y).toBeGreaterThan(0.6);
+  });
+});
+
+describe("rewriteChromaticPaintAlbedo", () => {
+  it("lifts a baked yellow body to white and keeps stripes and decals", () => {
+    const data = new Uint8ClampedArray([
+      250, 220, 0, 255, 180, 180, 180, 255, 0, 0, 0, 255, 250, 210, 10, 255,
+    ]);
+    expect(rewriteChromaticPaintAlbedo(data)).toBe(true);
+    expect(Array.from(data.slice(0, 4))).toEqual([255, 255, 255, 255]);
+    expect(Array.from(data.slice(4, 8))).toEqual([180, 180, 180, 255]);
+    expect(Array.from(data.slice(8, 12))).toEqual([0, 0, 0, 255]);
+    expect(Array.from(data.slice(12, 16))).toEqual([255, 255, 255, 255]);
+  });
+
+  it("leaves a neutral paint map unchanged", () => {
+    const data = new Uint8ClampedArray([200, 200, 200, 255, 40, 40, 40, 255]);
+    expect(rewriteChromaticPaintAlbedo(data)).toBe(false);
+    expect(data[0]).toBe(200);
+    expect(data[4]).toBe(40);
+  });
+});
+
+describe("applyShowroomBodyPaint", () => {
+  it("restores the authored color when the factory swatch clears the tint", () => {
+    const material = new THREE.MeshStandardMaterial({ color: "#e2b007" });
+    const authored = material.color.clone();
+    applyShowroomBodyPaint(material, new THREE.Color("#f43f5e"));
+    expect(material.color.equals(new THREE.Color("#f43f5e"))).toBe(true);
+    applyShowroomBodyPaint(material, null);
+    expect(material.color.equals(authored)).toBe(true);
   });
 });

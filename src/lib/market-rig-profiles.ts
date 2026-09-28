@@ -255,6 +255,12 @@ const xiaomiSu7UltraProfile: MarketRigProfile = {
     /carLightGlass_Back/i,
     /carLightPlastic_BrilliantBlack_2_carLightPlastic/i,
     /carLight_bulb_2_/i,
+    // Wing, brackets, and the rear badge sit on the lid. `trunk_9` is the front bumper.
+    /carSpoilers_/i,
+    /empennage_/i,
+    /carTailBracket_/i,
+    /carXiaoMi_1_/i,
+    /carPlastic_BrilliantBlack_4_2_/i,
   ],
   sunroof: [/carRoof_su7Pro/i],
   headLight: [

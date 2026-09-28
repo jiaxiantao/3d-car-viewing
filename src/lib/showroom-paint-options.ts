@@ -6,11 +6,17 @@
 export type ShowroomPaintOption = {
   id: string;
   label: string;
-  primary: string;
+  /** Omitted for the factory swatch, which leaves the model's own paint in place. */
+  primary?: string;
   secondary?: string;
+  factory?: boolean;
 };
 
+/** Keep the GLB or geometric body's authored color. No swatch is copied onto the paint. */
+export const SHOWROOM_FACTORY_PAINT_ID = "factory";
+
 export const SHOWROOM_PAINT_OPTIONS: ShowroomPaintOption[] = [
+  { id: SHOWROOM_FACTORY_PAINT_ID, label: "默认车漆", factory: true },
   { id: "pearl-white", label: "珍珠白", primary: "#e2e8f0" },
   { id: "obsidian-black", label: "曜石黑", primary: "#111827" },
   { id: "glacier-blue", label: "冰川蓝", primary: "#0ea5e9" },
@@ -21,7 +27,7 @@ export const SHOWROOM_PAINT_OPTIONS: ShowroomPaintOption[] = [
   { id: "aurora-gradient", label: "极光渐变", primary: "#06b6d4", secondary: "#8b5cf6" },
 ];
 
-export const SHOWROOM_DEFAULT_PAINT_ID = SHOWROOM_PAINT_OPTIONS[0].id;
+export const SHOWROOM_DEFAULT_PAINT_ID = SHOWROOM_FACTORY_PAINT_ID;
 
 export function resolveShowroomPaint(id: string | null | undefined): ShowroomPaintOption {
   return (

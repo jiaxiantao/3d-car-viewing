@@ -80,6 +80,8 @@ const STEERING_COLUMN_X = CABIN_CENTER_X - 0.78;
 const STEERING_COLUMN_Y = INTERIOR_SEAT_Y + 0.24;
 const STEERING_COLUMN_Z = 0.34;
 
+const FACTORY_BODY_PAINT = "#0ea5e9";
+const FACTORY_CABIN_PAINT = "#38bdf8";
 const WHEEL_RADIUS = 0.27;
 const WHEEL_WIDTH = 0.22;
 const WHEEL_SPOKE_COUNT = 10;
@@ -386,11 +388,21 @@ export function CarModel({
   );
   const sunroofRef = useRef<THREE.Mesh>(null);
   const bodyPaintMaterial = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: "#0ea5e9", metalness: 0.35, roughness: 0.3 }),
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: FACTORY_BODY_PAINT,
+        metalness: 0.35,
+        roughness: 0.3,
+      }),
     [],
   );
   const cabinPaintMaterial = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: "#38bdf8", metalness: 0.38, roughness: 0.28 }),
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: FACTORY_CABIN_PAINT,
+        metalness: 0.38,
+        roughness: 0.28,
+      }),
     [],
   );
   const interiorMaterial = useMemo(
@@ -427,8 +439,12 @@ export function CarModel({
   const prevEngineOnRef = useRef(state.engineOn);
   const ignitionTimeRef = useRef(0);
 
-  const bodyTargetColorRef = useRef(new THREE.Color(state.bodyColor));
-  const cabinTargetColorRef = useRef(new THREE.Color(state.bodyColor));
+  const bodyTargetColorRef = useRef(
+    new THREE.Color(state.bodyPaintFactory ? FACTORY_BODY_PAINT : state.bodyColor),
+  );
+  const cabinTargetColorRef = useRef(
+    new THREE.Color(state.bodyPaintFactory ? FACTORY_CABIN_PAINT : state.bodyColor),
+  );
 
   const hiddenHitboxMaterial = useMemo(
     () =>
@@ -442,6 +458,11 @@ export function CarModel({
   );
 
   useEffect(() => {
+    if (state.bodyPaintFactory) {
+      bodyTargetColorRef.current.set(FACTORY_BODY_PAINT);
+      cabinTargetColorRef.current.set(FACTORY_CABIN_PAINT);
+      return;
+    }
     const primary = new THREE.Color(state.bodyColor);
     const secondary = state.bodyColorSecondary
       ? new THREE.Color(state.bodyColorSecondary)
@@ -458,7 +479,7 @@ export function CarModel({
       : primary.clone();
     const cabinTarget = cabinTargetColorRef.current;
     cabinTarget.copy(cabinBase.offsetHSL(0, 0.02, 0.08));
-  }, [state.bodyColor, state.bodyColorSecondary]);
+  }, [state.bodyColor, state.bodyColorSecondary, state.bodyPaintFactory]);
 
   useFrame((renderState, delta) => {
     const t = renderState.clock.elapsedTime;
