@@ -199,6 +199,10 @@ const suvQ3Profile: MarketRigProfile = {
 const offroadBrabusProfile: MarketRigProfile = {
   id: "offroad-brabus",
   urlPattern: /offroad-mainstream/i,
+  // Door and tailgate islands are cut by position in `splitOffroadCabinPanels`.
+  // The axis sits just behind the shut line, slightly outside the outer skin.
+  doorHingeLead: -0.02,
+  doorHingeOutset: 0.02,
   // Round lamps live in `lights_lod0*` (front islands only). Inner projectors are
   // `nlightsf20`. Skip body-sized `nlightsf_0` and the bumper `lamp_alpha` bar.
   headLight: [/lights_lod0/i, /nlightsf\d/i],

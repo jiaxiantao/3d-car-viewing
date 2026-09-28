@@ -48,6 +48,11 @@ export type AssetCarRig = {
   bounds: THREE.Box3;
   leftDoorPivot: THREE.Group | null;
   rightDoorPivot: THREE.Group | null;
+  /**
+   * Extra hinges driven by the same left/right toggles.
+   * G900 opens the rear door on that side together with the front door.
+   */
+  companionDoorPivots: THREE.Group[];
   trunkPivot: THREE.Group | null;
   sunroofNodes: THREE.Object3D[];
   headLightMaterials: ShowroomMaterial[];
@@ -2321,6 +2326,223 @@ function findWheelNodes(root: THREE.Object3D, profile: MarketRigProfile | null) 
   return { frontWheels, rearWheels, wheelRollRadius };
 }
 
+type OffroadPanelId = "FL" | "FR" | "RL" | "RR" | "tail";
+
+type OffroadCabinPanels = {
+  leftFront: THREE.Mesh[];
+  rightFront: THREE.Mesh[];
+  leftRear: THREE.Mesh[];
+  rightRear: THREE.Mesh[];
+  tailgate: THREE.Mesh[];
+};
+
+/**
+ * G900 door skins, window frames, and the barn-door tailgate are loose triangle
+ * islands inside material-wide buffers. Fractions are of the normalized showroom
+ * bounds (length 4, forward = -X, left = +Z), measured on this asset.
+ */
+function classifyOffroadCabinTriangle(point: THREE.Vector3, bounds: THREE.Box3) {
+  const sizeX = bounds.max.x - bounds.min.x;
+  const sizeY = bounds.max.y - bounds.min.y;
+  const sizeZ = bounds.max.z - bounds.min.z;
+  if (sizeX < 1e-4 || sizeY < 1e-4 || sizeZ < 1e-4) {
+    return null;
+  }
+  const tx = (point.x - bounds.min.x) / sizeX;
+  const ty = (point.y - bounds.min.y) / sizeY;
+  const tz = (point.z - bounds.min.z) / sizeZ;
+
+  // Rear barn door, including the spare. The roof spoiler above it stays put.
+  if (tx > 0.86 && tx < 1.04 && ty > 0.3 && ty < 0.93 && tz > 0.16 && tz < 0.84) {
+    return { panel: "tail" as const, shell: false };
+  }
+  if (ty < 0.24 || ty > 0.9) {
+    return null;
+  }
+  const side = tz > 0.82 && tz < 1.06 ? "L" : tz > 0 && tz < 0.22 ? "R" : null;
+  if (!side) {
+    return null;
+  }
+  const axle = tx > 0.25 && tx < 0.525 ? "F" : tx > 0.545 && tx < 0.73 ? "R" : null;
+  if (!axle) {
+    return null;
+  }
+  // Outer lower paint only — mirrors and door cards must not pull the hinge.
+  const shell = ty < 0.62 && (side === "L" ? tz > 0.89 : tz < 0.11);
+  return { panel: `${axle}${side}` as OffroadPanelId, shell };
+}
+
+function shouldSkipOffroadPanelMesh(mesh: THREE.Mesh) {
+  if (!mesh.geometry || mesh.userData.showroomCabinPanel || mesh.userData.showroomHeadlampCover) {
+    return true;
+  }
+  if (mesh.userData.showroomHeadlampIsland || mesh.userData.showroomWheelPiece) {
+    return true;
+  }
+  if (Object.keys(mesh.geometry.morphAttributes).length > 0) {
+    return true;
+  }
+  return /left_wheel|right_wheel|michelin|rimdetail|diamondcutrim|wheel_track|_gt_34_|_gt_35_|smallspecmap|leather.?wheel|steering/i.test(
+    hierarchicalName(mesh),
+  );
+}
+
+function adoptOffroadPanelPiece(
+  source: THREE.Mesh,
+  geometry: THREE.BufferGeometry,
+  panel: OffroadPanelId,
+  shell: boolean,
+) {
+  const piece = new THREE.Mesh(geometry, source.material);
+  piece.name = `${source.name}_${panel}${shell ? "_shell" : ""}`;
+  piece.castShadow = source.castShadow;
+  piece.receiveShadow = source.receiveShadow;
+  piece.position.copy(source.position);
+  piece.quaternion.copy(source.quaternion);
+  piece.scale.copy(source.scale);
+  piece.userData.showroomCabinPanel = panel;
+  if (shell) {
+    piece.userData.showroomDoorShell = true;
+  }
+  if (source.userData.showroomHeadlampResidual) {
+    piece.userData.showroomHeadlampResidual = true;
+  }
+  source.parent?.add(piece);
+  return piece;
+}
+
+/**
+ * Cut G900 door and tailgate islands out of shared material buffers so each
+ * panel can hinge on its own. The roof sheet has no sunroof opening and is left
+ * on the body.
+ */
+function splitOffroadCabinPanels(root: THREE.Object3D, bounds: THREE.Box3): OffroadCabinPanels {
+  const panels: OffroadCabinPanels = {
+    leftFront: [],
+    rightFront: [],
+    leftRear: [],
+    rightRear: [],
+    tailgate: [],
+  };
+  const candidates: THREE.Mesh[] = [];
+  root.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    if (!mesh.isMesh || shouldSkipOffroadPanelMesh(mesh)) {
+      return;
+    }
+    candidates.push(mesh);
+  });
+
+  const cornerA = new THREE.Vector3();
+  const cornerB = new THREE.Vector3();
+  const cornerC = new THREE.Vector3();
+  const centroid = new THREE.Vector3();
+  const assign = (panel: OffroadPanelId, piece: THREE.Mesh) => {
+    if (panel === "FL") panels.leftFront.push(piece);
+    else if (panel === "FR") panels.rightFront.push(piece);
+    else if (panel === "RL") panels.leftRear.push(piece);
+    else if (panel === "RR") panels.rightRear.push(piece);
+    else panels.tailgate.push(piece);
+  };
+
+  for (const mesh of candidates) {
+    const position = mesh.geometry.getAttribute("position");
+    if (!position) {
+      continue;
+    }
+    mesh.updateWorldMatrix(true, false);
+    const triangleCount = mesh.geometry.getIndex()
+      ? mesh.geometry.getIndex()!.count / 3
+      : position.count / 3;
+    const groups = new Map<string, { panel: OffroadPanelId; shell: boolean; triangles: number[] }>();
+    const stay: number[] = [];
+
+    for (let triangle = 0; triangle < triangleCount; triangle += 1) {
+      cornerA.fromBufferAttribute(position, triangleCorner(mesh.geometry, triangle, 0));
+      cornerB.fromBufferAttribute(position, triangleCorner(mesh.geometry, triangle, 1));
+      cornerC.fromBufferAttribute(position, triangleCorner(mesh.geometry, triangle, 2));
+      cornerA.applyMatrix4(mesh.matrixWorld);
+      cornerB.applyMatrix4(mesh.matrixWorld);
+      cornerC.applyMatrix4(mesh.matrixWorld);
+      centroid.copy(cornerA).add(cornerB).add(cornerC).multiplyScalar(1 / 3);
+      const claim = classifyOffroadCabinTriangle(centroid, bounds);
+      if (!claim) {
+        stay.push(triangle);
+        continue;
+      }
+      const key = `${claim.panel}:${claim.shell ? "shell" : "trim"}`;
+      const bucket = groups.get(key);
+      if (bucket) {
+        bucket.triangles.push(triangle);
+      } else {
+        groups.set(key, { panel: claim.panel, shell: claim.shell, triangles: [triangle] });
+      }
+    }
+
+    if (groups.size === 0) {
+      continue;
+    }
+    const keepSourceName = groups.size === 1 && stay.length === 0;
+    for (const bucket of groups.values()) {
+      const piece = adoptOffroadPanelPiece(
+        mesh,
+        extractTriangleGeometry(mesh.geometry, bucket.triangles),
+        bucket.panel,
+        bucket.shell,
+      );
+      if (keepSourceName) {
+        piece.name = mesh.name;
+      }
+      assign(bucket.panel, piece);
+    }
+    if (stay.length === 0) {
+      mesh.geometry.dispose();
+      mesh.removeFromParent();
+    } else {
+      const sourceGeometry = mesh.geometry;
+      mesh.geometry = extractTriangleGeometry(sourceGeometry, stay);
+      sourceGeometry.dispose();
+    }
+  }
+
+  return panels;
+}
+
+/** G-Class tailgate swings sideways about the vehicle-left edge, spare included. */
+function createBarnTailgatePivot(root: THREE.Object3D, meshes: THREE.Mesh[]) {
+  if (meshes.length === 0) {
+    return null;
+  }
+  const shells = meshes.filter((mesh) => {
+    if (/spare|m_carbon_a/i.test(mesh.name)) {
+      return false;
+    }
+    const shellSize = new THREE.Box3().setFromObject(mesh).getSize(new THREE.Vector3());
+    return shellSize.x < 0.22 && shellSize.z > 0.35;
+  });
+  const hingeBox = new THREE.Box3();
+  for (const mesh of shells.length > 0 ? shells : meshes) {
+    hingeBox.expandByObject(mesh);
+  }
+  const hingeWorld = new THREE.Vector3(
+    hingeBox.max.x,
+    hingeBox.min.y + (hingeBox.max.y - hingeBox.min.y) * 0.55,
+    hingeBox.max.z,
+  );
+  const pivot = createHingePivot(root, hingeWorld, "y");
+  for (const mesh of meshes) {
+    pivot.attach(mesh);
+  }
+  // Negative Y carries the free edge further rearward (+X) around the left jamb.
+  pivot.userData.showroomOpenSign = -1;
+  pivot.userData.showroomSide = "tailgate";
+  return pivot;
+}
+
+function doorShellMeshes(meshes: THREE.Mesh[]) {
+  return meshes.filter((mesh) => mesh.userData.showroomDoorShell);
+}
+
 
 export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): AssetCarRig {
   const profile = resolveMarketRigProfile(modelUrl);
@@ -2334,9 +2556,11 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
   bounds.getSize(size);
   bounds.getCenter(center);
 
+  let offroadPanels: OffroadCabinPanels | null = null;
   if (profile?.id === "offroad-brabus") {
     isolateOffroadHeadlampIslands(root, bounds);
     splitOffroadHeadlampCovers(root, bounds);
+    offroadPanels = splitOffroadCabinPanels(root, bounds);
   }
 
   const entries = collectMeshes(root);
@@ -2346,9 +2570,9 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
   const tailLightMaterials: ShowroomMaterial[] = [];
   const hazardMaterials: ShowroomMaterial[] = [];
   const sunroofNodes: THREE.Object3D[] = [];
-  const leftDoorMeshes: THREE.Mesh[] = [];
-  const rightDoorMeshes: THREE.Mesh[] = [];
-  const trunkMeshes: THREE.Mesh[] = [];
+  let leftDoorMeshes: THREE.Mesh[] = [];
+  let rightDoorMeshes: THREE.Mesh[] = [];
+  let trunkMeshes: THREE.Mesh[] = [];
   const headLightDebugItems = new Set<string>();
   const tailLightDebugItems = new Set<string>();
   const hazardDebugItems = new Set<string>();
@@ -2471,6 +2695,7 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
       profileHeadLight || isHeadLightPart(label, meshCenter, frontX);
     if (
       !mesh.userData.showroomHeadlampResidual &&
+      !mesh.userData.showroomCabinPanel &&
       // Authored lamp lists win. The generic exclude treats the letters in `Paint_` as `int_`.
       (profileHeadLight || !isExcludedFromHeadlightDiscovery(nameLower)) &&
       headLightCandidate &&
@@ -2556,6 +2781,10 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
       continue;
     }
 
+    if (mesh.userData.showroomCabinPanel) {
+      continue;
+    }
+
     if (profile?.trunk?.length) {
       if (matchesAny(name, profile.trunk)) {
         trunkMeshes.push(mesh);
@@ -2630,12 +2859,21 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
     }
   }
 
-  const leftHingeMeshes = leftDoorMeshes.filter((mesh) =>
-    matchesAny(hierarchicalName(mesh), profile?.leftDoorHinge),
-  );
-  const rightHingeMeshes = rightDoorMeshes.filter((mesh) =>
-    matchesAny(hierarchicalName(mesh), profile?.rightDoorHinge),
-  );
+  const leftRearMeshes = offroadPanels?.leftRear ?? [];
+  const rightRearMeshes = offroadPanels?.rightRear ?? [];
+  if (offroadPanels) {
+    leftDoorMeshes = offroadPanels.leftFront;
+    rightDoorMeshes = offroadPanels.rightFront;
+    trunkMeshes = offroadPanels.tailgate;
+  }
+  const leftHingeMeshes = offroadPanels
+    ? doorShellMeshes(leftDoorMeshes)
+    : leftDoorMeshes.filter((mesh) => matchesAny(hierarchicalName(mesh), profile?.leftDoorHinge));
+  const rightHingeMeshes = offroadPanels
+    ? doorShellMeshes(rightDoorMeshes)
+    : rightDoorMeshes.filter((mesh) =>
+        matchesAny(hierarchicalName(mesh), profile?.rightDoorHinge),
+      );
   const leftDoorPivot = createSideDoorPivot(
     root,
     leftDoorMeshes,
@@ -2652,16 +2890,38 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
     profile?.doorHingeLead,
     profile?.doorHingeOutset,
   );
+  const companionDoorPivots = [
+    createSideDoorPivot(
+      root,
+      leftRearMeshes,
+      "left",
+      doorShellMeshes(leftRearMeshes),
+      profile?.doorHingeLead,
+      profile?.doorHingeOutset,
+    ),
+    createSideDoorPivot(
+      root,
+      rightRearMeshes,
+      "right",
+      doorShellMeshes(rightRearMeshes),
+      profile?.doorHingeLead,
+      profile?.doorHingeOutset,
+    ),
+  ].filter((pivot): pivot is THREE.Group => pivot !== null);
   const spanningTrim = splitSpanningDoorTrim(leftDoorPivot, rightDoorPivot, profile?.spanningDoorTrim);
   leftDoorMeshes.push(...spanningTrim.left);
   rightDoorMeshes.push(...spanningTrim.right);
-  const trunkForPivot = profile?.trunk?.length
+  const trunkForPivot = offroadPanels
     ? trunkMeshes
-    : [...trunkMeshes].sort((a, b) => getMeshVolume(b) - getMeshVolume(a)).slice(0, 6);
+    : profile?.trunk?.length
+      ? trunkMeshes
+      : [...trunkMeshes].sort((a, b) => getMeshVolume(b) - getMeshVolume(a)).slice(0, 6);
   const trunkHingeMeshes = trunkMeshes.filter((mesh) =>
     matchesAny(hierarchicalName(mesh), profile?.trunkHinge),
   );
-  const trunkPivot = createTrunkPivot(root, trunkForPivot, trunkHingeMeshes);
+  const trunkPivot = offroadPanels
+    ? createBarnTailgatePivot(root, trunkForPivot)
+    : createTrunkPivot(root, trunkForPivot, trunkHingeMeshes);
   prepareSunroofMotion(sunroofNodes, profile?.sunroofSlideFraction ?? SUNROOF_SLIDE_FRACTION);
 
   let frontWheels: THREE.Object3D[] = [];
@@ -2696,15 +2956,15 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
       key: "leftDoor",
       label: "左前门",
       interactive: Boolean(leftDoorPivot),
-      count: leftDoorMeshes.length,
-      items: uniqueNames(leftDoorMeshes),
+      count: leftDoorMeshes.length + leftRearMeshes.length,
+      items: uniqueNames([...leftDoorMeshes, ...leftRearMeshes]),
     },
     {
       key: "rightDoor",
       label: "右前门",
       interactive: Boolean(rightDoorPivot),
-      count: rightDoorMeshes.length,
-      items: uniqueNames(rightDoorMeshes),
+      count: rightDoorMeshes.length + rightRearMeshes.length,
+      items: uniqueNames([...rightDoorMeshes, ...rightRearMeshes]),
     },
     {
       key: "trunk",
@@ -2768,6 +3028,7 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
     bounds,
     leftDoorPivot,
     rightDoorPivot,
+    companionDoorPivots,
     trunkPivot,
     sunroofNodes,
     headLightMaterials,

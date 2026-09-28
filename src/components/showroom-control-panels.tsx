@@ -18,6 +18,7 @@ type ShowroomControlPanelsProps = {
   wheelSpinUnavailable: boolean;
   wheelReadyCategory: { key: CarCategoryKey; label: string } | undefined;
   unsupportedInteractionNote: string | null;
+  allGlbFailed?: boolean;
   onApplyWelcomeMode: () => void;
   onApplyDriveMode: () => void;
   activePreset: ShowroomPresetId | null;
@@ -34,6 +35,7 @@ export function ShowroomControlPanels({
   wheelSpinUnavailable,
   wheelReadyCategory,
   unsupportedInteractionNote,
+  allGlbFailed = false,
   onApplyWelcomeMode,
   onApplyDriveMode,
   activePreset,
@@ -42,13 +44,10 @@ export function ShowroomControlPanels({
   return (
     <section className="grid gap-5 rounded-3xl border border-white/10 bg-slate-950/60 p-4 sm:p-5">
       <div className="flex flex-wrap items-center gap-3">
-        <Button variant={useAssetModel ? "default" : "outline"} onClick={onToggleAssetModel}>
-          {useAssetModel ? "使用几何体车模" : "尝试加载 GLB 车模"}
-        </Button>
         {CAR_CATEGORY_OPTIONS.map((model) => (
           <Button
             key={model.key}
-            variant={selectedCategory === model.key ? "default" : "outline"}
+            variant={useAssetModel && selectedCategory === model.key ? "default" : "outline"}
             onClick={() => onSelectCategory(model.key)}
             title={model.capabilityHint}
           >
@@ -62,6 +61,9 @@ export function ShowroomControlPanels({
             </span>
           </Button>
         ))}
+        <Button variant={useAssetModel ? "outline" : "default"} onClick={onToggleAssetModel}>
+          {useAssetModel ? "使用几何体车模" : "尝试加载 GLB 车模"}
+        </Button>
         <p className="basis-full text-xs text-slate-400 sm:basis-auto">
           当前模型：{selectedModelLabel || "加载中..."}。车门 / 灯光 / 车漆 / 视角等常用操作在上方画布区域。
         </p>
@@ -72,6 +74,11 @@ export function ShowroomControlPanels({
             {assetRigCaps.headLights ? "✓" : "—"} · 尾灯 {assetRigCaps.tailLights ? "✓" : "—"} ·
             天窗 {assetRigCaps.sunroof ? "✓" : "—"} · 车轮 {assetRigCaps.wheels ? "✓" : "—"}
             {assetRigCaps.leftDoor ? "" : "（未识别到的部件见 documentation/market-glb-rig.md）"}
+          </p>
+        ) : null}
+        {allGlbFailed && !useAssetModel ? (
+          <p className="w-full text-xs leading-6 text-amber-300/80">
+            所有 GLB 车模加载失败，已切换为几何体车模。可点「尝试加载 GLB 车模」或任一车型重试。
           </p>
         ) : null}
         {unsupportedInteractionNote ? (

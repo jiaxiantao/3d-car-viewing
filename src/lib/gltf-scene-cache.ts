@@ -199,6 +199,9 @@ export function resetPreparedShowroomModel(model: PreparedShowroomModel) {
   if (rig.rightDoorPivot) {
     rig.rightDoorPivot.rotation.set(0, 0, 0);
   }
+  for (const pivot of rig.companionDoorPivots) {
+    pivot.rotation.set(0, 0, 0);
+  }
   if (rig.trunkPivot) {
     rig.trunkPivot.rotation.set(0, 0, 0);
   }

@@ -35,6 +35,9 @@ function interactiveZone(object: THREE.Object3D, rig: AssetCarRig): AssetInterac
     if (current === rig.trunkPivot) {
       return "trunk";
     }
+    if (rig.companionDoorPivots.includes(current as THREE.Group)) {
+      return current.userData.showroomSide === "right" ? "rightDoor" : "leftDoor";
+    }
     current = current.parent;
   }
   return null;
@@ -237,30 +240,25 @@ export function AssetModel({
     const ignitionProgress = ignitionTimeRef.current / ENGINE_IGNITION_DURATION;
     const ignitionPulse = Math.sin(ignitionProgress * Math.PI);
 
-    if (rig.leftDoorPivot) {
-      const openSign = (rig.leftDoorPivot.userData.showroomOpenSign as number | undefined) ?? -1;
-      const target = state.leftDoorOpen ? openSign * ASSET_DOOR_MAX_OPEN_RADIANS : 0;
-      rig.leftDoorPivot.rotation.y = THREE.MathUtils.damp(
-        rig.leftDoorPivot.rotation.y,
-        target,
-        8,
-        delta,
-      );
-    }
-    if (rig.rightDoorPivot) {
-      const openSign = (rig.rightDoorPivot.userData.showroomOpenSign as number | undefined) ?? 1;
-      const target = state.rightDoorOpen ? openSign * ASSET_DOOR_MAX_OPEN_RADIANS : 0;
-      rig.rightDoorPivot.rotation.y = THREE.MathUtils.damp(
-        rig.rightDoorPivot.rotation.y,
-        target,
-        8,
-        delta,
-      );
+    const dampDoor = (pivot: THREE.Object3D | null, open: boolean) => {
+      if (!pivot) {
+        return;
+      }
+      const openSign = (pivot.userData.showroomOpenSign as number | undefined) ?? -1;
+      const target = open ? openSign * ASSET_DOOR_MAX_OPEN_RADIANS : 0;
+      pivot.rotation.y = THREE.MathUtils.damp(pivot.rotation.y, target, 8, delta);
+    };
+    dampDoor(rig.leftDoorPivot, state.leftDoorOpen);
+    dampDoor(rig.rightDoorPivot, state.rightDoorOpen);
+    for (const pivot of rig.companionDoorPivots) {
+      dampDoor(pivot, pivot.userData.showroomSide === "right" ? state.rightDoorOpen : state.leftDoorOpen);
     }
     if (rig.trunkPivot) {
-      // Root-local X == world lateral after market Ry(-90°) normalize.
-      const axis = (rig.trunkPivot.userData.showroomHingeAxis as "x" | "z" | undefined) ?? "x";
-      const target = state.trunkOpen ? ASSET_TRUNK_MAX_OPEN_RADIANS : 0;
+      // Liftgates use root-local X (world lateral). The G900 barn door uses Y.
+      const axis =
+        (rig.trunkPivot.userData.showroomHingeAxis as "x" | "y" | "z" | undefined) ?? "x";
+      const openSign = (rig.trunkPivot.userData.showroomOpenSign as number | undefined) ?? 1;
+      const target = state.trunkOpen ? openSign * ASSET_TRUNK_MAX_OPEN_RADIANS : 0;
       rig.trunkPivot.rotation[axis] = THREE.MathUtils.damp(
         rig.trunkPivot.rotation[axis],
         target,

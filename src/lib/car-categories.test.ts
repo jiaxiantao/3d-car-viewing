@@ -5,6 +5,8 @@ import {
   CAR_CATEGORIES,
   CAR_CATEGORY_OPTIONS,
   DEFAULT_CAR_CATEGORY_KEY,
+  carCategoryForModelUrl,
+  glbCandidateUrls,
   isCarCategoryKey,
   resolveCarCategoryKey,
 } from "@/lib/car-categories";
@@ -19,6 +21,23 @@ describe("car-categories", () => {
       "巴博斯 G900",
       "宝马 M2",
     ]);
+  });
+
+  it("tries the selected GLB first, then every other GLB, before a geometric fallback", () => {
+    expect(glbCandidateUrls("su7-ultra")).toEqual(
+      CAR_CATEGORY_OPTIONS.map((category) => category.primaryUrl),
+    );
+    expect(glbCandidateUrls("sedan")).toEqual([
+      CAR_CATEGORIES.sedan.primaryUrl,
+      CAR_CATEGORIES["su7-ultra"].primaryUrl,
+      CAR_CATEGORIES.yu7.primaryUrl,
+      CAR_CATEGORIES["su7-max"].primaryUrl,
+      CAR_CATEGORIES.suv.primaryUrl,
+      CAR_CATEGORIES.offroad.primaryUrl,
+    ]);
+    expect(new Set(glbCandidateUrls("yu7")).size).toBe(CAR_CATEGORY_OPTIONS.length);
+    expect(carCategoryForModelUrl(CAR_CATEGORIES.suv.primaryUrl)?.key).toBe("suv");
+    expect(carCategoryForModelUrl("missing.glb")).toBeUndefined();
   });
 
   it("defaults to SU7 Ultra for unknown keys", () => {

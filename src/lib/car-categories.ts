@@ -80,6 +80,27 @@ export const CAR_CATEGORY_OPTIONS: CarCategory[] = Object.values(CAR_CATEGORIES)
 /** Default showroom category when the page is opened without a model query. */
 export const DEFAULT_CAR_CATEGORY_KEY: CarCategoryKey = "su7-ultra";
 
+/**
+ * GLB urls to try before the geometric car.
+ * The preferred category is first; the remaining showroom models follow picker order.
+ * Geometric fallback is only appropriate after every url in this list fails.
+ */
+export function glbCandidateUrls(preferredKey: CarCategoryKey): string[] {
+  const preferred = CAR_CATEGORIES[preferredKey];
+  return [
+    preferred.primaryUrl,
+    ...CAR_CATEGORY_OPTIONS.filter((category) => category.key !== preferredKey).map(
+      (category) => category.primaryUrl,
+    ),
+  ];
+}
+
+export function carCategoryForModelUrl(url: string): CarCategory | undefined {
+  return CAR_CATEGORY_OPTIONS.find(
+    (category) => category.primaryUrl === url || url.endsWith(category.primaryUrl),
+  );
+}
+
 export function isCarCategoryKey(value: unknown): value is CarCategoryKey {
   return (
     value === "suv" ||

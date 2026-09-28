@@ -54,6 +54,10 @@ export type CarShowroomSceneProps = {
   reduceMotion?: boolean;
   onAssetRigCapabilities?: (capabilities: AssetRigCapabilities | null) => void;
   onAssetRigDebug?: (debug: AssetRigDebug | null) => void;
+  /** Fired with the GLB url that actually loaded, including a later candidate. */
+  onAssetModelResolved?: (url: string) => void;
+  /** Fired only after every candidate GLB url has failed. */
+  onAllAssetModelsFailed?: () => void;
   onToggleLeftDoor: () => void;
   onToggleRightDoor: () => void;
   onToggleTrunk: () => void;

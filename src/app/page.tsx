@@ -94,11 +94,14 @@ export default function HomePage() {
           autoTour={showroom.autoTour}
           useAssetModel={showroom.useAssetModel}
           modelUrl={showroom.selectedModelUrl}
+          modelAlternateUrls={showroom.glbAlternateUrls}
           sceneMode={showroom.sceneMode}
           reduceMotion={showroom.reduceMotion}
           controlHandleRef={showroom.sceneHandleRef}
           onAssetRigCapabilities={showroom.handleAssetRigCapabilities}
           onAssetRigDebug={showroom.handleAssetRigDebug}
+          onAssetModelResolved={showroom.handleAssetModelResolved}
+          onAllAssetModelsFailed={showroom.handleAllAssetModelsFailed}
           onToggleLeftDoor={() => showroom.setLeftDoorOpen((value) => !value)}
           onToggleRightDoor={() => showroom.setRightDoorOpen((value) => !value)}
           onToggleTrunk={() => showroom.setTrunkOpen((value) => !value)}
@@ -137,6 +140,7 @@ export default function HomePage() {
         wheelSpinUnavailable={showroom.wheelSpinUnavailable}
         wheelReadyCategory={showroom.wheelReadyCategory}
         unsupportedInteractionNote={showroom.unsupportedInteractionNote}
+        allGlbFailed={showroom.allGlbFailed}
         onApplyWelcomeMode={showroom.applyWelcomeMode}
         onApplyDriveMode={showroom.applyDriveMode}
         activePreset={showroom.activePreset}

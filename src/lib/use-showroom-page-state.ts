@@ -13,6 +13,8 @@ import {
   CAR_CATEGORIES,
   CAR_CATEGORY_OPTIONS,
   DEFAULT_CAR_CATEGORY_KEY,
+  carCategoryForModelUrl,
+  glbCandidateUrls,
   resolveCarCategoryKey,
   type CarCategoryKey,
 } from "@/lib/car-categories";
@@ -68,6 +70,7 @@ export function useShowroomPageState() {
   const [autoTour, setAutoTour] = useState(false);
   const [selectedPaintId, setSelectedPaintId] = useState<string>(SHOWROOM_DEFAULT_PAINT_ID);
   const [useAssetModel, setUseAssetModel] = useState(true);
+  const [allGlbFailed, setAllGlbFailed] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<CarCategoryKey>(DEFAULT_CAR_CATEGORY_KEY);
   const [speedKph, setSpeedKph] = useState(28);
   const [braking, setBraking] = useState(false);
@@ -131,8 +134,14 @@ export function useShowroomPageState() {
   );
 
   const activeCategory = useMemo(() => CAR_CATEGORIES[selectedCategory], [selectedCategory]);
-  const selectedModelUrl = activeCategory.primaryUrl;
-  const selectedModelLabel = `${activeCategory.label}（主流实车模型）`;
+  const glbLoadPlan = useMemo(() => {
+    const urls = glbCandidateUrls(selectedCategory);
+    return { primaryUrl: urls[0], alternateUrls: urls.slice(1) };
+  }, [selectedCategory]);
+  const selectedModelUrl = glbLoadPlan.primaryUrl;
+  const selectedModelLabel = useAssetModel
+    ? `${activeCategory.label}（主流实车模型）`
+    : "几何体车模";
 
   useEffect(() => {
     if (!useAssetModel) {
@@ -150,6 +159,7 @@ export function useShowroomPageState() {
   }, [selectedModelUrl, useAssetModel]);
 
   const handleToggleAssetModel = useCallback(() => {
+    setAllGlbFailed(false);
     setUseAssetModel((value) => !value);
     setSelectedPaintId(SHOWROOM_DEFAULT_PAINT_ID);
   }, []);
@@ -157,6 +167,7 @@ export function useShowroomPageState() {
   const handleSelectCategory = useCallback((categoryKey: CarCategoryKey) => {
     const nextKey = resolveCarCategoryKey(categoryKey);
     const nextUrl = CAR_CATEGORIES[nextKey].primaryUrl;
+    setAllGlbFailed(false);
     setSelectedCategory(nextKey);
     setUseAssetModel(true);
     setSelectedPaintId(SHOWROOM_DEFAULT_PAINT_ID);
@@ -281,6 +292,26 @@ export function useShowroomPageState() {
       statusTimerRef.current = null;
     }, 2200);
   }, []);
+
+  const handleAssetModelResolved = useCallback(
+    (url: string) => {
+      const match = carCategoryForModelUrl(url);
+      if (!match || match.key === selectedCategory) {
+        return;
+      }
+      const failedLabel = CAR_CATEGORIES[selectedCategory].label;
+      setSelectedCategory(match.key);
+      setAllGlbFailed(false);
+      showStatus(`${failedLabel} 加载失败，已改用 ${match.label}`);
+    },
+    [selectedCategory, showStatus],
+  );
+
+  const handleAllAssetModelsFailed = useCallback(() => {
+    setUseAssetModel(false);
+    setAllGlbFailed(true);
+    showStatus("所有 GLB 车模加载失败，已切换为几何体车模");
+  }, [showStatus]);
 
   useEffect(
     () => () => {
@@ -484,7 +515,11 @@ export function useShowroomPageState() {
     setSelectedPaintId,
     useAssetModel,
     setUseAssetModel,
+    allGlbFailed,
     handleToggleAssetModel,
+    handleAssetModelResolved,
+    handleAllAssetModelsFailed,
+    glbAlternateUrls: glbLoadPlan.alternateUrls,
     selectedCategory,
     speedKph,
     setSpeedKph,

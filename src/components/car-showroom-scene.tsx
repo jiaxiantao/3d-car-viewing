@@ -101,6 +101,8 @@ export function CarShowroomScene({
   sceneMode = "studio",
   onAssetRigCapabilities,
   onAssetRigDebug,
+  onAssetModelResolved,
+  onAllAssetModelsFailed,
   onToggleLeftDoor,
   onToggleRightDoor,
   onToggleTrunk,
@@ -282,6 +284,7 @@ export function CarShowroomScene({
           wheelsSynthetic: false,
         });
         onAssetRigDebug?.(null);
+        onAllAssetModelsFailed?.();
         return;
       }
 
@@ -312,6 +315,7 @@ export function CarShowroomScene({
         setAssetLoadState("ready");
         onAssetRigCapabilities?.(rig.capabilities);
         onAssetRigDebug?.(rig.debug);
+        onAssetModelResolved?.(url);
       } catch {
         await tryLoad(index + 1);
       }
@@ -324,7 +328,14 @@ export function CarShowroomScene({
     };
     // modelUrlChainKey aggregates modelUrl / alternates / fallback to avoid redundant reloads.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional chain key
-  }, [modelUrlChainKey, onAssetRigCapabilities, onAssetRigDebug, useAssetModel]);
+  }, [
+    modelUrlChainKey,
+    onAllAssetModelsFailed,
+    onAssetModelResolved,
+    onAssetRigCapabilities,
+    onAssetRigDebug,
+    useAssetModel,
+  ]);
 
   return (
     <div
@@ -334,7 +345,7 @@ export function CarShowroomScene({
       {useAssetModel && assetLoadState === "error" ? (
         <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center px-4">
           <p className="rounded-full border border-amber-400/30 bg-amber-950/80 px-3 py-1 text-xs text-amber-100">
-            GLB 加载失败，已切换为几何体车模
+            所有 GLB 车模加载失败，已切换为几何体车模
           </p>
         </div>
       ) : null}
