@@ -9,7 +9,6 @@ The **3D models** under `public/models/market/` are **not** covered by that lice
 | File | Description | Known license / source | Notes |
 |------|-------------|------------------------|--------|
 | `suv-mainstream.glb` | SUV (Audi Q3–style) | Poly Pizza / Quaternius — **CC0 1.0** (per `public/models/market/README.md`) | Verify on [Poly Pizza](https://poly.pizza/) before commercial use |
-| `mercedes-benz_g63_amg.glb` | Mercedes-Benz G63 AMG / Brabus G700 | Sketchfab — Echoo — **CC BY-NC-ND 4.0** | Non-commercial, no derivatives. [Source model](https://sketchfab.com/3d-models/mercedes-benz-g63-amg-brabus-g700-the-rocket-a53e0e45b4b64dc6a65f4eeb016f01f2). Mercedes-Benz and Brabus trademarks may apply |
 | `offroad-mainstream.glb` | Off-road (Brabus G900–style) | Poly Pizza / Quaternius — **CC0 1.0** (per README) | Same as above |
 | `sedan-mainstream.glb` | BMW M2 Coupe | **Verify independently** | High-poly Sketchfab-style asset; BMW trademark may apply. **Do not assume CC0.** Replace with your own licensed model for production |
 | `2024_xiaomi_su7_max.glb` | Xiaomi SU7 Max | **Verify independently** | User-supplied GLB. Xiaomi trademark may apply. **Do not assume a permissive license.** |

@@ -399,33 +399,9 @@ function isOffroadHeadlampMesh(name: string) {
   return /lights_lod0|nlightsf\d/i.test(name);
 }
 
-/** G900 and G63 share the G-Class buffer layout (doors, barn tailgate, round lamps). */
+/** G900 uses the G-Class buffer layout (doors, barn tailgate, round lamps). */
 function isGClassMarketProfile(profile: MarketRigProfile | null) {
-  return profile?.id === "offroad-brabus" || profile?.id === "mercedes-g63";
-}
-
-/**
- * The G63 file keeps the G900 wheel buffers and also adds discrete Tire /
- * monoblock corners in the same place. Leave the packed copies in the scene
- * but out of the spinner, so only the Brabus wheels roll.
- */
-function retirePackedG63Wheels(root: THREE.Object3D) {
-  const packed: THREE.Mesh[] = [];
-  root.traverse((child) => {
-    const mesh = child as THREE.Mesh;
-    if (!mesh.isMesh || mesh.userData.showroomWheelResidual) {
-      return;
-    }
-    const packedWheel =
-      /right_wheel|left_wheel|_gt_34_|_gt_35_|michelin|diamondcutrim|rimdetail|wheel_track/i;
-    if (packedWheel.test(hierarchicalName(mesh))) {
-      packed.push(mesh);
-    }
-  });
-  for (const mesh of packed) {
-    mesh.visible = false;
-    mesh.userData.showroomWheelResidual = true;
-  }
+  return profile?.id === "offroad-brabus";
 }
 
 function isBmwM2HeadlampMaterial(materialName: string) {
@@ -772,7 +748,6 @@ function createSideDoorPivot(
   const openSign = side === "left" ? -1 : 1;
   // Outer skin is max.z on the left and min.z on the right. Pull the axis
   // inboard so it sits against the body instead of on the outer paint.
-  // Use the door side, not world Z = 0: the G63 sits left of the origin.
   const doorDepthZ = doorBox.max.z - doorBox.min.z;
   const inward = Math.min(0.055, doorDepthZ * 0.4);
   // `hingeOutset` moves the axis back toward the outer skin (left is +Z).
@@ -2499,88 +2474,6 @@ function meshMaterialLabel(mesh: THREE.Mesh) {
 }
 
 /**
- * G63 keeps every authored mesh intact. A mesh joins a hinge only when that
- * whole mesh already is one door, one window, or the barn door.
- */
-function matchG63OriginalMesh(
-  box: THREE.Box3,
-  materialName: string,
-  nodeName: string,
-): OffroadPanelClaim | null {
-  if (/light|lamp|brake|red_b|nlight|tire|monoblock|\bwheel\b|steering|leather.?wheel|seat|bumper|doortag/i.test(nodeName)) {
-    return null;
-  }
-  const size = box.getSize(new THREE.Vector3());
-  const center = box.getCenter(new THREE.Vector3());
-  if (center.y < 0.28) {
-    return null;
-  }
-  const spareDisc = size.y > 0.45 && size.z > 0.45 && size.x < 0.4 && center.x > 1.05;
-  if ((/spare/i.test(nodeName) || spareDisc) && center.x > 1 && size.x < 0.5 && center.y > 0.35) {
-    return { panel: "tail", shell: false };
-  }
-  // A door mesh from this file is one authored object on one side. Shared
-  // body, glass, and handle buffers stay on the body.
-  if (!/door|window|glass/i.test(nodeName)) {
-    return null;
-  }
-  if (size.z > 0.55 || size.x > 1.15 || size.y > 1.25 || size.y < 0.08 || size.x < 0.08) {
-    return null;
-  }
-  const left = center.z > -0.4 && box.min.z > -0.72;
-  const right = center.z < -1.0 && box.max.z < -0.68;
-  if (!left && !right) {
-    return null;
-  }
-  const front = center.x < -0.55 && center.x > -1.9 && box.max.x < -0.15 && box.min.x > -2.05;
-  const rear = center.x >= -0.45 && center.x < 0.6 && box.min.x > -0.75 && box.max.x < 0.8;
-  const axle = front ? "F" : rear ? "R" : null;
-  if (!axle) {
-    return null;
-  }
-  return {
-    panel: `${axle}${left ? "L" : "R"}`,
-    shell: /bodypaint/i.test(materialName),
-  };
-}
-
-function collectG63OriginalPanels(root: THREE.Object3D): OffroadCabinPanels {
-  const panels: OffroadCabinPanels = {
-    leftFront: [],
-    rightFront: [],
-    leftRear: [],
-    rightRear: [],
-    tailgate: [],
-  };
-  const meshes: THREE.Mesh[] = [];
-  root.updateWorldMatrix(true, true);
-  root.traverse((child) => {
-    const mesh = child as THREE.Mesh;
-    if (!mesh.isMesh || mesh.userData.showroomWheelResidual) {
-      return;
-    }
-    meshes.push(mesh);
-  });
-  for (const mesh of meshes) {
-    const box = new THREE.Box3().setFromObject(mesh);
-    const claim = matchG63OriginalMesh(box, meshMaterialLabel(mesh), hierarchicalName(mesh));
-    if (!claim) {
-      continue;
-    }
-    mesh.userData.showroomCabinPanel = claim.panel;
-    if (claim.shell) {
-      mesh.userData.showroomDoorShell = true;
-    }
-    if (claim.panel === "FL") panels.leftFront.push(mesh);
-    else if (claim.panel === "FR") panels.rightFront.push(mesh);
-    else if (claim.panel === "RL") panels.leftRear.push(mesh);
-    else if (claim.panel === "RR") panels.rightRear.push(mesh);
-    else panels.tailgate.push(mesh);
-  }
-  return panels;
-}
-
-/**
  * G900 door skins, window frames, and the barn-door tailgate are loose triangle
  * islands inside material-wide buffers. Fractions are of the normalized showroom
  * bounds (length 4, forward = -X, left = +Z), measured on this asset.
@@ -2811,10 +2704,7 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
   bounds.getCenter(center);
 
   let offroadPanels: OffroadCabinPanels | null = null;
-  if (profile?.id === "mercedes-g63") {
-    retirePackedG63Wheels(root);
-    offroadPanels = collectG63OriginalPanels(root);
-  } else if (isGClassMarketProfile(profile)) {
+  if (isGClassMarketProfile(profile)) {
     isolateOffroadHeadlampIslands(root, bounds);
     splitOffroadHeadlampCovers(root, bounds);
     offroadPanels = splitOffroadCabinPanels(root, bounds);

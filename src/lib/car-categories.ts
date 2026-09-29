@@ -6,7 +6,6 @@ import { publicAssetPath } from "@/lib/public-asset-path";
 
 export type CarCategoryKey =
   | "suv"
-  | "g63"
   | "sedan"
   | "offroad"
   | "su7-max"
@@ -63,14 +62,6 @@ export const CAR_CATEGORIES: Record<CarCategoryKey, CarCategory> = {
     bakedWheels: false,
     capabilityHint: "",
   },
-  g63: {
-    key: "g63",
-    label: "奔驰 G63",
-    primaryUrl: publicAssetPath("/models/market/mercedes-benz_g63_amg.glb"),
-    approxBytes: 74_000_000,
-    bakedWheels: false,
-    capabilityHint: "",
-  },
   offroad: {
     key: "offroad",
     label: "巴博斯 G900",
@@ -123,7 +114,6 @@ export function isCarInteractionDisabled(category: CarCategory, key: string): bo
 export function isCarCategoryKey(value: unknown): value is CarCategoryKey {
   return (
     value === "suv" ||
-    value === "g63" ||
     value === "sedan" ||
     value === "offroad" ||
     value === "su7-max" ||
