@@ -13,13 +13,13 @@ Place licensed GLB files in this folder with these exact names:
 
 The showroom loads them per category via `src/lib/car-categories.ts`. If a file is missing or fails to load, the built-in geometric car model is used instead.
 
-The original three showroom GLBs are **Draco-compressed** (`pnpm compress:models`). The Xiaomi files are stored as provided; that script now includes them too. Uncompressed backups (`*-src.glb`) are gitignored — restore from git history if needed.
+These showroom GLBs are the files the app loads. `pnpm compress:models` Draco-compresses the mainstream set and can include the Xiaomi files. Uncompressed backups (`*-src.glb`) are gitignored.
 
 | File | Approx. size |
 |------|----------------|
 | `sedan-mainstream.glb` | ~2.7 MB |
 | `offroad-mainstream.glb` | ~9.5 MB |
-| `suv-mainstream.glb` | ~14.5 MB |
+| `suv-mainstream.glb` | ~14 MB |
 | `2024_xiaomi_su7_max.glb` | ~5.3 MB |
 | `2025_xiaomi_su7_ultra.glb` | ~31 MB |
 | `2025_xiaomi_yu7.glb` | ~28 MB |
@@ -40,7 +40,7 @@ The original three showroom GLBs are **Draco-compressed** (`pnpm compress:models
 ## Adding your own models
 
 1. Export as `.glb` with separated door/trunk/wheel meshes when you need those interactions.
-2. Update `src/app/page.tsx` URLs if filenames differ.
+2. Register the file in `src/lib/car-categories.ts` if the filename differs.
 3. Add regex rules in `src/lib/market-rig-profiles.ts` if auto-discovery is insufficient.
 4. Document license and author in `documentation/ATTRIBUTION.md`.
 

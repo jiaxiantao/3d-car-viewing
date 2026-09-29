@@ -1,6 +1,6 @@
 {
   "name": "3d-car-viewing",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Interactive 3D car showroom demo with Next.js, React Three Fiber, and GLB rig discovery.",
   "license": "MIT",
   "author": "jiaxiantao",

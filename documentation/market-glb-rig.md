@@ -8,10 +8,10 @@
 
 | 模型 | mesh 数 | 拆分方式 | 能做什么 |
 |------|---------|----------|----------|
-| `suv-mainstream.glb`（奥迪 Q3） | 253 | 按**部件**拆 | 门 / 后备箱 / 车灯 / 天窗；**路面四轮与车身合并**（不单独旋转） |
-| `sedan-mainstream.glb`（宝马 M2） | 1200 | 节点名 `Object_*`，按**材质**识别灯/漆 | 前照灯 / 尾灯发光、改色、启动振动；门与轮为合并网格 |
-| `offroad-mainstream.glb`（Brabus G900） | 109 | 按**材质**分组；门皮、尾门、备胎是同一 buffer 里的三角面岛 | 展厅关闭左门、右门、后备箱开合；车灯 / 双闪 / 四轮仍可用。车顶是整块漆面，**没有天窗** |
-| `2024_xiaomi_su7_max.glb` | 46 | 车身按套件合并；四轮为 `3DWheel` 分组 | 车灯 / 改色 / 四轮转动；门、后备箱、天窗不可单独开合 |
+| `suv-mainstream.glb`（奥迪 Q3） | 253 | 按**部件**拆；轮胎缓冲含四个轮角 | 门 / 后备箱 / 车灯 / 天窗 / 四轮（轮角从共享缓冲切开后再转） |
+| `sedan-mainstream.glb`（宝马 M2） | 1200 | 节点名 `Object_*`，灯和漆按**材质**识别；轮为 `3DWheel` | 前照灯 / 尾灯 / 改色 / 四轮；门、后备箱、天窗与车身合并 |
+| `offroad-mainstream.glb`（Brabus G900） | 109 | 按**材质**分组；门皮、尾门、车轮是同一 buffer 里的三角面岛 | 车灯 / 双闪 / 四轮可用。展厅关闭左门、右门、后备箱。车顶没有天窗 |
+| `2024_xiaomi_su7_max.glb` | 46 | 车身按套件合并；四轮为 `3DWheel` 分组 | 车灯 / 改色 / 四轮；门、后备箱、天窗不可单独开合 |
 | `2025_xiaomi_su7_ultra.glb` | 146 | 前门、尾门、全景玻璃、灯、轮为独立网格 | 前门 / 后备箱 / 天窗 / 车灯 / 四轮 |
 | `2025_xiaomi_yu7.glb` | 127 | 与 SU7 Ultra 相同的部件拆分 | 前门 / 后备箱 / 天窗 / 车灯 / 四轮 |
 
@@ -33,9 +33,9 @@
 
 实现文件：
 
-- 自动发现：`src/lib/asset-car-rig.ts`
+- 自动发现：`src/lib/asset-car-rig/`（`discover.ts` 编排，灯光 / 车身 / 车轮分文件）
 - 车型覆盖：`src/lib/market-rig-profiles.ts`
-- 场景驱动：`src/components/car-showroom-scene.tsx` 中的 `AssetModel`
+- 场景驱动：`src/components/showroom/asset-car-model.tsx`
 
 ## 如何查看模型里的 mesh 名称
 

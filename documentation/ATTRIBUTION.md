@@ -27,7 +27,7 @@ If you fork, redistribute, or deploy this project publicly:
 ## Replacing demo models
 
 1. Export GLB with separated door/trunk/wheel meshes if you need those interactions (see [market-glb-rig.md](./market-glb-rig.md)).
-2. Place files in `public/models/market/` using the expected filenames, or update URLs in `src/app/page.tsx`.
+2. Place files in `public/models/market/` using the expected filenames, or register a new URL in `src/lib/car-categories.ts`.
 3. Add a row to the table above and to `public/models/market/README.md`.
 
 ## Code dependencies

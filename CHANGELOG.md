@@ -7,56 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- **Draco GLB pipeline:** `pnpm compress:models` + local `public/draco/gltf` decoder; market models shrink to ~27MB total.
-- **Vitest:** unit tests for category helpers, URL parse/serialize, and `discoverAssetCarRig` mesh-name fixtures.
-- **Bandwidth-aware preload** and `prefers-reduced-motion` support (steadier hazards, weaker idle shake, no auto-tour).
-- **Showroom module split:** `showroom/` procedural + asset models, control panels, and `use-showroom-page-state`.
-
-### Changed
-
-- **GitHub Pages:** deploy via Actions artifact (`upload-pages-artifact` / `deploy-pages`); stop committing build output under `docs/`.
-- **Default vehicle:** sedan (lighter, full wheel rig); SUV / offroad labeled as baked wheels.
-- **PR CI:** runs `test` and `build:pages` in addition to lint / typecheck / build.
+## [0.2.0] - 2026-09-29
 
 ### Added
 
-- **GitHub Pages:** static export (`pnpm build:pages`) and `deploy-pages` workflow for live demo at https://jiaxiantao.github.io/3d-car-viewing/.
-- **Share link:** toolbar button and `C` keyboard shortcut copy the current showroom URL (model / paint / camera / scene mode).
-- **GLB idle preload:** after the active model loads, other category GLBs warm the in-memory cache via `requestIdleCallback` for faster switching.
-- Technical blog draft: `documentation/3D看车技术博客.md`.
+- **Showroom lineup:** 小米 SU7 Ultra（默认）、小米 YU7、小米 SU7 Max、奥迪 Q3、巴博斯 G900、宝马 M2。每款都做四轮滚动；G900 的车门与后备箱在展厅中关闭，SU7 Max 与 M2 的门、后备箱、天窗与车身合并。
+- **Scene modes:** studio / day / night presets for lights, fog, floor, and headlight intensity (`src/lib/showroom-scene-modes.ts`).
+- **Showroom tools:** in-canvas screenshot, fullscreen, share link (`C`), and URL state (`?model=&paint=&camera=&mode=`) via `history.replaceState`.
+- **Keyboard shortcuts:** `1`–`6` cameras, `T` auto-tour, `E` engine, `L` lights, `H` hazards, `A`/`D` doors, `B` trunk, `S` screenshot, `F` fullscreen.
+- **Draco pipeline:** `pnpm compress:models` and a local `public/draco/gltf` decoder. Compressed market GLBs are about 91MB.
+- **Loading:** bandwidth-aware idle preload, keep the previous model visible until the next GLB is ready, and `prefers-reduced-motion` support.
+- **Brake lights** on both GLB cars and the procedural fallback.
+- **GitHub Pages** static export at https://jiaxiantao.github.io/3d-car-viewing/, deployed with Actions artifacts.
+- **Vitest** coverage for categories, URL state, and per-model rig fixtures.
+- Open-source docs: MIT license, contributing, security, architecture, attribution, and the technical blog.
 
 ### Changed
 
-- **GitHub Pages asset paths:** GLB URLs use site-relative paths so models load under `/3d-car-viewing` instead of the domain root.
-- **CI workflow split:** `CI` runs on pull requests only; `main` pushes use a single `Deploy GitHub Pages` job (lint, typecheck, build, deploy).
-- **GitHub Pages `_next` fix:** post-build script renames `_next` to `next-static` so Jekyll does not strip CSS/JS on branch deploys.
-- **Deploy workflow:** use webpack for `build:pages`, disable concurrent cancel, and skip lint/typecheck in the deploy job (covered by PR CI).
-- **Category switch:** door / trunk / sunroof interaction state resets when changing vehicle category to avoid stale UI against a new rig.
+- **Rig layout:** `discoverAssetCarRig` now lives in `src/lib/asset-car-rig/`, split into lights, body, wheels, materials, and mesh helpers. The public import `@/lib/asset-car-rig` is unchanged.
+- **Page state** moved to `use-showroom-page-state`; the canvas chrome (scene mode, paint, body controls) sits on the viewport.
+- **GitHub Pages** asset paths are site-relative, so GLBs load under `/3d-car-viewing`. PR CI runs lint, typecheck, test, build, and `build:pages`.
+- **Performance:** `AdaptiveDpr` / `AdaptiveEvents`, device pixel ratio capped at `[1, 1.75]`, `preserveDrawingBuffer` for screenshots.
+- Switching category resets door, trunk, and sunroof state so the UI does not keep the previous rig's toggles.
+- README screenshots and model docs match the current showroom.
 
 ### Removed
 
-- Commercial UI: spec / pricing card, test-drive booking dialog, share-config CTA, and JSON-LD `Vehicle` structured data with pricing.
-- `car-specs.ts` replaced by minimal `car-categories.ts` (category key, label, GLB path only).
-
-### Added
-
-- **Brake light physics:** rear lights brighten when braking is engaged on both GLB and the procedural fallback car.
-- **Scene modes:** "studio" / "day" / "night" presets driving environment intensity, ambient / directional / hemisphere lights, fog, floor color, roughness, metalness, and headlight spotlight intensity. Configurable via `src/lib/showroom-scene-modes.ts`.
-- **Quick action toolbar:** scene mode radio group, in-canvas screenshot, and fullscreen mode.
-- **URL state sync:** `?model=…&paint=…&camera=…&mode=…` reflects the current configuration; uses `history.replaceState` so exploration does not pollute the back stack.
-- **Keyboard shortcuts:** `1`–`6` camera presets, `T` auto-tour, `E` engine, `L` lights, `H` hazards, `A`/`D` doors, `B` trunk, `S` screenshot, `F` fullscreen. Disabled while typing or with modifier keys held.
-- **Mobile responsiveness:** 60vh canvas, tab-based interaction tray, wrap-friendly category buttons.
-- Open-source documentation: LICENSE (MIT), CONTRIBUTING, SECURITY, architecture and attribution docs.
-- GitHub issue / PR templates and CI concurrency.
-
-### Changed
-
-- **Performance:** enabled `AdaptiveDpr` + `AdaptiveEvents`, capped device pixel ratio at `[1, 1.75]`, opted into `preserveDrawingBuffer` so screenshots capture the live frame.
-- **Lighting refactor:** `ShowroomEnvironment` and `ShowroomReflectiveFloor` consume the active scene-mode config rather than hard-coded constants.
-- **Pointer ergonomics:** interactive part hover uses a reference-counted cursor controller — no more leaked `cursor: pointer` after route / model changes.
-- Body / hover ARIA: interactive control buttons now expose `aria-pressed` for screen readers; paint swatches show a color-coded preview.
+- Commercial UI: spec / pricing card, test-drive booking, and priced `Vehicle` JSON-LD.
+- `car-specs.ts`, replaced by `car-categories.ts`.
 
 ## [0.1.0] - 2026-06-02
 

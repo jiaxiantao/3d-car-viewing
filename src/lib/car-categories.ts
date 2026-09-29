@@ -36,7 +36,6 @@ export const CAR_CATEGORIES: Record<CarCategoryKey, CarCategory> = {
     primaryUrl: publicAssetPath("/models/market/2025_xiaomi_su7_ultra.glb"),
     approxBytes: 32_000_000,
     bakedWheels: false,
-    capabilityHint: "",
   },
   yu7: {
     key: "yu7",
@@ -44,7 +43,6 @@ export const CAR_CATEGORIES: Record<CarCategoryKey, CarCategory> = {
     primaryUrl: publicAssetPath("/models/market/2025_xiaomi_yu7.glb"),
     approxBytes: 29_000_000,
     bakedWheels: false,
-    capabilityHint: "",
   },
   "su7-max": {
     key: "su7-max",
@@ -52,7 +50,6 @@ export const CAR_CATEGORIES: Record<CarCategoryKey, CarCategory> = {
     primaryUrl: publicAssetPath("/models/market/2024_xiaomi_su7_max.glb"),
     approxBytes: 5_500_000,
     bakedWheels: false,
-    capabilityHint: "",
   },
   suv: {
     key: "suv",
@@ -60,7 +57,6 @@ export const CAR_CATEGORIES: Record<CarCategoryKey, CarCategory> = {
     primaryUrl: publicAssetPath("/models/market/suv-mainstream.glb"),
     approxBytes: 14_500_000,
     bakedWheels: false,
-    capabilityHint: "",
   },
   offroad: {
     key: "offroad",
@@ -68,7 +64,6 @@ export const CAR_CATEGORIES: Record<CarCategoryKey, CarCategory> = {
     primaryUrl: publicAssetPath("/models/market/offroad-mainstream.glb"),
     approxBytes: 9_500_000,
     bakedWheels: false,
-    capabilityHint: "",
     disabledInteractions: ["leftDoor", "rightDoor", "trunk"],
   },
   sedan: {
@@ -77,7 +72,6 @@ export const CAR_CATEGORIES: Record<CarCategoryKey, CarCategory> = {
     primaryUrl: publicAssetPath("/models/market/sedan-mainstream.glb"),
     approxBytes: 2_800_000,
     bakedWheels: false,
-    capabilityHint: "",
   },
 };
 

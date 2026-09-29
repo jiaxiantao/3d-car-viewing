@@ -92,7 +92,7 @@ function rimLipLateralSpan(wheel: THREE.Object3D) {
     }
   });
   expect(hub).toBeTruthy();
-  const lip = hub as THREE.Mesh;
+  const lip = hub as unknown as THREE.Mesh;
   lip.updateWorldMatrix(true, false);
   const center = new THREE.Box3().setFromObject(lip).getCenter(new THREE.Vector3());
   const position = lip.geometry.getAttribute("position");

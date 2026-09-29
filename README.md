@@ -19,22 +19,22 @@
 ## 效果预览
 
 <p align="center">
-  <img src="public/shows/car-one.png" alt="3D 看车交互舱 — 整车 WebGL 展示与车型切换" width="900" />
+  <img src="public/shows/car-one.png" alt="3D 看车交互舱 — 小米 SU7 Ultra 整车展示与车型切换" width="900" />
 </p>
 
 <p align="center">
-  <img src="public/shows/car-two.png" alt="车门、灯光、车漆、座椅与环车巡检等交互控制" width="900" />
+  <img src="public/shows/car-two.png" alt="打开左前门并开启车灯，画布内可切换车漆与视角" width="900" />
 </p>
 
 <p align="center">
-  <img src="public/shows/car-three.png" alt="SUV 车型 — GLB 部件识别与多机位视角" width="900" />
+  <img src="public/shows/car-three.png" alt="奥迪 Q3 白天侧视，部件识别与多机位视角" width="900" />
 </p>
 
 ## 功能特性
 
 - **车型切换**：小米 SU7 Ultra / 小米 YU7 / 小米 SU7 Max / 奥迪 Q3 / 巴博斯 G900 / 宝马 M2（`public/models/market/*.glb`；默认小米 SU7 Ultra）
 - **部件交互**：车门、后备箱、天窗、车灯、双闪、启动、制动（依 GLB 网格命名自动识别）
-- **物理拟真**：怠速发动机微抖、加速 / 制动俯仰、**轿车完整四轮旋转**（SUV / 越野为轮系烘焙，部分交互受限）、制动时尾灯刹车灯亮起、双闪频闪
+- **物理拟真**：怠速发动机微抖、加速 / 制动俯仰、六款车模的四轮滚动（合并缓冲会先按轮角切开）、制动时尾灯亮起、双闪频闪。巴博斯 G900 的车门与后备箱在展厅中关闭；SU7 Max 与宝马 M2 的门、后备箱、天窗与车身合并
 - **场景模式**：影棚 / 白天 / 夜晚，一键切换灯光、地面材质与雾效，夜晚自带湿地反射
 - **视觉**：车漆配色、多机位预设、自动环车巡检、本地 IBL 光照（无外部 HDR CDN 依赖）
 - **看车工具**：截图保存当前画面、一键全屏看车、键盘快捷键（移动端可展开操作提示）
@@ -63,7 +63,7 @@ pnpm dev
 
 浏览器打开 [http://localhost:3000](http://localhost:3000)。
 
-> **仓库体积说明：** `public/models/market/` 内含 **Draco 压缩后约 27MB** 的 GLB（未压缩备份 `*-src.glb` 已 gitignore）。若你只需改前端逻辑，可暂时删除 GLB，应用会自动使用几何体回退车模。
+> **仓库体积说明：** `public/models/market/` 内含 **压缩后约 91MB** 的 GLB（未压缩备份 `*-src.glb` 已 gitignore）。若你只需改前端逻辑，可暂时删除 GLB，应用会自动使用几何体回退车模。
 
 ### 环境变量
 
@@ -123,7 +123,7 @@ pnpm build:pages   # 输出到 out/，basePath 为 /3d-car-viewing
 │   │   ├── showroom-environment.tsx   # 地面、灯光、本地 IBL
 │   │   └── showroom-viewport-chrome.tsx # 画布内顶栏 / 左右轨 / 车漆 / 说明
 │   └── lib/
-│       ├── asset-car-rig.ts           # GLB 部件自动发现
+│       ├── asset-car-rig/             # GLB 部件发现（灯光 / 车身 / 车轮 / 材质）
 │       ├── market-rig-profiles.ts     # 按车型 URL 的识别规则
 │       ├── showroom-camera.ts         # 相机与轨道限制
 │       ├── showroom-scene-modes.ts    # 影棚 / 白天 / 夜晚配置
@@ -153,10 +153,10 @@ pnpm build:pages   # 输出到 out/，basePath 为 /3d-car-viewing
 |------|------|------------------|------|
 | `2025_xiaomi_su7_ultra.glb` | 小米 SU7 Ultra（默认） | ~31 MB | 前门、后备箱、天窗、车灯、四轮 |
 | `2025_xiaomi_yu7.glb` | 小米 YU7 | ~28 MB | 前门、后备箱、天窗、车灯、四轮 |
-| `2024_xiaomi_su7_max.glb` | 小米 SU7 Max | ~5.3 MB | 四轮、车灯；门与车身合并 |
-| `suv-mainstream.glb` | 奥迪 Q3 | ~14.5 MB | 烘焙 |
-| `offroad-mainstream.glb` | 巴博斯 G900 | ~9.5 MB | 烘焙 |
-| `sedan-mainstream.glb` | 宝马 M2 | ~2.7 MB | 完整四轮动画 |
+| `2024_xiaomi_su7_max.glb` | 小米 SU7 Max | ~5.3 MB | 车灯、四轮；门与车身合并 |
+| `suv-mainstream.glb` | 奥迪 Q3 | ~14 MB | 门、后备箱、天窗、车灯、四轮 |
+| `offroad-mainstream.glb` | 巴博斯 G900 | ~9.5 MB | 车灯、四轮；展厅关闭车门与后备箱 |
+| `sedan-mainstream.glb` | 宝马 M2 | ~2.7 MB | 车灯、四轮；门与车身合并 |
 
 
 - 加载失败 → 自动使用内置几何体 `CarModel`

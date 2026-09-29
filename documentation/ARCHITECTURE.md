@@ -7,7 +7,8 @@ This document describes how the 3D showroom is structured for contributors.
 ```mermaid
 flowchart TB
   subgraph ui [Next.js UI]
-    Page["page.tsx\ncontrols & state"]
+    Page["page.tsx\nlayout shell"]
+    State["use-showroom-page-state"]
   end
   subgraph r3f [React Three Fiber]
   Scene["CarShowroomScene\nCanvas orchestration"]
@@ -17,20 +18,19 @@ flowchart TB
   Cam["CameraRig\norbit + presets"]
   end
   subgraph lib [Libraries]
-  Rig["asset-car-rig.ts\ndiscoverAssetCarRig"]
+  Rig["asset-car-rig/\ndiscoverAssetCarRig"]
   Profiles["market-rig-profiles.ts"]
   Norm["normalize-market-model.ts"]
   Camera["showroom-camera.ts"]
   Cache["gltf-scene-cache.ts\nDraco preload + LRU"]
-  PageState["use-showroom-page-state"]
   end
-  Page --> PageState
-  PageState --> Scene
-  Page --> Scene
+  Page --> State
+  State --> Scene
   Scene --> Env
   Scene --> Asset
   Scene --> Fallback
   Scene --> Cam
+  Scene --> Cache
   Asset --> Rig
   Rig --> Profiles
   Asset --> Norm
@@ -42,17 +42,17 @@ flowchart TB
 | Layer | Responsibility |
 |-------|----------------|
 | `use-showroom-page-state.ts` | User-facing toggles, URL hydrate, presets, capability gating |
-| `page.tsx` | Layout shell: canvas, quick actions, control panels |
+| `page.tsx` | Layout shell: canvas, viewport chrome, control panels |
 | `car-showroom-scene.tsx` | WebGL lifecycle: GLTF loading, overlay, camera, screenshot bridge |
 | `showroom/asset-car-model.tsx` / `procedural-car-model.tsx` | Per-frame mesh animation |
-| `asset-car-rig.ts` | One-time scan of loaded `THREE.Object3D` tree → `AssetCarRig` handles |
+| `asset-car-rig/` | One-time scan of a loaded `THREE.Object3D` tree → `AssetCarRig` handles |
 | `market-rig-profiles.ts` | Per-URL regex overrides when auto-discovery is ambiguous |
 
 Interaction buttons on the page are **disabled until** `onAssetRigCapabilities` reports which features the current GLB supports.
 
 ## GLB load pipeline
 
-1. `page.tsx` selects `modelUrl` from category (`useMemo`, no effect sync).
+1. `use-showroom-page-state.ts` selects `modelUrl` from `car-categories.ts`.
 2. `AssetModel` tries `modelUrl`, then optional alternates / fallback URL.
 3. On success: `normalizeMarketModel()` scales/grounds the root; `discoverAssetCarRig()` builds rig + capability flags.
 4. On failure: `useGeometricFallback` → render `CarModel` instead.
@@ -69,8 +69,8 @@ Interaction buttons on the page are **disabled until** `onAssetRigCapabilities` 
 
 ## Extension points
 
-- **New vehicle:** add GLB under `public/models/market/`, wire URL in `page.tsx`, add `MarketRigProfile` if needed.
-- **New interaction:** extend `AssetCarRig` discovery in `asset-car-rig.ts` and wire animation in `AssetModel` inside `car-showroom-scene.tsx`.
+- **New vehicle:** add a GLB under `public/models/market/`, register it in `car-categories.ts`, and add a `MarketRigProfile` when auto-discovery is ambiguous.
+- **New interaction:** extend discovery under `asset-car-rig/` and wire the animation in `showroom/asset-car-model.tsx`.
 - **Performance:** shadow map size, `dpr` cap, and reflector resolution are centralized in `car-showroom-scene.tsx` Canvas props.
 
 See also [market-glb-rig.md](./market-glb-rig.md) for mesh naming requirements.
