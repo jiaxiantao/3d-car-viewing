@@ -6,7 +6,7 @@ import { type ShowroomMaterial, type AssetRigDebugPart, type AssetCarRig } from 
 import { ensureShowroomMaterial, ensureShowroomPaintMaterial } from "./materials";
 import { hierarchicalName, matchesAny, getMeshVolume, collectMeshes } from "./mesh";
 import { isInteriorLight, isHeadLightPart, isGClassMarketProfile, isExcludedFromHeadlightDiscovery, applyShowroomHeadlampLens, applyShowroomTailLamp, taillampPositionAllowed, shouldApplyHeadlampLensPreset, headlampPositionAllowed, isolateOffroadHeadlampIslands, isTailLightPart, isHazardPart, applyBmwM2CabinGlass, splitBmwM2HeadlampCovers, splitOffroadHeadlampCovers } from "./lights";
-import { type OffroadCabinPanels, isTrunkPart, isDoorCandidate, isSunroofPart, createSideDoorPivot, splitSpanningDoorTrim, createTrunkPivot, SUNROOF_SLIDE_FRACTION, prepareSunroofMotion, findSteeringWheelCenter, splitOffroadCabinPanels, createBarnTailgatePivot, doorShellMeshes } from "./body";
+import { type OffroadCabinPanels, isTrunkPart, isDoorCandidate, isSunroofPart, createSideDoorPivot, splitSpanningDoorTrim, adoptDoorIslandNodes, createTrunkPivot, SUNROOF_SLIDE_FRACTION, prepareSunroofMotion, findSteeringWheelCenter, splitOffroadCabinPanels, createBarnTailgatePivot, doorShellMeshes } from "./body";
 import { splitSpanningWheelMeshes, findWheelNodes } from "./wheels";
 
 export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): AssetCarRig {
@@ -38,6 +38,8 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
   const sunroofNodes: THREE.Object3D[] = [];
   let leftDoorMeshes: THREE.Mesh[] = [];
   let rightDoorMeshes: THREE.Mesh[] = [];
+  let leftRearMeshes: THREE.Mesh[] = [];
+  let rightRearMeshes: THREE.Mesh[] = [];
   let trunkMeshes: THREE.Mesh[] = [];
   const headLightDebugItems = new Set<string>();
   const tailLightDebugItems = new Set<string>();
@@ -68,14 +70,23 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
 
     // Exclusive market door lists win first so INT trim (e.g. Soft_Black_Pattern)
     // is never stolen by paint / lamp heuristics.
-    if (profileHasDoors) {
+    const profileHasRearDoors =
+      (profile?.leftRearDoor?.length ?? 0) > 0 || (profile?.rightRearDoor?.length ?? 0) > 0;
+    if (profileHasDoors || profileHasRearDoors) {
       const claimedDoor =
-        matchesAny(name, profile?.leftDoor) || matchesAny(name, profile?.rightDoor);
+        matchesAny(name, profile?.leftDoor) ||
+        matchesAny(name, profile?.rightDoor) ||
+        matchesAny(name, profile?.leftRearDoor) ||
+        matchesAny(name, profile?.rightRearDoor);
       if (claimedDoor) {
         if (matchesAny(name, profile?.leftDoor)) {
           leftDoorMeshes.push(mesh);
-        } else {
+        } else if (matchesAny(name, profile?.rightDoor)) {
           rightDoorMeshes.push(mesh);
+        } else if (matchesAny(name, profile?.leftRearDoor)) {
+          leftRearMeshes.push(mesh);
+        } else {
+          rightRearMeshes.push(mesh);
         }
         if (
           matchesAny(name, profile?.paintMaterial) ||
@@ -325,11 +336,11 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
     }
   }
 
-  const leftRearMeshes = offroadPanels?.leftRear ?? [];
-  const rightRearMeshes = offroadPanels?.rightRear ?? [];
   if (offroadPanels) {
     leftDoorMeshes = offroadPanels.leftFront;
     rightDoorMeshes = offroadPanels.rightFront;
+    leftRearMeshes = offroadPanels.leftRear;
+    rightRearMeshes = offroadPanels.rightRear;
     trunkMeshes = offroadPanels.tailgate;
   }
   const leftHingeMeshes = offroadPanels
@@ -339,6 +350,16 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
     ? doorShellMeshes(rightDoorMeshes)
     : rightDoorMeshes.filter((mesh) =>
         matchesAny(hierarchicalName(mesh), profile?.rightDoorHinge),
+      );
+  const leftRearHingeMeshes = offroadPanels
+    ? doorShellMeshes(leftRearMeshes)
+    : leftRearMeshes.filter((mesh) =>
+        matchesAny(hierarchicalName(mesh), profile?.leftRearDoorHinge),
+      );
+  const rightRearHingeMeshes = offroadPanels
+    ? doorShellMeshes(rightRearMeshes)
+    : rightRearMeshes.filter((mesh) =>
+        matchesAny(hierarchicalName(mesh), profile?.rightRearDoorHinge),
       );
   const leftDoorPivot = createSideDoorPivot(
     root,
@@ -361,7 +382,7 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
       root,
       leftRearMeshes,
       "left",
-      doorShellMeshes(leftRearMeshes),
+      leftRearHingeMeshes,
       profile?.doorHingeLead,
       profile?.doorHingeOutset,
     ),
@@ -369,12 +390,16 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
       root,
       rightRearMeshes,
       "right",
-      doorShellMeshes(rightRearMeshes),
+      rightRearHingeMeshes,
       profile?.doorHingeLead,
       profile?.doorHingeOutset,
     ),
   ].filter((pivot): pivot is THREE.Group => pivot !== null);
   const spanningTrim = splitSpanningDoorTrim(leftDoorPivot, rightDoorPivot, profile?.spanningDoorTrim);
+  adoptDoorIslandNodes(
+    [leftDoorPivot, rightDoorPivot, ...companionDoorPivots],
+    profile?.doorIslandNodes,
+  );
   leftDoorMeshes.push(...spanningTrim.left);
   rightDoorMeshes.push(...spanningTrim.right);
   const trunkForPivot = offroadPanels
@@ -385,9 +410,17 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
   const trunkHingeMeshes = trunkMeshes.filter((mesh) =>
     matchesAny(hierarchicalName(mesh), profile?.trunkHinge),
   );
-  const trunkPivot = offroadPanels
-    ? createBarnTailgatePivot(root, trunkForPivot)
-    : createTrunkPivot(root, trunkForPivot, trunkHingeMeshes);
+  const trunkPivot =
+    offroadPanels || profile?.barnTailgate
+      ? createBarnTailgatePivot(
+          root,
+          trunkForPivot,
+          trunkHingeMeshes,
+          profile?.barnTailgateSide,
+          profile?.barnTailgateFace,
+          profile?.barnTailgateInset,
+        )
+      : createTrunkPivot(root, trunkForPivot, trunkHingeMeshes);
   prepareSunroofMotion(sunroofNodes, profile?.sunroofSlideFraction ?? SUNROOF_SLIDE_FRACTION);
 
   let frontWheels: THREE.Object3D[] = [];

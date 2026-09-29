@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Showroom lineup:** 奔驰 AMG G63 与 Jeep 牧马人排在巴博斯 G900 之前。G63 支持前门、车灯、改色、四轮和驾驶视角；牧马人支持四门、侧开尾门、车灯、改色、四轮和驾驶视角。
+- **Highway scene:** 场景模式新增「公路」。车辆停在路中央，画面包含沥青公路、两侧草地和晴空。分享链接使用 `mode=road`。
+
+### Changed
+
+- **Drive preset:** 驾驶预备模式前轮保持回正，只向前滚动。
+
 ## [0.2.0] - 2026-09-29
 
 ### Added

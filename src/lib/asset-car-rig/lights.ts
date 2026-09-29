@@ -105,7 +105,9 @@ export function shouldApplyHeadlampLensPreset(
       profile?.id === "bmw-m2" ||
       profile?.id === "xiaomi-su7-max" ||
       profile?.id === "xiaomi-su7-ultra" ||
-      profile?.id === "xiaomi-yu7")
+      profile?.id === "xiaomi-yu7" ||
+      profile?.id === "mercedes-g63" ||
+      profile?.id === "jeep-wrangler")
   );
 }
 
@@ -134,7 +136,9 @@ export function headlampPositionAllowed(
     profileHeadLight &&
     (profile?.id === "xiaomi-su7-max" ||
       profile?.id === "xiaomi-su7-ultra" ||
-      profile?.id === "xiaomi-yu7")
+      profile?.id === "xiaomi-yu7" ||
+      profile?.id === "mercedes-g63" ||
+      profile?.id === "jeep-wrangler")
   ) {
     return true;
   }

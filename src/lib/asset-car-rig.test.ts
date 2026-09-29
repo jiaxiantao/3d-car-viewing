@@ -353,9 +353,9 @@ describe("discoverAssetCarRig", () => {
     const pose = resolveShowroomCameraPose("cockpit", rig.bounds, rig.steeringWheelCenter);
     const distance = pose.position.distanceTo(pose.target);
     const limits = getOrbitDistanceLimits(rig.bounds, "cockpit");
-    expect(pose.target.y).toBeGreaterThan(rig.steeringWheelCenter!.y);
-    expect(pose.target.distanceTo(rig.steeringWheelCenter!)).toBeLessThan(0.2);
-    expect(pose.position.x).toBeGreaterThan(pose.target.x);
+    expect(pose.target.y).toBeLessThan(rig.steeringWheelCenter!.y);
+    expect(pose.target.x).toBeLessThan(pose.position.x);
+    expect(pose.position.x).toBeGreaterThan(rig.steeringWheelCenter!.x);
     expect(pose.position.y).toBeGreaterThan(pose.target.y);
     expect(distance).toBeGreaterThan(limits.minDistance);
     expect(getOrbitDistanceLimits(rig.bounds, "overview").minDistance).toBeGreaterThan(2);
@@ -366,14 +366,15 @@ describe("discoverAssetCarRig", () => {
     expect(polar).toBeLessThan(1.5);
   });
 
-  it("aims a cockpit without a named wheel at dash height, and finds a leather wheel", () => {
+  it("aims a cockpit without a named wheel at the road ahead, and finds a leather wheel", () => {
     const bare = new THREE.Group();
     bare.add(mesh("Body_Carpaint", [0, 0.6, 0], [3.2, 1.2, 1.6]));
     const bareRig = discoverAssetCarRig(bare, "models/market/sedan-mainstream.glb");
     expect(bareRig.steeringWheelCenter).toBeNull();
     const fallback = resolveShowroomCameraPose("cockpit", bareRig.bounds, null);
     const height = bareRig.bounds.max.y - bareRig.bounds.min.y;
-    expect((fallback.target.y - bareRig.bounds.min.y) / height).toBeGreaterThan(0.55);
+    expect((fallback.target.y - bareRig.bounds.min.y) / height).toBeLessThan(0.2);
+    expect(fallback.target.x).toBeLessThan(fallback.position.x);
     expect(fallback.position.y).toBeGreaterThan(fallback.target.y);
 
     const root = new THREE.Group();

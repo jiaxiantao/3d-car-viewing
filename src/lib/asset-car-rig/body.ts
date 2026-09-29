@@ -264,6 +264,172 @@ export function splitSpanningDoorTrim(
   return adopted;
 }
 
+/** Triangle groups that share no vertices — the mesh's original islands. */
+function connectedTriangleIslands(geometry: THREE.BufferGeometry) {
+  const position = geometry.getAttribute("position");
+  if (!position) {
+    return [];
+  }
+  const triangleCount = geometry.getIndex() ? geometry.getIndex()!.count / 3 : position.count / 3;
+  const parent = new Uint32Array(position.count);
+  for (let index = 0; index < parent.length; index += 1) {
+    parent[index] = index;
+  }
+  const find = (index: number) => {
+    let root = index;
+    while (parent[root] !== root) {
+      root = parent[root];
+    }
+    while (parent[index] !== root) {
+      const next = parent[index];
+      parent[index] = root;
+      index = next;
+    }
+    return root;
+  };
+  const unite = (a: number, b: number) => {
+    const rootA = find(a);
+    const rootB = find(b);
+    if (rootA !== rootB) {
+      parent[rootB] = rootA;
+    }
+  };
+  for (let triangle = 0; triangle < triangleCount; triangle += 1) {
+    const cornerA = triangleCorner(geometry, triangle, 0);
+    const cornerB = triangleCorner(geometry, triangle, 1);
+    const cornerC = triangleCorner(geometry, triangle, 2);
+    unite(cornerA, cornerB);
+    unite(cornerB, cornerC);
+  }
+  const groups = new Map<number, number[]>();
+  for (let triangle = 0; triangle < triangleCount; triangle += 1) {
+    const root = find(triangleCorner(geometry, triangle, 0));
+    const list = groups.get(root);
+    if (list) {
+      list.push(triangle);
+    } else {
+      groups.set(root, [triangle]);
+    }
+  }
+  return [...groups.values()];
+}
+
+/**
+ * Parent each already-disconnected island of a named node to the door hinge
+ * that contains it. Islands outside every door (the cabin center) stay put.
+ * Connected triangles are never cut apart.
+ */
+export function adoptDoorIslandNodes(
+  pivots: Array<THREE.Group | null>,
+  patterns?: RegExp[],
+) {
+  const live = pivots.filter((pivot): pivot is THREE.Group => pivot !== null);
+  if (!patterns?.length || live.length === 0) {
+    return;
+  }
+
+  const claims = live.flatMap((pivot) => {
+    const bounds = closedDoorBounds(pivot);
+    if (!bounds) {
+      return [];
+    }
+    const box = bounds.clone();
+    box.expandByScalar(0.03);
+    return [
+      {
+        pivot,
+        box,
+        center: bounds.getCenter(new THREE.Vector3()),
+        doorSize: bounds.getSize(new THREE.Vector3()),
+      },
+    ];
+  });
+  if (claims.length === 0) {
+    return;
+  }
+
+  const candidates: THREE.Mesh[] = [];
+  live[0].parent?.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    if (!mesh.isMesh || !matchesAny(hierarchicalName(mesh), patterns)) {
+      return;
+    }
+    if (live.some((pivot) => isUnderPivot(mesh, pivot))) {
+      return;
+    }
+    if (Object.keys(mesh.geometry.morphAttributes).length > 0) {
+      return;
+    }
+    candidates.push(mesh);
+  });
+
+  const corner = new THREE.Vector3();
+  for (const mesh of candidates) {
+    const position = mesh.geometry.getAttribute("position");
+    if (!position) {
+      continue;
+    }
+    mesh.updateWorldMatrix(true, false);
+    const islands = connectedTriangleIslands(mesh.geometry);
+    const owned = new Map<THREE.Group, number[]>();
+    const stayTriangles: number[] = [];
+
+    for (const island of islands) {
+      const islandBox = new THREE.Box3();
+      for (const triangle of island) {
+        for (let index = 0; index < 3; index += 1) {
+          corner.fromBufferAttribute(position, triangleCorner(mesh.geometry, triangle, index));
+          corner.applyMatrix4(mesh.matrixWorld);
+          islandBox.expandByPoint(corner);
+        }
+      }
+      const centroid = islandBox.getCenter(new THREE.Vector3());
+      const islandSize = islandBox.getSize(new THREE.Vector3());
+      let owner: (typeof claims)[number] | null = null;
+      let bestDistance = Infinity;
+      for (const claim of claims) {
+        if (!claim.box.containsPoint(centroid)) {
+          continue;
+        }
+        if (
+          islandSize.x > claim.doorSize.x ||
+          islandSize.y > claim.doorSize.y ||
+          islandSize.z > claim.doorSize.z
+        ) {
+          continue;
+        }
+        const distance = centroid.distanceTo(claim.center);
+        if (distance < bestDistance) {
+          owner = claim;
+          bestDistance = distance;
+        }
+      }
+      if (!owner) {
+        stayTriangles.push(...island);
+        continue;
+      }
+      const list = owned.get(owner.pivot) ?? [];
+      list.push(...island);
+      owned.set(owner.pivot, list);
+    }
+
+    if (owned.size === 0) {
+      continue;
+    }
+    for (const [pivot, triangles] of owned) {
+      adoptDoorPiece(mesh, extractTriangleGeometry(mesh.geometry, triangles), pivot);
+    }
+    const triangleCount = mesh.geometry.getIndex()
+      ? mesh.geometry.getIndex()!.count / 3
+      : position.count / 3;
+    if (stayTriangles.length === 0) {
+      mesh.removeFromParent();
+    } else if (stayTriangles.length !== triangleCount) {
+      mesh.geometry = extractTriangleGeometry(mesh.geometry, stayTriangles);
+    }
+  }
+}
+
 export function createTrunkPivot(
   root: THREE.Object3D,
   meshes: THREE.Mesh[],
@@ -477,7 +643,12 @@ export function findSteeringWheelCenter(
   const candidates: Candidate[] = [];
   root.traverse((child) => {
     const mesh = child as THREE.Mesh;
-    if (!mesh.isMesh || !/(staring|steering[\s_-]?wheel|leather[_\s-]?wheel)/i.test(hierarchicalName(mesh))) {
+    const pathName = hierarchicalName(mesh);
+    const profileSteering = (profile?.steeringWheel?.length ?? 0) > 0;
+    const namedSteering = profileSteering
+      ? matchesAny(pathName, profile?.steeringWheel)
+      : /(staring|steering[\s_-]?wheel|leather[_\s-]?wheel)/i.test(pathName);
+    if (!mesh.isMesh || !namedSteering) {
       return;
     }
     const box = new THREE.Box3().setFromObject(mesh);
@@ -708,37 +879,55 @@ export function splitOffroadCabinPanels(
   return panels;
 }
 
-/** G-Class tailgate swings sideways about the vehicle-left edge, spare included. */
-export function createBarnTailgatePivot(root: THREE.Object3D, meshes: THREE.Mesh[]) {
+/**
+ * Barn tailgate swings sideways about one rear jamb, spare included.
+ * Left (G-Class) uses the +Z edge. Right (Wrangler in this asset) uses the -Z edge.
+ * `hingeFace` `body` sits on the cabin shut line; `outer` sits on the rear skin.
+ */
+export function createBarnTailgatePivot(
+  root: THREE.Object3D,
+  meshes: THREE.Mesh[],
+  hingeMeshes?: THREE.Mesh[],
+  hingeSide: "left" | "right" = "left",
+  hingeFace: "outer" | "body" = "outer",
+  hingeInset = 0,
+) {
   if (meshes.length === 0) {
     return null;
   }
+  const authoredHinge = (hingeMeshes ?? []).filter((mesh) =>
+    meshes.some((candidate) => candidate.uuid === mesh.uuid),
+  );
   const markedShells = meshes.filter((mesh) => mesh.userData.showroomDoorShell);
   const shells =
-    markedShells.length > 0
-      ? markedShells
-      : meshes.filter((mesh) => {
-          if (/spare|m_carbon_a/i.test(mesh.name)) {
-            return false;
-          }
-          const shellSize = new THREE.Box3().setFromObject(mesh).getSize(new THREE.Vector3());
-          return shellSize.x < 0.22 && shellSize.z > 0.35;
-        });
+    authoredHinge.length > 0
+      ? authoredHinge
+      : markedShells.length > 0
+        ? markedShells
+        : meshes.filter((mesh) => {
+            if (/spare|m_carbon_a/i.test(mesh.name)) {
+              return false;
+            }
+            const shellSize = new THREE.Box3().setFromObject(mesh).getSize(new THREE.Vector3());
+            return shellSize.x < 0.22 && shellSize.z > 0.35;
+          });
   const hingeBox = new THREE.Box3();
   for (const mesh of shells.length > 0 ? shells : meshes) {
     hingeBox.expandByObject(mesh);
   }
+  const outerZ = hingeSide === "right" ? hingeBox.min.z : hingeBox.max.z;
+  const inboard = hingeSide === "right" ? hingeInset : -hingeInset;
   const hingeWorld = new THREE.Vector3(
-    hingeBox.max.x,
+    hingeFace === "body" ? hingeBox.min.x : hingeBox.max.x,
     hingeBox.min.y + (hingeBox.max.y - hingeBox.min.y) * 0.55,
-    hingeBox.max.z,
+    outerZ + inboard,
   );
   const pivot = createHingePivot(root, hingeWorld, "y");
   for (const mesh of meshes) {
     pivot.attach(mesh);
   }
-  // Negative Y carries the free edge further rearward (+X) around the left jamb.
-  pivot.userData.showroomOpenSign = -1;
+  // The free edge travels rearward (+X). Sign depends on which jamb is fixed.
+  pivot.userData.showroomOpenSign = hingeSide === "right" ? 1 : -1;
   pivot.userData.showroomSide = "tailgate";
   return pivot;
 }

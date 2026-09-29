@@ -17,10 +17,20 @@ import { getOrbitDistanceLimits } from "@/lib/showroom-camera";
 import {
   ShowroomHeadlightSpotlights,
   ShowroomImageBasedLighting,
-  ShowroomReflectiveFloor,
 } from "@/components/showroom-environment";
+import {
+  preloadShowroomRoadScene,
+  ShowroomRoadScene,
+  warmupShowroomRoadGeometry,
+} from "@/components/showroom-road-scene";
+import { ShowroomHallVenue } from "@/components/showroom-hall-scene";
+import { ShowroomStudioVenue } from "@/components/showroom-studio-gallery";
 import { CameraRig } from "@/components/car-showroom-camera";
-import { SHOWROOM_SCENE_MODES } from "@/lib/showroom-scene-modes";
+import {
+  DEFAULT_SHOWROOM_LIGHTING,
+  DEFAULT_SHOWROOM_VENUE,
+  resolveShowroomSceneConfig,
+} from "@/lib/showroom-scene-modes";
 import { AssetModel } from "@/components/showroom/asset-car-model";
 import { resetHoverCursor } from "@/components/showroom/interactive-pointer";
 import { ShowroomAssetLoadingOverlay } from "@/components/showroom/loading-overlay";
@@ -98,7 +108,8 @@ export function CarShowroomScene({
   modelUrl = CAR_CATEGORIES[DEFAULT_CAR_CATEGORY_KEY].primaryUrl,
   modelAlternateUrls,
   modelFallbackUrl,
-  sceneMode = "studio",
+  venue = DEFAULT_SHOWROOM_VENUE,
+  lighting = DEFAULT_SHOWROOM_LIGHTING,
   onAssetRigCapabilities,
   onAssetRigDebug,
   onAssetModelResolved,
@@ -116,10 +127,11 @@ export function CarShowroomScene({
   const [useGeometricFallback, setUseGeometricFallback] = useState(false);
   const [loadProgress, setLoadProgress] = useState(0);
   const controlsRef = useRef(null);
+  const driveSpeedRef = useRef(0);
   const displayedRootRef = useRef<THREE.Object3D | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const sceneConfig = SHOWROOM_SCENE_MODES[sceneMode];
+  const sceneConfig = resolveShowroomSceneConfig(venue, lighting);
   const environmentIntensity =
     state.lightsOn && (!useAssetModel || assetRig?.capabilities.headLights)
       ? sceneConfig.environmentIntensity.headlightsOn
@@ -140,6 +152,37 @@ export function CarShowroomScene({
     },
     [],
   );
+
+  useEffect(() => {
+    const id = window.requestAnimationFrame(() => {
+      void warmupShowroomRoadGeometry();
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, []);
+
+  useEffect(() => {
+    if (useAssetModel && assetLoadState === "loading") {
+      return;
+    }
+    let cancelled = false;
+    const start = () => {
+      if (!cancelled) {
+        void preloadShowroomRoadScene();
+      }
+    };
+    if (typeof window.requestIdleCallback === "function") {
+      const idleId = window.requestIdleCallback(start, { timeout: 1600 });
+      return () => {
+        cancelled = true;
+        window.cancelIdleCallback(idleId);
+      };
+    }
+    const timer = window.setTimeout(start, 500);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [assetLoadState, useAssetModel]);
 
   const isAssetLoading = useAssetModel && assetLoadState === "loading";
   // Skip fullscreen overlay when the target model is already prepared in memory.
@@ -366,6 +409,7 @@ export function CarShowroomScene({
           framingBounds={framingBounds}
           framingBoundsKey={framingBoundsKey}
           steeringWheelCenter={showAssetCar ? assetRig?.steeringWheelCenter : null}
+          profileId={showAssetCar ? assetRig?.debug.profileId : null}
         />
         <color attach="background" args={[sceneConfig.background]} />
         {sceneConfig.fog ? (
@@ -401,7 +445,7 @@ export function CarShowroomScene({
         <ShowroomHeadlightSpotlights
           lightsOn={state.lightsOn}
           rig={assetRig}
-          sceneMode={sceneMode}
+          headlightSpot={sceneConfig.headlightSpot}
         />
         <pointLight
           position={[-4, 2, -3]}
@@ -419,6 +463,7 @@ export function CarShowroomScene({
             onToggleRightDoor={onToggleRightDoor}
             onToggleTrunk={onToggleTrunk}
             bodyInteractions={bodyInteractions}
+            driveSpeedRef={driveSpeedRef}
           />
         ) : showGeometricCar ? (
           <CarModel
@@ -427,16 +472,33 @@ export function CarShowroomScene({
             onToggleLeftDoor={onToggleLeftDoor}
             onToggleRightDoor={onToggleRightDoor}
             onToggleTrunk={onToggleTrunk}
+            driveSpeedRef={driveSpeedRef}
           />
         ) : null}
 
-        <ShowroomReflectiveFloor
-          lightsOn={state.lightsOn}
-          headLightsActive={
-            useAssetModel ? Boolean(assetRig?.capabilities.headLights) : state.lightsOn
-          }
-          sceneMode={sceneMode}
-        />
+        {venue === "road" ? (
+          <ShowroomRoadScene
+            lighting={lighting}
+            reduceMotion={reduceMotion}
+            driveSpeedRef={driveSpeedRef}
+          />
+        ) : venue === "hall" ? (
+          <ShowroomHallVenue
+            lightsOn={state.lightsOn}
+            headLightsActive={
+              useAssetModel ? Boolean(assetRig?.capabilities.headLights) : state.lightsOn
+            }
+            sceneConfig={sceneConfig}
+          />
+        ) : (
+          <ShowroomStudioVenue
+            lightsOn={state.lightsOn}
+            headLightsActive={
+              useAssetModel ? Boolean(assetRig?.capabilities.headLights) : state.lightsOn
+            }
+            sceneConfig={sceneConfig}
+          />
+        )}
 
         <OrbitControls
           ref={controlsRef}

@@ -24,7 +24,12 @@ import {
   SHOWROOM_DEFAULT_PAINT_ID,
   resolveShowroomPaint,
 } from "@/lib/showroom-paint-options";
-import type { ShowroomSceneMode } from "@/lib/showroom-scene-modes";
+import {
+  DEFAULT_SHOWROOM_LIGHTING,
+  DEFAULT_SHOWROOM_VENUE,
+  type ShowroomLightingMode,
+  type ShowroomVenueMode,
+} from "@/lib/showroom-scene-modes";
 import {
   copyShowroomShareUrl,
   readShowroomUrlState,
@@ -78,7 +83,8 @@ export function useShowroomPageState() {
   const [braking, setBraking] = useState(false);
   const [assetRigCaps, setAssetRigCaps] = useState<AssetRigCapabilities | null>(null);
   const [assetRigDebug, setAssetRigDebug] = useState<AssetRigDebug | null>(null);
-  const [sceneMode, setSceneMode] = useState<ShowroomSceneMode>("studio");
+  const [venue, setVenue] = useState<ShowroomVenueMode>(DEFAULT_SHOWROOM_VENUE);
+  const [lighting, setLighting] = useState<ShowroomLightingMode>(DEFAULT_SHOWROOM_LIGHTING);
 
   const [capturing, setCapturing] = useState(false);
   const [copyingLink, setCopyingLink] = useState(false);
@@ -104,8 +110,11 @@ export function useShowroomPageState() {
     ) {
       setCameraPreset(initial.cameraPreset as CarCameraPreset);
     }
-    if (initial.sceneMode) {
-      setSceneMode(initial.sceneMode);
+    if (initial.venue) {
+      setVenue(initial.venue);
+    }
+    if (initial.lighting) {
+      setLighting(initial.lighting);
     }
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -114,7 +123,8 @@ export function useShowroomPageState() {
     category: selectedCategory,
     paintId: selectedPaintId,
     cameraPreset,
-    sceneMode,
+    venue,
+    lighting,
   });
 
   useEffect(() => {
@@ -414,7 +424,8 @@ export function useShowroomPageState() {
         category: selectedCategory,
         paintId: selectedPaintId,
         cameraPreset,
-        sceneMode,
+        venue,
+        lighting,
       });
       showStatus("已复制分享链接，可直接发送给他人");
     } catch (error) {
@@ -426,7 +437,8 @@ export function useShowroomPageState() {
   }, [
     cameraPreset,
     copyingLink,
-    sceneMode,
+    venue,
+    lighting,
     selectedCategory,
     selectedPaintId,
     showStatus,
@@ -580,8 +592,10 @@ export function useShowroomPageState() {
     setBraking,
     assetRigCaps,
     assetRigDebug,
-    sceneMode,
-    setSceneMode,
+    venue,
+    setVenue,
+    lighting,
+    setLighting,
     capturing,
     copyingLink,
     isFullscreen,

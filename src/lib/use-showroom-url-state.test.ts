@@ -15,7 +15,8 @@ describe("showroom url state", () => {
       category: "sedan",
       paintId: "lava-red",
       cameraPreset: "front",
-      sceneMode: "night",
+      venue: "studio",
+      lighting: "night",
     });
   });
 
@@ -27,7 +28,8 @@ describe("showroom url state", () => {
       category: undefined,
       paintId: undefined,
       cameraPreset: undefined,
-      sceneMode: undefined,
+      venue: undefined,
+      lighting: undefined,
     });
   });
 
@@ -36,12 +38,29 @@ describe("showroom url state", () => {
       category: "offroad",
       paintId: "obsidian-black",
       cameraPreset: "rear",
-      sceneMode: "day",
+      venue: "road",
+      lighting: "night",
     });
     expect(url).toContain("model=offroad");
     expect(url).toContain("paint=obsidian-black");
     expect(url).toContain("camera=rear");
-    expect(url).toContain("mode=day");
+    expect(url).toContain("mode=road");
+    expect(url).toContain("light=night");
+  });
+
+  it("accepts a highway venue with independent night lighting", () => {
+    const legacy = new URLSearchParams("model=sedan&paint=factory&camera=overview&mode=road");
+    expect(parseShowroomUrlSearchParams(legacy)).toMatchObject({
+      venue: "road",
+      lighting: "day",
+    });
+    const combined = new URLSearchParams(
+      "model=sedan&paint=factory&camera=overview&mode=road&light=night",
+    );
+    expect(parseShowroomUrlSearchParams(combined)).toMatchObject({
+      venue: "road",
+      lighting: "night",
+    });
   });
 
   it("accepts the factory paint id and treats it as the default", () => {

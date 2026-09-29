@@ -250,12 +250,13 @@ describe("Xiaomi showroom rigs", () => {
     expect(rig.steeringWheelCenter!.z).toBeGreaterThan(0.15);
     expect(rig.steeringWheelCenter!.y).toBeGreaterThan(0.45);
     const pose = resolveShowroomCameraPose("cockpit", rig.bounds, rig.steeringWheelCenter);
-    expect(pose.position.x).toBeGreaterThan(pose.target.x);
+    expect(pose.position.x).toBeGreaterThan(rig.steeringWheelCenter!.x);
+    expect(pose.target.x).toBeLessThan(pose.position.x);
     expect(pose.position.y).toBeGreaterThan(pose.target.y);
+    expect(pose.target.y).toBeLessThan(rig.steeringWheelCenter!.y);
     // The unnamed fallback used to sit at x≈0.33, inside the rear cabin shell.
     expect(pose.position.x).toBeLessThan(0.15);
-    expect(pose.position.distanceTo(pose.target)).toBeLessThan(0.55);
-    expect(pose.target.distanceTo(rig.steeringWheelCenter!)).toBeLessThan(0.2);
+    expect(pose.position.distanceTo(rig.steeringWheelCenter!)).toBeLessThan(0.8);
   }, 60_000);
 
   it("opens SU7 Ultra front doors, hatch, and roof glass", async () => {

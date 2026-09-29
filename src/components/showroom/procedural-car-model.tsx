@@ -7,6 +7,7 @@ import {
   SHOWROOM_HAZARD_INTENSITY,
   SHOWROOM_TAIL_LAMP_COLOR,
 } from "@/lib/asset-car-rig";
+import { driveTargetSpeedMps, stepDriveSpeedMps } from "@/lib/showroom-drive";
 import { SHOWROOM_GROUND_Y } from "@/components/showroom-environment";
 import { interactivePointerHandlers } from "@/components/showroom/interactive-pointer";
 import {
@@ -374,6 +375,7 @@ export function CarModel({
   onToggleTrunk,
   overlayOnly = false,
   reduceMotion = false,
+  driveSpeedRef,
 }: CarModelProps) {
   const rootRef = useRef<THREE.Group>(null);
   const leftDoorRef = useRef<THREE.Group>(null);
@@ -455,6 +457,15 @@ export function CarModel({
         colorWrite: false,
       }),
     [],
+  );
+
+  useEffect(
+    () => () => {
+      if (driveSpeedRef) {
+        driveSpeedRef.current = 0;
+      }
+    },
+    [driveSpeedRef],
   );
 
   useEffect(() => {
@@ -541,14 +552,15 @@ export function CarModel({
       );
     }
 
-    const targetVelocity = state.engineOn ? state.speedKph / 3.6 : 0;
-    const brakeFactor = state.braking ? 14 : 4;
-    velocityRef.current = THREE.MathUtils.damp(
+    velocityRef.current = stepDriveSpeedMps(
       velocityRef.current,
-      targetVelocity,
-      brakeFactor,
+      driveTargetSpeedMps(state.engineOn, state.speedKph),
+      state.braking,
       delta,
     );
+    if (driveSpeedRef) {
+      driveSpeedRef.current = velocityRef.current;
+    }
 
     // Spin around horizontal axle (local Y on wheel mesh inside mount group).
     const angularSpeed = velocityRef.current / WHEEL_RADIUS;

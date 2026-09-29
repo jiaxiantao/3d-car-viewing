@@ -56,6 +56,42 @@ function toThreeNode(gltfNode: GltfNode): THREE.Object3D {
   return object;
 }
 
+describe("YU7 and M2 cockpit seats", () => {
+  const yu7Bounds = new THREE.Box3(
+    new THREE.Vector3(-2, -0.22, -0.855),
+    new THREE.Vector3(2, 1.053, 0.855),
+  );
+  const yu7Wheel = new THREE.Vector3(-0.361, 0.546, 0.312);
+  const m2Bounds = new THREE.Box3(
+    new THREE.Vector3(-1.963, -0.22, -0.909),
+    new THREE.Vector3(2.037, 1.022, 0.909),
+  );
+
+  it("sits the YU7 eye just above the rim, below the roof", () => {
+    const shared = resolveShowroomCameraPose("cockpit", yu7Bounds, yu7Wheel);
+    const tuned = resolveShowroomCameraPose("cockpit", yu7Bounds, yu7Wheel, "xiaomi-yu7");
+    expect(tuned.position.y).toBeGreaterThan(shared.position.y);
+    expect(tuned.position.y).toBeGreaterThan(yu7Wheel.y + 0.2);
+    expect(tuned.position.y).toBeLessThan(0.86);
+    expect(tuned.position.x).toBeGreaterThan(shared.position.x);
+    expect(tuned.target.y).toBeLessThan(yu7Wheel.y);
+    expect(tuned.target.x).toBeLessThan(tuned.position.x);
+  });
+
+  it("moves the M2 eye into the front seat instead of the hood or rear cabin", () => {
+    const shared = resolveShowroomCameraPose("cockpit", m2Bounds, null);
+    const tuned = resolveShowroomCameraPose("cockpit", m2Bounds, null, "bmw-m2");
+    expect(shared.position.x).toBeGreaterThan(0.2);
+    expect(tuned.position.x).toBeGreaterThan(0.15);
+    expect(tuned.position.x).toBeLessThan(0.25);
+    expect(tuned.position.x).toBeLessThan(shared.position.x);
+    expect(tuned.position.y).toBeGreaterThan(0.74);
+    expect(tuned.position.y).toBeLessThan(0.86);
+    expect(tuned.target.x).toBeLessThan(m2Bounds.min.x);
+    expect(tuned.position.z).toBeGreaterThan(0);
+  });
+});
+
 describe("Audi Q3 cockpit", () => {
   it("looks at the steering wheel from the driver's seat", async () => {
     const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({
@@ -79,13 +115,14 @@ describe("Audi Q3 cockpit", () => {
     const pose = resolveShowroomCameraPose("cockpit", rig.bounds, rig.steeringWheelCenter);
     const distance = pose.position.distanceTo(pose.target);
     const limits = getOrbitDistanceLimits(rig.bounds, "cockpit");
-    expect(pose.target.y).toBeGreaterThan(rig.steeringWheelCenter!.y);
-    expect(pose.target.distanceTo(rig.steeringWheelCenter!)).toBeLessThan(0.2);
-    expect(pose.position.x).toBeGreaterThan(pose.target.x);
+    expect(pose.target.y).toBeLessThan(rig.steeringWheelCenter!.y);
+    expect(pose.target.x).toBeLessThan(pose.position.x);
+    expect(pose.position.x).toBeGreaterThan(rig.steeringWheelCenter!.x);
+    expect(pose.position.y).toBeGreaterThan(rig.steeringWheelCenter!.y);
     expect(pose.position.y).toBeGreaterThan(pose.target.y);
     expect(Math.abs(pose.position.z - pose.target.z)).toBeLessThan(0.12);
     expect(distance).toBeGreaterThan(limits.minDistance);
-    expect(distance).toBeLessThan(0.6);
+    expect(pose.position.distanceTo(rig.steeringWheelCenter!)).toBeLessThan(0.8);
     expect(pose.position.x).toBeLessThan(0.2);
 
     const offset = pose.position.clone().sub(pose.target);

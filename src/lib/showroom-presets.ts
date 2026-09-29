@@ -38,7 +38,7 @@ export const SHOWROOM_PRESETS: Record<ShowroomPresetId, ShowroomPresetSnapshot> 
     trunkOpen: false,
     lightsOn: true,
     engineOn: true,
-    steeringAngle: -16,
+    steeringAngle: 0,
     hazardOn: false,
     sunroofOpen: false,
     speedKph: 45,

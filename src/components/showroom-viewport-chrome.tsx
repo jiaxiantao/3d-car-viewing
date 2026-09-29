@@ -6,9 +6,10 @@ import type { AssetRigCapabilities, CarCameraPreset } from "@/components/car-sho
 import { SHOWROOM_PAINT_OPTIONS } from "@/lib/showroom-paint-options";
 import { cn } from "@/lib/utils";
 import {
-  SHOWROOM_SCENE_MODES,
-  SHOWROOM_SCENE_MODE_ORDER,
-  type ShowroomSceneMode,
+  SHOWROOM_LIGHTING_OPTIONS,
+  SHOWROOM_VENUE_OPTIONS,
+  type ShowroomLightingMode,
+  type ShowroomVenueMode,
 } from "@/lib/showroom-scene-modes";
 
 type RailButtonProps = {
@@ -54,8 +55,10 @@ function RailButton({
 
 type ShowroomViewportChromeProps = {
   children: ReactNode;
-  sceneMode: ShowroomSceneMode;
-  onChangeSceneMode: (mode: ShowroomSceneMode) => void;
+  venue: ShowroomVenueMode;
+  lighting: ShowroomLightingMode;
+  onChangeVenue: (venue: ShowroomVenueMode) => void;
+  onChangeLighting: (lighting: ShowroomLightingMode) => void;
   onCaptureScreenshot: () => void;
   onToggleFullscreen: () => void;
   onCopyShareLink: () => void;
@@ -94,8 +97,10 @@ type ShowroomViewportChromeProps = {
 
 export function ShowroomViewportChrome({
   children,
-  sceneMode,
-  onChangeSceneMode,
+  venue,
+  lighting,
+  onChangeVenue,
+  onChangeLighting,
   onCaptureScreenshot,
   onToggleFullscreen,
   onCopyShareLink,
@@ -198,33 +203,54 @@ export function ShowroomViewportChrome({
       {/* Top bar — scene + capture tools + help */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center p-2 sm:p-3">
         <div className="pointer-events-auto relative flex max-w-full flex-wrap items-center justify-center gap-1.5 rounded-2xl border border-white/12 bg-slate-950/75 px-2 py-1.5 shadow-lg backdrop-blur-md sm:gap-2 sm:px-3">
-          <div
-            role="radiogroup"
-            aria-label="展厅场景模式"
-            className="inline-flex rounded-full border border-white/10 bg-black/20 p-0.5 text-[11px] sm:text-xs"
-          >
-            {SHOWROOM_SCENE_MODE_ORDER.map((mode) => {
-              const config = SHOWROOM_SCENE_MODES[mode];
-              const isActive = sceneMode === mode;
-              return (
-                <button
-                  key={mode}
-                  type="button"
-                  role="radio"
-                  aria-checked={isActive}
-                  title={config.description}
-                  onClick={() => onChangeSceneMode(mode)}
-                  className={cn(
-                    "rounded-full px-2.5 py-1 transition sm:px-3",
-                    isActive
-                      ? "bg-cyan-200 text-slate-950 shadow"
-                      : "text-slate-300 hover:text-white",
-                  )}
-                >
-                  {config.label}
-                </button>
-              );
-            })}
+          <div className="inline-flex items-center rounded-full border border-white/10 bg-black/20 p-0.5 text-[11px] sm:text-xs">
+            <div role="radiogroup" aria-label="展厅场景" className="inline-flex">
+              {SHOWROOM_VENUE_OPTIONS.map((option) => {
+                const isActive = venue === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={isActive}
+                    title={option.description}
+                    onClick={() => onChangeVenue(option.id)}
+                    className={cn(
+                      "rounded-full px-2.5 py-1 transition sm:px-3",
+                      isActive
+                        ? "bg-cyan-200 text-slate-950 shadow"
+                        : "text-slate-300 hover:text-white",
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mx-0.5 h-3.5 w-px shrink-0 bg-white/25" aria-hidden />
+            <div role="radiogroup" aria-label="光线场景" className="inline-flex">
+              {SHOWROOM_LIGHTING_OPTIONS.map((option) => {
+                const isActive = lighting === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={isActive}
+                    title={option.description}
+                    onClick={() => onChangeLighting(option.id)}
+                    className={cn(
+                      "rounded-full px-2.5 py-1 transition sm:px-3",
+                      isActive
+                        ? "bg-cyan-200 text-slate-950 shadow"
+                        : "text-slate-300 hover:text-white",
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <div className="hidden h-4 w-px bg-white/15 sm:block" aria-hidden />
           <button

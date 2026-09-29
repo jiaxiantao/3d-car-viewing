@@ -46,17 +46,14 @@ export function getGeometricCameraPose(preset: ShowroomCameraPreset): ShowroomCa
     };
   }
   if (preset === "cockpit") {
+    const position = new THREE.Vector3(
+      GEOMETRIC_CABIN_CENTER.x - 0.35,
+      GEOMETRIC_CABIN_CENTER.y + 0.22,
+      GEOMETRIC_STEERING.z + 0.24,
+    );
     return {
-      position: new THREE.Vector3(
-        GEOMETRIC_CABIN_CENTER.x - 0.35,
-        GEOMETRIC_CABIN_CENTER.y + 0.52,
-        GEOMETRIC_STEERING.z + 0.24,
-      ),
-      target: new THREE.Vector3(
-        GEOMETRIC_STEERING.x - 0.08,
-        GEOMETRIC_STEERING.y + 0.12,
-        GEOMETRIC_STEERING.z,
-      ),
+      position,
+      target: cockpitRoadTarget(position, 0),
     };
   }
   return {
@@ -72,42 +69,94 @@ export const COCKPIT_CAMERA_FOV = 52;
 export const COCKPIT_WHEEL_FOV = 64;
 
 /**
- * Driver's-eye view of the steering wheel.
+ * Downward pitch from the driver's eye to a point on the road ahead.
+ * Steep enough that the windshield shows ground, shallow enough to stay inside
+ * the orbit polar clamp (about 0.6–1.5 rad).
+ */
+const COCKPIT_ROAD_PITCH = 0.42;
+
+/** Look from the driver's eye toward the ground in front of the car (forward = −X). */
+function cockpitRoadTarget(eye: THREE.Vector3, groundY: number, pitch = COCKPIT_ROAD_PITCH) {
+  const roadY = groundY + 0.04;
+  const drop = Math.max(eye.y - roadY, 0.35);
+  const ahead = drop / Math.tan(pitch);
+  return new THREE.Vector3(eye.x - ahead, roadY, eye.z);
+}
+
+/**
+ * Cars whose cabin mesh does not match the shared driver's-eye guess.
+ * Fractions are of the normalized bounds: x from the front bumper, y from the
+ * ground, z from the center toward the driver (+Z).
+ */
+const COCKPIT_PROFILE_TUNES: Record<
+  string,
+  {
+    eyeBack?: number;
+    eyeUp?: number;
+    pitch?: number;
+    seat?: { x: number; y: number; z: number };
+  }
+> = {
+  // Shared eye sits in the tall YU7 rim. A higher eye clears it, but 0.38m
+  // puts the head against the roof. 0.24m stays just above the rim; the shallow
+  // pitch keeps the look ray out the windshield instead of into the wheel.
+  "xiaomi-yu7": { eyeBack: 0.46, eyeUp: 0.24, pitch: 0.12 },
+  // M2 has no steering mesh. x=0.40 lands on the hood; the shared fallback sits
+  // in the rear cabin. 0.536 is about 10cm behind the cowl seat so the rim
+  // enters the lower frame, while the look ray still clears the bonnet.
+  "bmw-m2": { pitch: 0.14, seat: { x: 0.536, y: 0.805, z: 0.149 } },
+};
+
+/**
+ * Driver's-eye view out the windshield.
  * Showroom forward is −X, so the driver sits at a larger X than the wheel.
- * A discovered wheel is framed from just behind the rim. Sitting further back
- * lands inside the seat back on the Q3 and G900.
+ * The eye stays just behind the rim; the gaze is pitched down at the road so
+ * the ground is visible instead of a level view into the sky.
  */
 export function getCockpitCameraPose(
   bounds: THREE.Box3,
   steeringWheelCenter?: THREE.Vector3 | null,
+  profileId?: string | null,
 ): ShowroomCameraPose {
   const size = bounds.getSize(TMP_SIZE);
   const center = bounds.getCenter(TMP_CENTER);
+  const tune = profileId ? COCKPIT_PROFILE_TUNES[profileId] : undefined;
+  if (!steeringWheelCenter && tune?.seat) {
+    const position = new THREE.Vector3(
+      bounds.min.x + size.x * tune.seat.x,
+      bounds.min.y + size.y * tune.seat.y,
+      center.z + size.z * tune.seat.z,
+    );
+    return {
+      position,
+      target: cockpitRoadTarget(position, bounds.min.y, tune.pitch),
+    };
+  }
   if (steeringWheelCenter) {
     const wheel = steeringWheelCenter.clone();
-    const target = wheel.clone().add(new THREE.Vector3(0, Math.min(0.05, size.y * 0.04), 0));
-    const eyeBack = Math.min(0.42, size.x * 0.11);
-    const eyeUp = Math.min(0.12, size.y * 0.09);
+    const eyeBack = tune?.eyeBack ?? Math.min(0.42, size.x * 0.11);
+    const eyeUp = tune?.eyeUp ?? Math.min(0.28, Math.max(0.18, size.y * 0.13));
     const towardCenter = Math.sign(center.z - wheel.z) || 1;
     const eyeSide = Math.min(0.04, size.z * 0.025) * towardCenter;
+    const position = new THREE.Vector3(wheel.x + eyeBack, wheel.y + eyeUp, wheel.z + eyeSide);
     return {
-      position: new THREE.Vector3(wheel.x + eyeBack, wheel.y + eyeUp, wheel.z + eyeSide),
-      target,
+      position,
+      target: cockpitRoadTarget(position, bounds.min.y, tune?.pitch),
     };
   }
   const wheel = new THREE.Vector3(
     bounds.min.x + size.x * 0.4,
-    bounds.min.y + size.y * 0.62,
+    bounds.min.y + size.y * 0.58,
     center.z + size.z * 0.18,
   );
-  const target = wheel.clone().add(new THREE.Vector3(-0.02, Math.min(0.1, size.y * 0.07), 0));
   const eyeBack = Math.min(0.78, size.x * 0.18);
-  const eyeUp = Math.min(0.26, size.y * 0.16);
+  const eyeUp = Math.min(0.1, size.y * 0.06);
   const towardCenter = Math.sign(center.z - wheel.z) || 1;
   const eyeSide = Math.min(0.05, size.z * 0.04) * towardCenter;
+  const position = new THREE.Vector3(wheel.x + eyeBack, wheel.y + eyeUp, wheel.z + eyeSide);
   return {
-    position: new THREE.Vector3(wheel.x + eyeBack, wheel.y + eyeUp, wheel.z + eyeSide),
-    target,
+    position,
+    target: cockpitRoadTarget(position, bounds.min.y, tune?.pitch),
   };
 }
 
@@ -116,6 +165,7 @@ export function getBoundsCameraPose(
   preset: ShowroomCameraPreset,
   bounds: THREE.Box3,
   steeringWheelCenter?: THREE.Vector3 | null,
+  profileId?: string | null,
 ): ShowroomCameraPose {
   const size = bounds.getSize(TMP_SIZE);
   const center = bounds.getCenter(TMP_CENTER);
@@ -163,7 +213,7 @@ export function getBoundsCameraPose(
     };
   }
   if (preset === "cockpit") {
-    return getCockpitCameraPose(bounds, steeringWheelCenter);
+    return getCockpitCameraPose(bounds, steeringWheelCenter, profileId);
   }
   return {
     position: new THREE.Vector3(
@@ -179,9 +229,10 @@ export function resolveShowroomCameraPose(
   preset: ShowroomCameraPreset,
   bounds: THREE.Box3 | null | undefined,
   steeringWheelCenter?: THREE.Vector3 | null,
+  profileId?: string | null,
 ): ShowroomCameraPose {
   if (bounds && !bounds.isEmpty()) {
-    return getBoundsCameraPose(preset, bounds, steeringWheelCenter);
+    return getBoundsCameraPose(preset, bounds, steeringWheelCenter, profileId);
   }
   return getGeometricCameraPose(preset);
 }

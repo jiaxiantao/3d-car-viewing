@@ -1,7 +1,7 @@
 "use client";
 
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import * as THREE from "three";
 import {
   ASSET_DOOR_MAX_OPEN_RADIANS,
@@ -13,6 +13,7 @@ import {
   SHOWROOM_HAZARD_INTENSITY,
   type AssetCarRig,
 } from "@/lib/asset-car-rig";
+import { driveTargetSpeedMps, stepDriveSpeedMps } from "@/lib/showroom-drive";
 import { applyHoverCursor } from "@/components/showroom/interactive-pointer";
 import {
   ENGINE_IGNITION_DURATION,
@@ -52,6 +53,7 @@ export function AssetModel({
   onToggleTrunk,
   bodyInteractions,
   reduceMotion = false,
+  driveSpeedRef,
 }: {
   object: THREE.Object3D;
   rig: AssetCarRig;
@@ -65,6 +67,7 @@ export function AssetModel({
     trunk?: boolean;
   };
   reduceMotion?: boolean;
+  driveSpeedRef?: RefObject<number>;
 }) {
   const rootRef = useRef<THREE.Group>(null);
   const paintMaterialRefs = useRef<THREE.Material[]>([]);
@@ -84,6 +87,15 @@ export function AssetModel({
     doorHoverRef.current = overDoor;
     applyHoverCursor(overDoor ? 1 : -1);
   };
+
+  useEffect(
+    () => () => {
+      if (driveSpeedRef) {
+        driveSpeedRef.current = 0;
+      }
+    },
+    [driveSpeedRef],
+  );
 
   useEffect(
     () => () => {
@@ -295,14 +307,15 @@ export function AssetModel({
       node.position.z = THREE.MathUtils.damp(node.position.z, targetZ, 7, delta);
     }
 
-    const targetVelocity = state.engineOn ? state.speedKph / 3.6 : 0;
-    const brakeFactor = state.braking ? 14 : 4;
-    velocityRef.current = THREE.MathUtils.damp(
+    velocityRef.current = stepDriveSpeedMps(
       velocityRef.current,
-      targetVelocity,
-      brakeFactor,
+      driveTargetSpeedMps(state.engineOn, state.speedKph),
+      state.braking,
       delta,
     );
+    if (driveSpeedRef) {
+      driveSpeedRef.current = velocityRef.current;
+    }
     // Roll all four real wheels forward together while the engine is running.
     const wheelRadius = Math.max(rig.wheelRollRadius, 0.12);
     const angularSpeed = velocityRef.current / wheelRadius;

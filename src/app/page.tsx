@@ -51,8 +51,10 @@ export default function HomePage() {
       </header>
 
       <ShowroomViewportChrome
-        sceneMode={showroom.sceneMode}
-        onChangeSceneMode={showroom.setSceneMode}
+        venue={showroom.venue}
+        lighting={showroom.lighting}
+        onChangeVenue={showroom.setVenue}
+        onChangeLighting={showroom.setLighting}
         onCaptureScreenshot={showroom.handleScreenshot}
         onToggleFullscreen={showroom.handleToggleFullscreen}
         onCopyShareLink={showroom.handleCopyShareLink}
@@ -95,7 +97,8 @@ export default function HomePage() {
           useAssetModel={showroom.useAssetModel}
           modelUrl={showroom.selectedModelUrl}
           modelAlternateUrls={showroom.glbAlternateUrls}
-          sceneMode={showroom.sceneMode}
+          venue={showroom.venue}
+          lighting={showroom.lighting}
           reduceMotion={showroom.reduceMotion}
           controlHandleRef={showroom.sceneHandleRef}
           onAssetRigCapabilities={showroom.handleAssetRigCapabilities}

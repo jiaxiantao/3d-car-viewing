@@ -24,6 +24,8 @@ const FILES = [
   "2024_xiaomi_su7_max.glb",
   "2025_xiaomi_su7_ultra.glb",
   "2025_xiaomi_yu7.glb",
+  "2025_mercedes-benz_g-class_amg_g_63.glb",
+  "2023_jeep_wrangler_rubicon_392_20th_anniversary.glb",
 ];
 
 async function createIo() {

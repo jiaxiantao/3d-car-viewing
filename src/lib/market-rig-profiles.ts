@@ -43,6 +43,31 @@ export type MarketRigProfile = {
    * Omit to use the default (0.55). Xiaomi panoramic roofs use half of that.
    */
   sunroofSlideFraction?: number;
+  /** Rear doors that swing with the same left/right toggles as the front doors. */
+  leftRearDoor?: RegExp[];
+  rightRearDoor?: RegExp[];
+  leftRearDoorHinge?: RegExp[];
+  rightRearDoorHinge?: RegExp[];
+  /** Side-hinged tailgate (G-Class / Wrangler) instead of a roof-hinged liftgate. */
+  barnTailgate?: boolean;
+  /** Which jamb the barn tailgate swings from. Defaults to the vehicle-left edge. */
+  barnTailgateSide?: "left" | "right";
+  /**
+   * Which face of the tailgate the axis sits on.
+   * `outer` is the rear skin. `body` is the shut line against the cabin,
+   * for a hinge box that also contains the spare.
+   */
+  barnTailgateFace?: "outer" | "body";
+  /** Meters to shift the barn-door axis inboard from the outer skin, toward the cabin. */
+  barnTailgateInset?: number;
+  /**
+   * One original node that already holds several disconnected islands
+   * (a sill net in each door opening, plus pieces that stay on the body).
+   * Each whole island is parented to the door that contains it.
+   */
+  doorIslandNodes?: RegExp[];
+  /** Steering rim used for the cockpit camera when the node is not named "steering wheel". */
+  steeringWheel?: RegExp[];
   wheel?: RegExp[];
   /**
    * Road-wheel meshes that may pack several corners into one buffer (split, then spun).
@@ -379,6 +404,79 @@ const xiaomiYu7Profile: MarketRigProfile = {
   paintMaterial: [/^CarPaint$/i],
 };
 
+/**
+ * Mercedes-AMG G 63 (Forza-style export). Front doors, round-lamp bar, and
+ * `3DWheel` corners are separate. The rear cabin and tailgate are fused into
+ * `RearKit`, so there is no rear-door or barn-door swing. No sunroof.
+ * Showroom left is +Z; `ANC_Door_L` is that side.
+ */
+const mercedesG63Profile: MarketRigProfile = {
+  id: "mercedes-g63",
+  urlPattern: /mercedes-benz_g-class_amg_g_63/i,
+  doorHingeLead: 0,
+  doorHingeOutset: 0.03,
+  leftDoorHinge: [/ANC_Door_L_02_/i],
+  rightDoorHinge: [/ANC_Door_R_03_/i],
+  // Extra pieces are already separate meshes sitting in the front door.
+  // They are not named ANC_Door, so the hinge never picked them up.
+  leftDoor: [/ANC_Door_L_/i, /MD_Body_15_/i, /MD_Body_21_/i, /MD_Body_22_/i, /SM_Base_/i],
+  rightDoor: [/ANC_Door_R_/i, /MD_Body_14_/i, /MD_Body_24_/i, /MD_Body_25_/i, /MD_Body_26_/i],
+  headLight: [/SM_FrontKit_.*Lights/i],
+  tailLight: [/SM_RearKit_.*Lights/i, /SM_Interior_.*Lights/i],
+  hazardLight: [/SM_RearKit_.*Lights/i, /SM_Interior_.*Lights/i],
+  paintMaterial: [/MMAT_CarPaint_010/i],
+  wheel: [/3DWheel[\s_](Front|Rear)[\s_][LR]/i],
+};
+
+/**
+ * Jeep Wrangler Rubicon 392. Four doors are separate groups. The tailgate
+ * (spare included) swings sideways. Wheel groups are named with front/back
+ * swapped relative to the showroom axis, so each corner is an exact group name
+ * and front/rear is decided from position. The hardtop is not a sliding roof.
+ * Showroom left is +Z.
+ */
+const jeepWranglerProfile: MarketRigProfile = {
+  id: "jeep-wrangler",
+  urlPattern: /jeep_wrangler_rubicon/i,
+  doorHingeLead: 0,
+  // Keep the axis on the door jamb, against the body.
+  doorHingeOutset: 0,
+  leftDoorHinge: [/Door_FL_101_MI_Glass_014/i],
+  rightDoorHinge: [/Door_FR_101_MI_Glass_014/i],
+  leftDoor: [/Door_FL_/i, /SideMirror_L_/i],
+  rightDoor: [/Door_FR_/i, /SideMirror_R_/i],
+  // `Jmalla` on Glass_In_021 is the diamond sill net. It is one node of
+  // disconnected islands: one in each door opening, plus a center piece.
+  doorIslandNodes: [/Glass_In_021/i],
+  leftRearDoorHinge: [/Door_BL_101_MI_Glass_In11/i],
+  rightRearDoorHinge: [/JAni_Door_BR11/i],
+  leftRearDoor: [/Door_BL_/i],
+  rightRearDoor: [/Door_BR_/i, /JAni_Door_BR/i],
+  barnTailgate: true,
+  // Hinge pin Ani_Trunk_Lifting_BR is on the right jamb, at the shut line.
+  // The tailgate shell box also reaches the spare, so the rear face is too far out.
+  barnTailgateSide: "right",
+  barnTailgateFace: "body",
+  // Outer skin sits 15cm right of the hinge pin `Ani_Trunk_Lifting_BR`.
+  barnTailgateInset: 0.15,
+  trunkHinge: [
+    /SK_Trunk_101_MI_Light11/i,
+    /SK_Trunk_101_MI_Light2_/i,
+    /SK_Trunk_101_MI_Light4_/i,
+    /SK_Trunk_101_MI_Light7_/i,
+    /SK_Trunk_101_MI_Light8_/i,
+  ],
+  trunk: [/SK_Trunk_101/i],
+  // Never matches, so the generic roof+glass guess does not slide the hardtop.
+  sunroof: [/(?!)/],
+  headLight: [/SM_Light_F_101(?!.*orange_glass)/i],
+  tailLight: [/SM_Light_B_101/i, /Bumper_B_101.*red_glass/i],
+  hazardLight: [/SM_Light_B_101.*red_glass/i, /Bumper_B_101.*red_glass/i, /orange_glass/i],
+  paintMaterial: [/^JMI_1355060001_004$/i],
+  steeringWheel: [/\/SW\//],
+  wheel: [/^JAni_Wheel_BL69$/i, /^JAni_Disc_Scale_BR7$/i, /^JAni_Disc_Scale_FL7$/i, /^JAni_Wheel_FR69$/i],
+};
+
 export const MARKET_RIG_PROFILES: MarketRigProfile[] = [
   bmwM2Profile,
   suvQ3Profile,
@@ -386,6 +484,8 @@ export const MARKET_RIG_PROFILES: MarketRigProfile[] = [
   xiaomiSu7MaxProfile,
   xiaomiSu7UltraProfile,
   xiaomiYu7Profile,
+  mercedesG63Profile,
+  jeepWranglerProfile,
 ];
 
 /** Fingerprint of profile door/trunk lists — used to invalidate warm prepared GLB packages. */
@@ -396,16 +496,22 @@ export function marketRigProfilesFingerprint(): string {
       ...(profile.rightDoor ?? []),
       ...(profile.leftDoorHinge ?? []),
       ...(profile.rightDoorHinge ?? []),
+      ...(profile.leftRearDoor ?? []),
+      ...(profile.rightRearDoor ?? []),
+      ...(profile.leftRearDoorHinge ?? []),
+      ...(profile.rightRearDoorHinge ?? []),
       ...(profile.trunk ?? []),
       ...(profile.trunkHinge ?? []),
       ...(profile.spanningDoorTrim ?? []),
+      ...(profile.doorIslandNodes ?? []),
       ...(profile.sunroof ?? []),
       ...(profile.wheel ?? []),
       ...(profile.wheelPart ?? []),
+      ...(profile.steeringWheel ?? []),
     ]
       .map((pattern) => pattern.source)
       .join("|");
-    return `${profile.id}:${profile.bakedWheels ? 1 : 0}:${profile.sunroofSlideFraction ?? ""}:${profile.doorHingeLead ?? ""}:${profile.doorHingeOutset ?? ""}:${patterns.length}:${patterns}`;
+    return `${profile.id}:${profile.bakedWheels ? 1 : 0}:${profile.barnTailgate ? 1 : 0}:${profile.barnTailgateSide ?? ""}:${profile.barnTailgateFace ?? ""}:${profile.barnTailgateInset ?? ""}:${profile.sunroofSlideFraction ?? ""}:${profile.doorHingeLead ?? ""}:${profile.doorHingeOutset ?? ""}:${patterns.length}:${patterns}`;
   }).join(";");
 }
 

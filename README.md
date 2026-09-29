@@ -4,9 +4,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Live Demo](https://img.shields.io/badge/Live_Demo-在线预览-22d3ee?style=flat&logo=githubpages&logoColor=white)](https://jiaxiantao.github.io/3d-car-viewing/)
 
-**English:** Browser-based 3D car showroom built with **Next.js**, **React Three Fiber**, and **Three.js**. Switch GLB vehicles, interact with doors / lights / paint, swap studio / day / night scene modes, save screenshots, and fall back to a procedural car when assets fail to load.
+**English:** Browser-based 3D car showroom built with **Next.js**, **React Three Fiber**, and **Three.js**. Switch GLB vehicles, interact with doors / lights / paint, swap studio / day / night / highway scene modes, save screenshots, and fall back to a procedural car when assets fail to load.
 
-**中文：** 在浏览器中体验 3D 看车：车型切换、部件 / 灯光 / 启停 / 制动交互、影棚 / 白天 / 夜晚场景、一键截图与全屏。支持主流 GLB 车模，并具备几何体回退。
+**中文：** 在浏览器中体验 3D 看车：车型切换、部件 / 灯光 / 启停 / 制动交互、影棚 / 白天 / 夜晚 / 公路场景、一键截图与全屏。支持主流 GLB 车模，并具备几何体回退。
 
 ## 在线预览
 
@@ -32,10 +32,10 @@
 
 ## 功能特性
 
-- **车型切换**：小米 SU7 Ultra / 小米 YU7 / 小米 SU7 Max / 奥迪 Q3 / 巴博斯 G900 / 宝马 M2（`public/models/market/*.glb`；默认小米 SU7 Ultra）
+- **车型切换**：小米 SU7 Ultra / 小米 YU7 / 小米 SU7 Max / 奥迪 Q3 / 奔驰 AMG G63 / Jeep 牧马人 / 巴博斯 G900 / 宝马 M2（`public/models/market/*.glb`；默认小米 SU7 Ultra）
 - **部件交互**：车门、后备箱、天窗、车灯、双闪、启动、制动（依 GLB 网格命名自动识别）
-- **物理拟真**：怠速发动机微抖、加速 / 制动俯仰、六款车模的四轮滚动（合并缓冲会先按轮角切开）、制动时尾灯亮起、双闪频闪。巴博斯 G900 的车门与后备箱在展厅中关闭；SU7 Max 与宝马 M2 的门、后备箱、天窗与车身合并
-- **场景模式**：影棚 / 白天 / 夜晚，一键切换灯光、地面材质与雾效，夜晚自带湿地反射
+- **物理拟真**：怠速发动机微抖、加速 / 制动俯仰、八款车模的四轮滚动（合并缓冲会先按轮角切开）、制动时尾灯亮起、双闪频闪。奔驰 G63 可开前门；Jeep 牧马人可开四门和侧开尾门。巴博斯 G900 的车门与后备箱在展厅中关闭；SU7 Max 与宝马 M2 的门、后备箱、天窗与车身合并
+- **场景模式**：影棚 / 白天 / 夜晚 / 公路。前三套切换灯光、地面材质与雾效，夜晚自带湿地反射；公路把车辆停在路中央，带草地与晴空
 - **视觉**：车漆配色、多机位预设、自动环车巡检、本地 IBL 光照（无外部 HDR CDN 依赖）
 - **看车工具**：截图保存当前画面、一键全屏看车、键盘快捷键（移动端可展开操作提示）
 - **可分享深链**：车型 / 车漆 / 视角 / 场景模式持久化在 URL，使用 `replaceState` 不污染历史栈；工具栏一键复制分享链接（`C`）
@@ -126,7 +126,7 @@ pnpm build:pages   # 输出到 out/，basePath 为 /3d-car-viewing
 │       ├── asset-car-rig/             # GLB 部件发现（灯光 / 车身 / 车轮 / 材质）
 │       ├── market-rig-profiles.ts     # 按车型 URL 的识别规则
 │       ├── showroom-camera.ts         # 相机与轨道限制
-│       ├── showroom-scene-modes.ts    # 影棚 / 白天 / 夜晚配置
+│       ├── showroom-scene-modes.ts    # 影棚 / 白天 / 夜晚 / 公路配置
 │       ├── showroom-paint-options.ts  # 车漆调色板
 │       ├── car-categories.ts          # 内置车型与 GLB 路径
 │       ├── use-showroom-page-state.ts # 页面状态与交互逻辑
@@ -155,6 +155,8 @@ pnpm build:pages   # 输出到 out/，basePath 为 /3d-car-viewing
 | `2025_xiaomi_yu7.glb` | 小米 YU7 | ~28 MB | 前门、后备箱、天窗、车灯、四轮 |
 | `2024_xiaomi_su7_max.glb` | 小米 SU7 Max | ~5.3 MB | 车灯、四轮；门与车身合并 |
 | `suv-mainstream.glb` | 奥迪 Q3 | ~14 MB | 门、后备箱、天窗、车灯、四轮 |
+| `2025_mercedes-benz_g-class_amg_g_63.glb` | 奔驰 AMG G63 | ~5.5 MB | 前门、车灯、改色、四轮；尾门与车身合并 |
+| `2023_jeep_wrangler_rubicon_392_20th_anniversary.glb` | Jeep 牧马人 | ~24 MB | 四门、侧开尾门、车灯、改色、四轮 |
 | `offroad-mainstream.glb` | 巴博斯 G900 | ~9.5 MB | 车灯、四轮；展厅关闭车门与后备箱 |
 | `sedan-mainstream.glb` | 宝马 M2 | ~2.7 MB | 车灯、四轮；门与车身合并 |
 

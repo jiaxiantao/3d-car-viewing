@@ -1,6 +1,6 @@
 import type { AssetCarRig } from "@/lib/asset-car-rig";
 import type { ShowroomCameraPreset } from "@/lib/showroom-camera";
-import type { ShowroomSceneMode } from "@/lib/showroom-scene-modes";
+import type { ShowroomLightingMode, ShowroomVenueMode } from "@/lib/showroom-scene-modes";
 import type { RefObject } from "react";
 import type * as THREE from "three";
 
@@ -49,7 +49,8 @@ export type CarShowroomSceneProps = {
   modelUrl?: string;
   modelAlternateUrls?: string[];
   modelFallbackUrl?: string;
-  sceneMode?: ShowroomSceneMode;
+  venue?: ShowroomVenueMode;
+  lighting?: ShowroomLightingMode;
   /** Respect prefers-reduced-motion: steadier lights, less idle shake. */
   reduceMotion?: boolean;
   onAssetRigCapabilities?: (capabilities: AssetRigCapabilities | null) => void;
@@ -81,6 +82,8 @@ export type CarModelProps = {
   onToggleTrunk: () => void;
   overlayOnly?: boolean;
   reduceMotion?: boolean;
+  /** Latest signed drive speed in m/s. Positive is showroom forward (−X). */
+  driveSpeedRef?: RefObject<number>;
 };
 
 export const ENGINE_IGNITION_DURATION = 0.9;

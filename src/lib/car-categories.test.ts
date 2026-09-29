@@ -19,6 +19,8 @@ describe("car-categories", () => {
       "小米 YU7",
       "小米 SU7 Max",
       "奥迪 Q3",
+      "奔驰 AMG G63",
+      "Jeep 牧马人",
       "巴博斯 G900",
       "宝马 M2",
     ]);
@@ -34,6 +36,8 @@ describe("car-categories", () => {
       CAR_CATEGORIES.yu7.primaryUrl,
       CAR_CATEGORIES["su7-max"].primaryUrl,
       CAR_CATEGORIES.suv.primaryUrl,
+      CAR_CATEGORIES.g63.primaryUrl,
+      CAR_CATEGORIES.jeep.primaryUrl,
       CAR_CATEGORIES.offroad.primaryUrl,
     ]);
     expect(new Set(glbCandidateUrls("yu7")).size).toBe(CAR_CATEGORY_OPTIONS.length);
@@ -50,6 +54,8 @@ describe("car-categories", () => {
   it("validates category keys", () => {
     expect(isCarCategoryKey("sedan")).toBe(true);
     expect(isCarCategoryKey("suv")).toBe(true);
+    expect(isCarCategoryKey("g63")).toBe(true);
+    expect(isCarCategoryKey("jeep")).toBe(true);
     expect(isCarCategoryKey("truck")).toBe(false);
   });
 
@@ -69,6 +75,14 @@ describe("car-categories", () => {
     expect(isCarCategoryKey("su7-max")).toBe(true);
     expect(isCarCategoryKey("su7-ultra")).toBe(true);
     expect(isCarCategoryKey("yu7")).toBe(true);
+    expect(CAR_CATEGORIES.g63.label).toBe("奔驰 AMG G63");
+    expect(CAR_CATEGORIES.jeep.label).toBe("Jeep 牧马人");
+    expect(CAR_CATEGORY_OPTIONS.findIndex((item) => item.key === "g63")).toBeLessThan(
+      CAR_CATEGORY_OPTIONS.findIndex((item) => item.key === "offroad"),
+    );
+    expect(CAR_CATEGORY_OPTIONS.findIndex((item) => item.key === "jeep")).toBeLessThan(
+      CAR_CATEGORY_OPTIONS.findIndex((item) => item.key === "offroad"),
+    );
     expect(CAR_CATEGORIES.sedan.bakedWheels).toBe(false);
     expect(CAR_CATEGORIES.suv.bakedWheels).toBe(false);
     expect(CAR_CATEGORIES.offroad.bakedWheels).toBe(false);

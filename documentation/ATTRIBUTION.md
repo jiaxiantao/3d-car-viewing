@@ -14,6 +14,15 @@ The **3D models** under `public/models/market/` are **not** covered by that lice
 | `2024_xiaomi_su7_max.glb` | Xiaomi SU7 Max | **Verify independently** | User-supplied GLB. Xiaomi trademark may apply. **Do not assume a permissive license.** |
 | `2025_xiaomi_su7_ultra.glb` | Xiaomi SU7 Ultra | **Verify independently** | Same as above |
 | `2025_xiaomi_yu7.glb` | Xiaomi YU7 | **Verify independently** | Same as above |
+| `2025_mercedes-benz_g-class_amg_g_63.glb` | Mercedes-AMG G 63 | **Verify independently** | User-supplied GLB. Mercedes-Benz trademark may apply. **Do not assume a permissive license.** |
+| `2023_jeep_wrangler_rubicon_392_20th_anniversary.glb` | Jeep Wrangler Rubicon 392 | **Verify independently** | User-supplied GLB. Jeep trademark may apply. **Do not assume a permissive license.** |
+
+Scene models under `public/models/sence/` are also third-party:
+
+| File | Description | Known license / source | Notes |
+|------|-------------|------------------------|--------|
+| `white_round_exhibition_gallery.glb` | White round exhibition gallery (影棚背景) | ChristyHsu — **CC-BY-4.0** | [Sketchfab](https://sketchfab.com/3d-models/white-round-exhibition-gallery-a443b8a0a2314a55ae5dee4dd6a151a0). Credit the author if you redistribute. |
+| `car-showroom_1.glb` | Car showroom hall (大厅背景) | Polsaris — **CC-BY-NC-4.0** | [Sketchfab](https://sketchfab.com/3d-models/car-showroom-1-40b0ae06eb8343e5bacf34e04fcfff73). Non-commercial. Credit the author if you redistribute. |
 
 ## Your responsibilities
 

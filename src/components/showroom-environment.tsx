@@ -7,20 +7,25 @@ import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import type { AssetCarRig } from "@/lib/asset-car-rig";
 import { MARKET_MODEL_GROUND_Y } from "@/lib/normalize-market-model";
-import { SHOWROOM_SCENE_MODES, type ShowroomSceneMode } from "@/lib/showroom-scene-modes";
+import {
+  resolveShowroomSceneConfig,
+  type ShowroomSceneModeConfig,
+} from "@/lib/showroom-scene-modes";
+
+const DEFAULT_SCENE_CONFIG = resolveShowroomSceneConfig("studio", "day");
 
 export const SHOWROOM_GROUND_Y = MARKET_MODEL_GROUND_Y;
-export const SHOWROOM_FLOOR_COLOR = SHOWROOM_SCENE_MODES.studio.floorColor;
+export const SHOWROOM_FLOOR_COLOR = DEFAULT_SCENE_CONFIG.floorColor;
 
-/** Scene-wide lighting — kept for legacy access; new code prefers `SHOWROOM_SCENE_MODES`. */
+/** Scene-wide lighting — kept for legacy access; new code prefers `resolveShowroomSceneConfig`. */
 export const SHOWROOM_SCENE_LIGHTING = {
-  environmentIntensity: SHOWROOM_SCENE_MODES.studio.environmentIntensity,
-  ambient: SHOWROOM_SCENE_MODES.studio.ambient,
-  directional: SHOWROOM_SCENE_MODES.studio.directional,
-  hemisphere: SHOWROOM_SCENE_MODES.studio.hemisphere,
-  fillPoint: SHOWROOM_SCENE_MODES.studio.fillPoint,
-  rimDirectional: SHOWROOM_SCENE_MODES.studio.rimDirectional,
-  headlightSpot: SHOWROOM_SCENE_MODES.studio.headlightSpot,
+  environmentIntensity: DEFAULT_SCENE_CONFIG.environmentIntensity,
+  ambient: DEFAULT_SCENE_CONFIG.ambient,
+  directional: DEFAULT_SCENE_CONFIG.directional,
+  hemisphere: DEFAULT_SCENE_CONFIG.hemisphere,
+  fillPoint: DEFAULT_SCENE_CONFIG.fillPoint,
+  rimDirectional: DEFAULT_SCENE_CONFIG.rimDirectional,
+  headlightSpot: DEFAULT_SCENE_CONFIG.headlightSpot,
   /** Ground hit point ahead of the grille (showroom forward = -X). */
   headlightForwardOffset: 2.5,
 } as const;
@@ -158,11 +163,11 @@ export function ShowroomImageBasedLighting({ intensity }: { intensity: number })
 export function ShowroomHeadlightSpotlights({
   lightsOn,
   rig,
-  sceneMode = "studio",
+  headlightSpot = SHOWROOM_SCENE_LIGHTING.headlightSpot,
 }: {
   lightsOn: boolean;
   rig: AssetCarRig | null;
-  sceneMode?: ShowroomSceneMode;
+  headlightSpot?: number;
 }) {
   const bounds = rig?.bounds ?? GEOMETRIC_HEADLIGHT_BOUNDS;
   const [left, right] = useMemo(
@@ -174,7 +179,7 @@ export function ShowroomHeadlightSpotlights({
     return null;
   }
 
-  const intensity = SHOWROOM_SCENE_MODES[sceneMode].headlightSpot;
+  const intensity = headlightSpot;
 
   return (
     <>
@@ -187,16 +192,16 @@ export function ShowroomHeadlightSpotlights({
 export function ShowroomReflectiveFloor({
   lightsOn,
   headLightsActive,
-  sceneMode = "studio",
+  sceneConfig = DEFAULT_SCENE_CONFIG,
   /** Lower the resolution / blur on small / low-power devices. */
   performanceTier = "high",
 }: {
   lightsOn: boolean;
   headLightsActive: boolean;
-  sceneMode?: ShowroomSceneMode;
+  sceneConfig?: ShowroomSceneModeConfig;
   performanceTier?: "high" | "medium" | "low";
 }) {
-  const config = SHOWROOM_SCENE_MODES[sceneMode];
+  const config = sceneConfig;
   const floorLit = lightsOn && headLightsActive;
   const tierScale = performanceTier === "low" ? 0.55 : performanceTier === "medium" ? 0.8 : 1;
   const litResolution = Math.round((floorLit ? 640 : 384) * tierScale);

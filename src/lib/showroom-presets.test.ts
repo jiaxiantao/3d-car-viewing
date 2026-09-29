@@ -8,6 +8,7 @@ describe("matchShowroomPreset", () => {
   });
 
   it("marks drive as selected when the car matches the drive preset", () => {
+    expect(SHOWROOM_PRESETS.drive.steeringAngle).toBe(0);
     expect(matchShowroomPreset(SHOWROOM_PRESETS.drive)).toBe("drive");
   });
 

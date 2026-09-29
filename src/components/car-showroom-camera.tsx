@@ -20,6 +20,7 @@ type CameraRigProps = {
   framingBounds: THREE.Box3 | null;
   framingBoundsKey: string;
   steeringWheelCenter?: THREE.Vector3 | null;
+  profileId?: string | null;
 };
 
 export function CameraRig({
@@ -29,6 +30,7 @@ export function CameraRig({
   framingBounds,
   framingBoundsKey,
   steeringWheelCenter = null,
+  profileId = null,
 }: CameraRigProps) {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   const fromPositionRef = useRef(new THREE.Vector3(5.2, 2.4, 4.6));
@@ -38,6 +40,7 @@ export function CameraRig({
   const transitionProgressRef = useRef(1);
   const prevPresetRef = useRef<CarCameraPreset | null>(null);
   const prevFramingBoundsKeyRef = useRef(framingBoundsKey);
+  const prevProfileIdRef = useRef(profileId);
   const prevAutoTourRef = useRef(autoTour);
   const tourPositionRef = useRef(new THREE.Vector3());
   const tourTargetRef = useRef(new THREE.Vector3());
@@ -54,12 +57,17 @@ export function CameraRig({
       const currentTarget = controls?.target.clone() ?? toTargetRef.current.clone();
       fromPositionRef.current.copy(camera.position);
       fromTargetRef.current.copy(currentTarget);
-      const nextPose = resolveShowroomCameraPose(nextPreset, framingBounds, steeringWheelCenter);
+      const nextPose = resolveShowroomCameraPose(
+        nextPreset,
+        framingBounds,
+        steeringWheelCenter,
+        profileId,
+      );
       toPositionRef.current.copy(nextPose.position);
       toTargetRef.current.copy(nextPose.target);
       transitionProgressRef.current = 0;
     },
-    [controlsRef, framingBounds, steeringWheelCenter],
+    [controlsRef, framingBounds, profileId, steeringWheelCenter],
   );
 
   useEffect(() => {
@@ -76,20 +84,23 @@ export function CameraRig({
     if (autoTour) {
       prevPresetRef.current = preset;
       prevFramingBoundsKeyRef.current = framingBoundsKey;
+      prevProfileIdRef.current = profileId;
       return;
     }
 
     const presetChanged = prevPresetRef.current !== preset;
     const boundsChanged = prevFramingBoundsKeyRef.current !== framingBoundsKey;
+    const profileChanged = prevProfileIdRef.current !== profileId;
     prevPresetRef.current = preset;
     prevFramingBoundsKeyRef.current = framingBoundsKey;
+    prevProfileIdRef.current = profileId;
 
-    if (!presetChanged && !boundsChanged) {
+    if (!presetChanged && !boundsChanged && !profileChanged) {
       return;
     }
 
     beginTransitionToPreset(preset);
-  }, [autoTour, beginTransitionToPreset, framingBoundsKey, preset]);
+  }, [autoTour, beginTransitionToPreset, framingBoundsKey, preset, profileId]);
 
   useEffect(() => {
     const wasAutoTour = prevAutoTourRef.current;

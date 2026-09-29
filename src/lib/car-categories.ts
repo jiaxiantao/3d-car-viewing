@@ -8,6 +8,8 @@ export type CarCategoryKey =
   | "suv"
   | "sedan"
   | "offroad"
+  | "g63"
+  | "jeep"
   | "su7-max"
   | "su7-ultra"
   | "yu7";
@@ -58,6 +60,20 @@ export const CAR_CATEGORIES: Record<CarCategoryKey, CarCategory> = {
     approxBytes: 14_500_000,
     bakedWheels: false,
   },
+  g63: {
+    key: "g63",
+    label: "奔驰 AMG G63",
+    primaryUrl: publicAssetPath("/models/market/2025_mercedes-benz_g-class_amg_g_63.glb"),
+    approxBytes: 5_500_000,
+    bakedWheels: false,
+  },
+  jeep: {
+    key: "jeep",
+    label: "Jeep 牧马人",
+    primaryUrl: publicAssetPath("/models/market/2023_jeep_wrangler_rubicon_392_20th_anniversary.glb"),
+    approxBytes: 24_000_000,
+    bakedWheels: false,
+  },
   offroad: {
     key: "offroad",
     label: "巴博斯 G900",
@@ -106,14 +122,7 @@ export function isCarInteractionDisabled(category: CarCategory, key: string): bo
 }
 
 export function isCarCategoryKey(value: unknown): value is CarCategoryKey {
-  return (
-    value === "suv" ||
-    value === "sedan" ||
-    value === "offroad" ||
-    value === "su7-max" ||
-    value === "su7-ultra" ||
-    value === "yu7"
-  );
+  return typeof value === "string" && Object.prototype.hasOwnProperty.call(CAR_CATEGORIES, value);
 }
 
 export function resolveCarCategoryKey(value: unknown): CarCategoryKey {
