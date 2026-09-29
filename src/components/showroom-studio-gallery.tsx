@@ -95,7 +95,8 @@ export function hideGalleryFloorSlab(root: THREE.Object3D) {
   const box = new THREE.Box3();
   const size = new THREE.Vector3();
   const center = new THREE.Vector3();
-  let floor: THREE.Mesh | null = null;
+  // A plain `let` assigned inside `traverse` stays `null` to the type checker.
+  const floorMesh: { current: THREE.Mesh | null } = { current: null };
   let floorTop = Infinity;
 
   root.traverse((child) => {
@@ -116,11 +117,11 @@ export function hideGalleryFloorSlab(root: THREE.Object3D) {
       return;
     }
     floorTop = box.max.y;
-    floor = mesh;
+    floorMesh.current = mesh;
   });
 
-  if (floor) {
-    floor.visible = false;
+  if (floorMesh.current) {
+    floorMesh.current.visible = false;
   }
 }
 
