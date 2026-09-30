@@ -9,7 +9,16 @@ describe("matchShowroomPreset", () => {
 
   it("marks drive as selected when the car matches the drive preset", () => {
     expect(SHOWROOM_PRESETS.drive.steeringAngle).toBe(0);
+    expect(SHOWROOM_PRESETS.drive.lightsOn).toBe(true);
+    expect(SHOWROOM_PRESETS.drive.engineOn).toBe(true);
+    expect(SHOWROOM_PRESETS.drive.cameraPreset).toBe("cockpit");
+    expect(SHOWROOM_PRESETS.drive.venue).toBe("road");
     expect(matchShowroomPreset(SHOWROOM_PRESETS.drive)).toBe("drive");
+  });
+
+  it("clears drive when the cockpit or highway is left", () => {
+    expect(matchShowroomPreset({ ...SHOWROOM_PRESETS.drive, cameraPreset: "overview" })).toBeNull();
+    expect(matchShowroomPreset({ ...SHOWROOM_PRESETS.drive, venue: "studio" })).toBeNull();
   });
 
   it("clears the selection when the car no longer matches either preset", () => {

@@ -1,9 +1,10 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type FocusEvent, type ReactNode } from "react";
 
 import type { AssetRigCapabilities, CarCameraPreset } from "@/components/car-showroom-scene";
 import { SHOWROOM_PAINT_OPTIONS } from "@/lib/showroom-paint-options";
+import type { ShowroomPresetId } from "@/lib/showroom-presets";
 import { cn } from "@/lib/utils";
 import {
   SHOWROOM_LIGHTING_OPTIONS,
@@ -53,6 +54,117 @@ function RailButton({
   );
 }
 
+type PresetModeDockProps = {
+  activePreset: ShowroomPresetId | null;
+  onApplyWelcomeMode: () => void;
+  onApplyDriveMode: () => void;
+  onResetAll: () => void;
+};
+
+function PresetModeButton({
+  label,
+  active = false,
+  onClick,
+}: {
+  label: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "min-h-9 whitespace-nowrap rounded-xl border px-3 py-2 text-center text-xs font-medium transition",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60",
+        active
+          ? "border-cyan-200 bg-cyan-200 text-slate-950"
+          : "border-transparent bg-transparent text-slate-100 hover:border-cyan-200/40 hover:bg-cyan-200/20 hover:text-cyan-50",
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
+function PresetModeDock({
+  activePreset,
+  onApplyWelcomeMode,
+  onApplyDriveMode,
+  onResetAll,
+}: PresetModeDockProps) {
+  const [open, setOpen] = useState(false);
+  const modes = [
+    { id: "welcome" as const, label: "迎宾模式", onClick: onApplyWelcomeMode },
+    { id: "drive" as const, label: "试驾模式", onClick: onApplyDriveMode },
+  ];
+
+  const activeMode = modes.find((mode) => mode.id === activePreset);
+  const triggerLabel = activeMode?.label ?? "选择模式";
+
+  function closeIfFocusLeft(event: FocusEvent<HTMLDivElement>) {
+    const next = event.relatedTarget;
+    if (next instanceof Node && event.currentTarget.contains(next)) {
+      return;
+    }
+    setOpen(false);
+  }
+
+  return (
+    <div
+      className="pointer-events-auto absolute bottom-30 right-2 z-30 md:bottom-3 md:right-3"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onFocus={() => setOpen(true)}
+      onBlur={closeIfFocusLeft}
+    >
+      <div
+        aria-label="模式预设"
+        aria-hidden={!open}
+        inert={!open}
+        className={cn(
+          "absolute bottom-0 right-full pr-2 transition duration-200",
+          open ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-2 opacity-0",
+        )}
+      >
+        <div className="flex w-max flex-col gap-1 rounded-2xl border border-white/12 bg-slate-950/55 p-1.5 shadow-lg backdrop-blur-md">
+        {modes.map((mode) => (
+          <PresetModeButton
+            key={mode.id}
+            label={mode.label}
+            active={activePreset === mode.id}
+            onClick={mode.onClick}
+          />
+        ))}
+        <PresetModeButton label="复位全部状态" onClick={onResetAll} />
+        </div>
+      </div>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="true"
+        title="模式预设"
+        onClick={() => {
+          if (window.matchMedia("(hover: hover)").matches) {
+            return;
+          }
+          setOpen((value) => !value);
+        }}
+        className={cn(
+          "whitespace-nowrap rounded-xl border px-3 py-2 text-xs font-medium shadow-lg backdrop-blur-md transition",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60",
+          activePreset
+            ? "border-cyan-200 bg-cyan-200 text-slate-950"
+            : "border-white/15 bg-slate-950/90 text-slate-100 hover:bg-slate-900",
+        )}
+      >
+        {triggerLabel}
+      </button>
+    </div>
+  );
+}
+
 type ShowroomViewportChromeProps = {
   children: ReactNode;
   venue: ShowroomVenueMode;
@@ -93,6 +205,10 @@ type ShowroomViewportChromeProps = {
   wheelSpinHint?: string;
   helpOpen: boolean;
   onToggleHelp: () => void;
+  activePreset: ShowroomPresetId | null;
+  onApplyWelcomeMode: () => void;
+  onApplyDriveMode: () => void;
+  onResetAll: () => void;
 };
 
 export function ShowroomViewportChrome({
@@ -135,6 +251,10 @@ export function ShowroomViewportChrome({
   wheelSpinHint,
   helpOpen,
   onToggleHelp,
+  activePreset,
+  onApplyWelcomeMode,
+  onApplyDriveMode,
+  onResetAll,
 }: ShowroomViewportChromeProps) {
   const paintSwatches = (
     <div
@@ -304,7 +424,7 @@ export function ShowroomViewportChrome({
               className="absolute left-1/2 top-[calc(100%+0.5rem)] z-30 w-[min(22rem,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-white/12 bg-slate-950/95 p-3 text-left shadow-xl backdrop-blur-md"
             >
               <p className="text-xs leading-6 text-slate-300">
-                常用操作在画布顶栏与左右侧；车型切换与一键预设在下方。
+                常用操作在画布顶栏与左右侧；模式预设在画布右下角，车型切换在下方。
               </p>
               <p className="mt-2 text-xs leading-6 text-slate-400">
                 键盘：
@@ -436,6 +556,13 @@ export function ShowroomViewportChrome({
           ))}
         </div>
       </aside>
+
+      <PresetModeDock
+        activePreset={activePreset}
+        onApplyWelcomeMode={onApplyWelcomeMode}
+        onApplyDriveMode={onApplyDriveMode}
+        onResetAll={onResetAll}
+      />
 
       {/* Desktop paint bar — bottom center of canvas */}
       <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 hidden justify-center px-28 md:flex lg:px-36">

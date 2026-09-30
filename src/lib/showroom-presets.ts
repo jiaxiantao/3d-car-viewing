@@ -1,4 +1,5 @@
 import type { CarCameraPreset } from "@/components/showroom/types";
+import type { ShowroomVenueMode } from "@/lib/showroom-scene-modes";
 
 export type ShowroomPresetId = "welcome" | "drive";
 
@@ -15,6 +16,8 @@ export type ShowroomPresetSnapshot = {
   braking: boolean;
   cameraPreset: CarCameraPreset;
   autoTour: boolean;
+  /** Set only when the preset should also switch the backdrop. */
+  venue?: ShowroomVenueMode;
 };
 
 export const SHOWROOM_PRESETS: Record<ShowroomPresetId, ShowroomPresetSnapshot> = {
@@ -43,8 +46,9 @@ export const SHOWROOM_PRESETS: Record<ShowroomPresetId, ShowroomPresetSnapshot> 
     sunroofOpen: false,
     speedKph: 45,
     braking: false,
-    cameraPreset: "overview",
+    cameraPreset: "cockpit",
     autoTour: false,
+    venue: "road",
   },
 };
 
@@ -79,6 +83,7 @@ function presetEquals(
     same("speedKph") &&
     same("braking") &&
     same("cameraPreset") &&
-    same("autoTour")
+    same("autoTour") &&
+    (right.venue === undefined || left.venue === right.venue)
   );
 }

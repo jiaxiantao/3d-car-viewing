@@ -66,6 +66,12 @@ export type MarketRigProfile = {
    * Each whole island is parented to the door that contains it.
    */
   doorIslandNodes?: RegExp[];
+  /**
+   * Whole islands inside a shared buffer (mirror housing, door shells).
+   * An island is parented only when its own size and position match.
+   * Triangles that share vertices are never cut apart.
+   */
+  doorIslandShapes?: DoorIslandShape[];
   /** Steering rim used for the cockpit camera when the node is not named "steering wheel". */
   steeringWheel?: RegExp[];
   wheel?: RegExp[];
@@ -77,6 +83,21 @@ export type MarketRigProfile = {
   paintMaterial?: RegExp[];
   /** Road wheels are painted into the body shell; do not hide tyre meshes or add synthetic rollers. */
   bakedWheels?: boolean;
+};
+
+/** Size and position of one already-separate island, as fractions of the closed door. */
+export type DoorIslandShape = {
+  source: RegExp[];
+  minTriangles: number;
+  maxTriangles: number;
+  /** Merge islands whose vertices sit within this many showroom meters. 0 keeps index islands. */
+  weld: number;
+  minSize: { x: number; y: number; z: number };
+  maxSize: { x: number; y: number; z: number };
+  centerX: [number, number];
+  centerY: [number, number];
+  /** How far outside the closed door the island center may sit, in meters. */
+  centerPad: number;
 };
 
 /** BMW M2 Coupe (Forza-style export; lights keyed by material name). */
@@ -421,6 +442,59 @@ const mercedesG63Profile: MarketRigProfile = {
   // They are not named ANC_Door, so the hinge never picked them up.
   leftDoor: [/ANC_Door_L_/i, /MD_Body_15_/i, /MD_Body_21_/i, /MD_Body_22_/i, /SM_Base_/i],
   rightDoor: [/ANC_Door_R_/i, /MD_Body_14_/i, /MD_Body_24_/i, /MD_Body_25_/i, /MD_Body_26_/i],
+  // Mirror housing, the thin beltline, and the blue panel under the
+  // door handle are separate islands inside shared nodes. The rest of
+  // each node stays on the body.
+  doorIslandShapes: [
+    {
+      source: [/carbon/i],
+      minTriangles: 200,
+      maxTriangles: 400,
+      weld: 1 / 60,
+      minSize: { x: 0.12, y: 0.05, z: 0.3 },
+      maxSize: { x: 0.4, y: 0.18, z: 0.65 },
+      centerX: [0.05, 0.35],
+      centerY: [0.55, 0.8],
+      centerPad: 0.08,
+    },
+    {
+      source: [/carbon/i],
+      minTriangles: 8,
+      maxTriangles: 16,
+      weld: 0,
+      minSize: { x: 0.5, y: 0.004, z: 0 },
+      maxSize: { x: 0.75, y: 0.02, z: 0.08 },
+      centerX: [0.25, 0.55],
+      centerY: [0.32, 0.45],
+      centerPad: 0.06,
+    },
+    {
+      // Paint panel on the rear of the front door, under the handle.
+      // Left is MD_Body_02 (76 tris); right is MD_Body_01 (69 tris).
+      source: [/D_Body_01_/i, /D_Body_02_/i],
+      minTriangles: 65,
+      maxTriangles: 80,
+      weld: 0,
+      minSize: { x: 0.12, y: 0.38, z: 0.18 },
+      maxSize: { x: 0.3, y: 0.5, z: 0.35 },
+      centerX: [0.82, 0.98],
+      centerY: [0.15, 0.32],
+      centerPad: 0.06,
+    },
+    {
+      // Carbon cover on the door card, just under the interior handle.
+      // Three co-planar islands per door; weld joins them into one piece.
+      source: [/carbon/i],
+      minTriangles: 17,
+      maxTriangles: 19,
+      weld: 1 / 100,
+      minSize: { x: 0.25, y: 0.04, z: 0.02 },
+      maxSize: { x: 0.38, y: 0.1, z: 0.12 },
+      centerX: [0.62, 0.78],
+      centerY: [0.33, 0.46],
+      centerPad: 0.04,
+    },
+  ],
   headLight: [/SM_FrontKit_.*Lights/i],
   tailLight: [/SM_RearKit_.*Lights/i, /SM_Interior_.*Lights/i],
   hazardLight: [/SM_RearKit_.*Lights/i, /SM_Interior_.*Lights/i],
@@ -504,6 +578,7 @@ export function marketRigProfilesFingerprint(): string {
       ...(profile.trunkHinge ?? []),
       ...(profile.spanningDoorTrim ?? []),
       ...(profile.doorIslandNodes ?? []),
+      ...(profile.doorIslandShapes ?? []).flatMap((shape) => shape.source),
       ...(profile.sunroof ?? []),
       ...(profile.wheel ?? []),
       ...(profile.wheelPart ?? []),
@@ -511,7 +586,13 @@ export function marketRigProfilesFingerprint(): string {
     ]
       .map((pattern) => pattern.source)
       .join("|");
-    return `${profile.id}:${profile.bakedWheels ? 1 : 0}:${profile.barnTailgate ? 1 : 0}:${profile.barnTailgateSide ?? ""}:${profile.barnTailgateFace ?? ""}:${profile.barnTailgateInset ?? ""}:${profile.sunroofSlideFraction ?? ""}:${profile.doorHingeLead ?? ""}:${profile.doorHingeOutset ?? ""}:${patterns.length}:${patterns}`;
+    const shapes = (profile.doorIslandShapes ?? [])
+      .map(
+        (shape) =>
+          `${shape.minTriangles}-${shape.maxTriangles}@${shape.weld}:${shape.centerPad}:${shape.minSize.x},${shape.minSize.y},${shape.minSize.z}:${shape.maxSize.x},${shape.maxSize.y},${shape.maxSize.z}:${shape.centerX.join(",")}:${shape.centerY.join(",")}`,
+      )
+      .join("/");
+    return `${profile.id}:${profile.bakedWheels ? 1 : 0}:${profile.barnTailgate ? 1 : 0}:${profile.barnTailgateSide ?? ""}:${profile.barnTailgateFace ?? ""}:${profile.barnTailgateInset ?? ""}:${profile.sunroofSlideFraction ?? ""}:${profile.doorHingeLead ?? ""}:${profile.doorHingeOutset ?? ""}:${patterns.length}:${patterns}:${shapes}`;
   }).join(";");
 }
 

@@ -506,6 +506,9 @@ export function useShowroomPageState() {
     setBraking(preset.braking);
     setCameraPreset(preset.cameraPreset);
     setAutoTour(preset.autoTour);
+    if (preset.venue) {
+      setVenue(preset.venue);
+    }
   }
 
   function applyWelcomeMode() {
@@ -529,6 +532,7 @@ export function useShowroomPageState() {
     braking,
     cameraPreset,
     autoTour,
+    venue,
   }, ignoredPresetBodyKeys);
 
   function resetAll() {

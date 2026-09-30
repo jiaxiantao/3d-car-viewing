@@ -1,6 +1,6 @@
 /** Doors, trunk, sunroof, steering center, and cabin panel splits. */
 import * as THREE from "three";
-import { type MarketRigProfile } from "@/lib/market-rig-profiles";
+import { type DoorIslandShape, type MarketRigProfile } from "@/lib/market-rig-profiles";
 import { hierarchicalName, matchesAny, createHingePivot, worldDeltaToParentLocal, triangleCorner, extractTriangleGeometry } from "./mesh";
 
 export const DOOR_EXCLUDE =
@@ -426,6 +426,209 @@ export function adoptDoorIslandNodes(
       mesh.removeFromParent();
     } else if (stayTriangles.length !== triangleCount) {
       mesh.geometry = extractTriangleGeometry(mesh.geometry, stayTriangles);
+    }
+  }
+}
+
+function weldTriangleIslands(
+  geometry: THREE.BufferGeometry,
+  islands: number[][],
+  matrixWorld: THREE.Matrix4,
+  weld: number,
+) {
+  if (weld <= 0 || islands.length < 2) {
+    return islands;
+  }
+  const position = geometry.getAttribute("position");
+  if (!position) {
+    return islands;
+  }
+  const parent = islands.map((_, index) => index);
+  const find = (index: number) => {
+    let root = index;
+    while (parent[root] !== root) {
+      root = parent[root];
+    }
+    while (parent[index] !== root) {
+      const next = parent[index];
+      parent[index] = root;
+      index = next;
+    }
+    return root;
+  };
+  const unite = (a: number, b: number) => {
+    const rootA = find(a);
+    const rootB = find(b);
+    if (rootA !== rootB) {
+      parent[rootB] = rootA;
+    }
+  };
+  const buckets = new Map<string, number>();
+  const corner = new THREE.Vector3();
+  islands.forEach((island, islandIndex) => {
+    for (const triangle of island) {
+      for (let index = 0; index < 3; index += 1) {
+        corner.fromBufferAttribute(position, triangleCorner(geometry, triangle, index));
+        corner.applyMatrix4(matrixWorld);
+        const key = `${Math.round(corner.x / weld)},${Math.round(corner.y / weld)},${Math.round(corner.z / weld)}`;
+        const other = buckets.get(key);
+        if (other === undefined) {
+          buckets.set(key, islandIndex);
+        } else {
+          unite(islandIndex, other);
+        }
+      }
+    }
+  });
+  const merged = new Map<number, number[]>();
+  islands.forEach((island, islandIndex) => {
+    const root = find(islandIndex);
+    const list = merged.get(root);
+    if (list) {
+      list.push(...island);
+    } else {
+      merged.set(root, [...island]);
+    }
+  });
+  return [...merged.values()];
+}
+
+function islandFitsDoor(shape: DoorIslandShape, islandBox: THREE.Box3, doorBox: THREE.Box3) {
+  const doorSize = doorBox.getSize(new THREE.Vector3());
+  const islandSize = islandBox.getSize(new THREE.Vector3());
+  const center = islandBox.getCenter(new THREE.Vector3());
+  const along = (center.x - doorBox.min.x) / Math.max(doorSize.x, 1e-6);
+  const up = (center.y - doorBox.min.y) / Math.max(doorSize.y, 1e-6);
+  if (along < shape.centerX[0] || along > shape.centerX[1]) {
+    return false;
+  }
+  if (up < shape.centerY[0] || up > shape.centerY[1]) {
+    return false;
+  }
+  const fractions = {
+    x: islandSize.x / Math.max(doorSize.x, 1e-6),
+    y: islandSize.y / Math.max(doorSize.y, 1e-6),
+    z: islandSize.z / Math.max(doorSize.z, 1e-6),
+  };
+  if (
+    fractions.x < shape.minSize.x ||
+    fractions.y < shape.minSize.y ||
+    fractions.z < shape.minSize.z ||
+    fractions.x > shape.maxSize.x ||
+    fractions.y > shape.maxSize.y ||
+    fractions.z > shape.maxSize.z
+  ) {
+    return false;
+  }
+  const pad = doorBox.clone();
+  pad.expandByScalar(shape.centerPad);
+  return pad.containsPoint(center);
+}
+
+/**
+ * Parent specific whole islands (a mirror housing, a door shell) to the hinge
+ * that already contains them. Shared vertices stay together; other islands in
+ * the same buffer, such as the steering wheel, stay on the body.
+ */
+export function adoptShapedDoorIslands(
+  pivots: Array<THREE.Group | null>,
+  shapes?: DoorIslandShape[],
+) {
+  const live = pivots.filter((pivot): pivot is THREE.Group => pivot !== null);
+  if (!shapes?.length || live.length === 0) {
+    return;
+  }
+
+  const claims = live.flatMap((pivot) => {
+    const bounds = closedDoorBounds(pivot);
+    if (!bounds) {
+      return [];
+    }
+    return [{ pivot, box: bounds, center: bounds.getCenter(new THREE.Vector3()) }];
+  });
+  if (claims.length === 0) {
+    return;
+  }
+
+  const corner = new THREE.Vector3();
+  for (const shape of shapes) {
+    const candidates: THREE.Mesh[] = [];
+    live[0].parent?.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.isMesh || !matchesAny(hierarchicalName(mesh), shape.source)) {
+        return;
+      }
+      if (live.some((pivot) => isUnderPivot(mesh, pivot))) {
+        return;
+      }
+      if (Object.keys(mesh.geometry.morphAttributes).length > 0) {
+        return;
+      }
+      candidates.push(mesh);
+    });
+
+    for (const mesh of candidates) {
+      const position = mesh.geometry.getAttribute("position");
+      if (!position) {
+        continue;
+      }
+      mesh.updateWorldMatrix(true, false);
+      const islands = weldTriangleIslands(
+        mesh.geometry,
+        connectedTriangleIslands(mesh.geometry),
+        mesh.matrixWorld,
+        shape.weld,
+      );
+      const owned: Array<{ pivot: THREE.Group; triangles: number[] }> = [];
+      const stayTriangles: number[] = [];
+
+      for (const island of islands) {
+        if (island.length < shape.minTriangles || island.length > shape.maxTriangles) {
+          stayTriangles.push(...island);
+          continue;
+        }
+        const islandBox = new THREE.Box3();
+        for (const triangle of island) {
+          for (let index = 0; index < 3; index += 1) {
+            corner.fromBufferAttribute(position, triangleCorner(mesh.geometry, triangle, index));
+            corner.applyMatrix4(mesh.matrixWorld);
+            islandBox.expandByPoint(corner);
+          }
+        }
+        const centroid = islandBox.getCenter(new THREE.Vector3());
+        let owner: (typeof claims)[number] | null = null;
+        let bestDistance = Infinity;
+        for (const claim of claims) {
+          if (!islandFitsDoor(shape, islandBox, claim.box)) {
+            continue;
+          }
+          const distance = centroid.distanceTo(claim.center);
+          if (distance < bestDistance) {
+            owner = claim;
+            bestDistance = distance;
+          }
+        }
+        if (!owner) {
+          stayTriangles.push(...island);
+          continue;
+        }
+        owned.push({ pivot: owner.pivot, triangles: [...island] });
+      }
+
+      if (owned.length === 0) {
+        continue;
+      }
+      for (const piece of owned) {
+        adoptDoorPiece(mesh, extractTriangleGeometry(mesh.geometry, piece.triangles), piece.pivot);
+      }
+      const triangleCount = mesh.geometry.getIndex()
+        ? mesh.geometry.getIndex()!.count / 3
+        : position.count / 3;
+      if (stayTriangles.length === 0) {
+        mesh.removeFromParent();
+      } else if (stayTriangles.length !== triangleCount) {
+        mesh.geometry = extractTriangleGeometry(mesh.geometry, stayTriangles);
+      }
     }
   }
 }

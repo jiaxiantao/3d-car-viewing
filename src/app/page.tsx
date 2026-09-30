@@ -29,7 +29,7 @@ export default function HomePage() {
   const showroom = useShowroomPageState();
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-1 flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-1 flex-col gap-4 px-2 pt-2 pb-4 sm:gap-5 sm:px-3 sm:pt-3 sm:pb-6 lg:px-4 lg:pt-4 lg:pb-8">
       <header className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/70">3D Car Showroom</p>
@@ -89,6 +89,10 @@ export default function HomePage() {
         wheelSpinHint={showroom.wheelSpinHint}
         helpOpen={showroom.shortcutsOpen}
         onToggleHelp={() => showroom.setShortcutsOpen((open) => !open)}
+        activePreset={showroom.activePreset}
+        onApplyWelcomeMode={showroom.applyWelcomeMode}
+        onApplyDriveMode={showroom.applyDriveMode}
+        onResetAll={showroom.resetAll}
       >
         <CarShowroomScene
           state={showroom.sceneState}
@@ -128,16 +132,6 @@ export default function HomePage() {
         </div>
       ) : null}
 
-      {IS_DEV ? (
-        <ShowroomDebugPanel
-          assetRig={
-            showroom.assetRigCaps && showroom.assetRigDebug
-              ? { capabilities: showroom.assetRigCaps, debug: showroom.assetRigDebug }
-              : null
-          }
-        />
-      ) : null}
-
       <ShowroomControlPanels
         useAssetModel={showroom.useAssetModel}
         onToggleAssetModel={showroom.handleToggleAssetModel}
@@ -149,11 +143,17 @@ export default function HomePage() {
         wheelReadyCategory={showroom.wheelReadyCategory}
         unsupportedInteractionNote={showroom.unsupportedInteractionNote}
         allGlbFailed={showroom.allGlbFailed}
-        onApplyWelcomeMode={showroom.applyWelcomeMode}
-        onApplyDriveMode={showroom.applyDriveMode}
-        activePreset={showroom.activePreset}
-        onResetAll={showroom.resetAll}
       />
+
+      {IS_DEV ? (
+        <ShowroomDebugPanel
+          assetRig={
+            showroom.assetRigCaps && showroom.assetRigDebug
+              ? { capabilities: showroom.assetRigCaps, debug: showroom.assetRigDebug }
+              : null
+          }
+        />
+      ) : null}
     </main>
   );
 }

@@ -6,7 +6,7 @@ import { type ShowroomMaterial, type AssetRigDebugPart, type AssetCarRig } from 
 import { ensureShowroomMaterial, ensureShowroomPaintMaterial } from "./materials";
 import { hierarchicalName, matchesAny, getMeshVolume, collectMeshes } from "./mesh";
 import { isInteriorLight, isHeadLightPart, isGClassMarketProfile, isExcludedFromHeadlightDiscovery, applyShowroomHeadlampLens, applyShowroomTailLamp, taillampPositionAllowed, shouldApplyHeadlampLensPreset, headlampPositionAllowed, isolateOffroadHeadlampIslands, isTailLightPart, isHazardPart, applyBmwM2CabinGlass, splitBmwM2HeadlampCovers, splitOffroadHeadlampCovers } from "./lights";
-import { type OffroadCabinPanels, isTrunkPart, isDoorCandidate, isSunroofPart, createSideDoorPivot, splitSpanningDoorTrim, adoptDoorIslandNodes, createTrunkPivot, SUNROOF_SLIDE_FRACTION, prepareSunroofMotion, findSteeringWheelCenter, splitOffroadCabinPanels, createBarnTailgatePivot, doorShellMeshes } from "./body";
+import { type OffroadCabinPanels, isTrunkPart, isDoorCandidate, isSunroofPart, createSideDoorPivot, splitSpanningDoorTrim, adoptDoorIslandNodes, adoptShapedDoorIslands, createTrunkPivot, SUNROOF_SLIDE_FRACTION, prepareSunroofMotion, findSteeringWheelCenter, splitOffroadCabinPanels, createBarnTailgatePivot, doorShellMeshes } from "./body";
 import { splitSpanningWheelMeshes, findWheelNodes } from "./wheels";
 
 export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): AssetCarRig {
@@ -399,6 +399,10 @@ export function discoverAssetCarRig(root: THREE.Object3D, modelUrl?: string): As
   adoptDoorIslandNodes(
     [leftDoorPivot, rightDoorPivot, ...companionDoorPivots],
     profile?.doorIslandNodes,
+  );
+  adoptShapedDoorIslands(
+    [leftDoorPivot, rightDoorPivot, ...companionDoorPivots],
+    profile?.doorIslandShapes,
   );
   leftDoorMeshes.push(...spanningTrim.left);
   rightDoorMeshes.push(...spanningTrim.right);

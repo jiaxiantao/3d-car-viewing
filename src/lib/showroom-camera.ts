@@ -15,6 +15,7 @@ export type ShowroomCameraPose = {
 
 const TMP_SIZE = new THREE.Vector3();
 const TMP_CENTER = new THREE.Vector3();
+const TMP_OFFSET = new THREE.Vector3();
 
 /** Geometric fallback car — matches procedural `CarModel` proportions. */
 const GEOMETRIC_CABIN_CENTER = new THREE.Vector3(0.15, 0.57, 0);
@@ -235,6 +236,31 @@ export function resolveShowroomCameraPose(
     return getBoundsCameraPose(preset, bounds, steeringWheelCenter, profileId);
   }
   return getGeometricCameraPose(preset);
+}
+
+/**
+ * OrbitControls swings the camera around `target`. The cockpit gaze target sits
+ * on the road ahead, so a raw drag would carry the eye out of the seat.
+ * This shifts the camera/target pair so the eye stays on `pivot` (the driver's
+ * viewpoint) while the dragged gaze direction is kept.
+ * The camera-to-target offset is preserved, so damping and the orbit clamps
+ * stay valid. A radius change dollies along that gaze from the seat.
+ */
+export function anchorCockpitOrbit(
+  cameraPosition: THREE.Vector3,
+  target: THREE.Vector3,
+  pivot: THREE.Vector3,
+  baseRadius: number,
+) {
+  TMP_OFFSET.copy(cameraPosition).sub(target);
+  const radius = TMP_OFFSET.length();
+  if (radius < 1e-5 || baseRadius < 1e-5) {
+    cameraPosition.copy(pivot);
+    return;
+  }
+  const dolly = baseRadius - radius;
+  cameraPosition.copy(pivot).addScaledVector(TMP_OFFSET, -dolly / radius);
+  target.copy(cameraPosition).sub(TMP_OFFSET);
 }
 
 /** Interior shots sit well inside the exterior orbit clamp. */

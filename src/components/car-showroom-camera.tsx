@@ -6,6 +6,7 @@ import * as THREE from "three";
 import {
   COCKPIT_CAMERA_FOV,
   COCKPIT_WHEEL_FOV,
+  anchorCockpitOrbit,
   resolveShowroomCameraPose,
   sampleAutoTourPose,
 } from "@/lib/showroom-camera";
@@ -46,6 +47,10 @@ export function CameraRig({
   const tourTargetRef = useRef(new THREE.Vector3());
   const lerpPositionRef = useRef(new THREE.Vector3());
   const lerpTargetRef = useRef(new THREE.Vector3());
+  const cockpitPivotRef = useRef(new THREE.Vector3());
+  const cockpitBaseRadiusRef = useRef(0);
+  const cockpitPoseReadyRef = useRef(false);
+  const cockpitAnchoredRef = useRef(false);
 
   const beginTransitionToPreset = useCallback(
     (nextPreset: CarCameraPreset) => {
@@ -66,6 +71,8 @@ export function CameraRig({
       toPositionRef.current.copy(nextPose.position);
       toTargetRef.current.copy(nextPose.target);
       transitionProgressRef.current = 0;
+      cockpitPoseReadyRef.current = nextPreset === "cockpit";
+      cockpitAnchoredRef.current = false;
     },
     [controlsRef, framingBounds, profileId, steeringWheelCenter],
   );
@@ -150,6 +157,36 @@ export function CameraRig({
       }
     }
   });
+
+  // Runs after OrbitControls.update (priority -1) so the rendered frame
+  // already has the eye back on the cockpit viewpoint.
+  useFrame(() => {
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    if (
+      !camera ||
+      !controls ||
+      preset !== "cockpit" ||
+      autoTour ||
+      !cockpitPoseReadyRef.current ||
+      transitionProgressRef.current < 1
+    ) {
+      cockpitAnchoredRef.current = false;
+      return;
+    }
+    if (!cockpitAnchoredRef.current) {
+      cockpitPivotRef.current.copy(toPositionRef.current);
+      cockpitBaseRadiusRef.current = toPositionRef.current.distanceTo(toTargetRef.current);
+      cockpitAnchoredRef.current = true;
+    }
+    anchorCockpitOrbit(
+      camera.position,
+      controls.target,
+      cockpitPivotRef.current,
+      cockpitBaseRadiusRef.current,
+    );
+    camera.lookAt(controls.target);
+  }, -2);
 
   return <PerspectiveCamera ref={cameraRef} makeDefault fov={45} position={[5.2, 2.4, 4.6]} />;
 }

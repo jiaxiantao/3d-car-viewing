@@ -9,7 +9,6 @@ import {
   type CarCategoryKey,
 } from "@/lib/car-categories";
 import type { AssetRigCapabilities } from "@/components/car-showroom-scene";
-import type { ShowroomPresetId } from "@/lib/showroom-presets";
 
 function interactionMark(
   categoryKey: CarCategoryKey,
@@ -33,10 +32,6 @@ type ShowroomControlPanelsProps = {
   wheelReadyCategory: { key: CarCategoryKey; label: string } | undefined;
   unsupportedInteractionNote: string | null;
   allGlbFailed?: boolean;
-  onApplyWelcomeMode: () => void;
-  onApplyDriveMode: () => void;
-  activePreset: ShowroomPresetId | null;
-  onResetAll: () => void;
 };
 
 export function ShowroomControlPanels({
@@ -50,10 +45,6 @@ export function ShowroomControlPanels({
   wheelReadyCategory,
   unsupportedInteractionNote,
   allGlbFailed = false,
-  onApplyWelcomeMode,
-  onApplyDriveMode,
-  activePreset,
-  onResetAll,
 }: ShowroomControlPanelsProps) {
   return (
     <section className="grid gap-5 rounded-3xl border border-white/10 bg-slate-950/60 p-4 sm:p-5">
@@ -105,33 +96,6 @@ export function ShowroomControlPanels({
             切换到{wheelReadyCategory.label}（支持真实四轮转动）
           </Button>
         ) : null}
-      </div>
-
-      <div className="grid gap-4 border-t border-white/10 pt-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-slate-100">模式预设</h2>
-          <p className="text-xs text-slate-500">一键预设</p>
-        </div>
-
-        <div className="flex flex-wrap gap-2 sm:gap-3">
-          <Button
-            variant={activePreset === "welcome" ? "default" : "secondary"}
-            aria-pressed={activePreset === "welcome"}
-            onClick={onApplyWelcomeMode}
-          >
-            迎宾模式
-          </Button>
-          <Button
-            variant={activePreset === "drive" ? "default" : "secondary"}
-            aria-pressed={activePreset === "drive"}
-            onClick={onApplyDriveMode}
-          >
-            驾驶预备模式
-          </Button>
-          <Button variant="outline" onClick={onResetAll}>
-            复位全部状态
-          </Button>
-        </div>
       </div>
     </section>
   );

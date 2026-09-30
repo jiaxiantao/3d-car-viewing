@@ -95,6 +95,16 @@ function centerOf(object: THREE.Object3D) {
   return new THREE.Box3().setFromObject(object).getCenter(new THREE.Vector3());
 }
 
+function namedUnder(pivot: THREE.Object3D | null, pattern: RegExp) {
+  const found: THREE.Object3D[] = [];
+  pivot?.traverse((node) => {
+    if (node !== pivot && pattern.test(node.name)) {
+      found.push(node);
+    }
+  });
+  return found;
+}
+
 describe("mercedes g63 and jeep wrangler rigs", () => {
   it("opens G63 front doors, paints the body, and rolls each corner", async () => {
     const { root, rig } = await loadRig("2025_mercedes-benz_g-class_amg_g_63.glb");
@@ -124,6 +134,7 @@ describe("mercedes g63 and jeep wrangler rigs", () => {
     let leftWindowLight: THREE.Object3D | null = null;
     let rightSill: THREE.Object3D | null = null;
     let steering: THREE.Object3D | null = null;
+    let dashBridge: THREE.Object3D | null = null;
     root.traverse((node) => {
       if (!hood && /SM_Hood_/i.test(node.name)) {
         hood = node;
@@ -143,6 +154,9 @@ describe("mercedes g63 and jeep wrangler rigs", () => {
       if (!steering && /MANC_SteeringWheel_00/i.test(node.name)) {
         steering = node;
       }
+      if (!dashBridge && /MD_Body_32_/i.test(node.name)) {
+        dashBridge = node;
+      }
     });
     expect(hood).toBeTruthy();
     expect(rearBody).toBeTruthy();
@@ -157,20 +171,56 @@ describe("mercedes g63 and jeep wrangler rigs", () => {
     expect(under(rearBody!, rig.leftDoorPivot)).toBe(false);
     expect(under(rearBody!, rig.rightDoorPivot)).toBe(false);
     expect(under(steering!, rig.leftDoorPivot)).toBe(false);
+    expect(dashBridge).toBeTruthy();
+    expect(under(dashBridge!, rig.leftDoorPivot)).toBe(false);
+    expect(under(dashBridge!, rig.rightDoorPivot)).toBe(false);
+
+    const leftCarbon = namedUnder(rig.leftDoorPivot, /^carbon/i);
+    const rightCarbon = namedUnder(rig.rightDoorPivot, /^carbon/i);
+    const leftHandlePanel = namedUnder(rig.leftDoorPivot, /MD_Body_02_/i);
+    const rightHandlePanel = namedUnder(rig.rightDoorPivot, /MD_Body_01_/i);
+    expect(leftCarbon.length).toBeGreaterThanOrEqual(3);
+    expect(rightCarbon.length).toBeGreaterThanOrEqual(3);
+    expect(leftHandlePanel).toHaveLength(1);
+    expect(rightHandlePanel).toHaveLength(1);
+
+    // Carbon cover under the interior handle: ~0.25 long, flat against the card.
+    const isHandleCover = (piece: THREE.Object3D) => {
+      const size = new THREE.Box3().setFromObject(piece).getSize(new THREE.Vector3());
+      return size.x > 0.2 && size.x < 0.35 && size.y < 0.12 && size.z < 0.06;
+    };
+    const leftCover = leftCarbon.filter(isHandleCover);
+    const rightCover = rightCarbon.filter(isHandleCover);
+    expect(leftCover).toHaveLength(1);
+    expect(rightCover).toHaveLength(1);
+    expect(centerOf(leftCover[0]).x).toBeCloseTo(-0.13, 1);
+    expect(centerOf(leftCover[0]).y).toBeCloseTo(0.6, 1);
+    for (const node of [/MD_Body_20_/i, /MD_Body_30_/i, /MD_Body_33_/i, /MD_Body_36_/i, /MD_Body_38_/i]) {
+      expect(namedUnder(rig.leftDoorPivot, node)).toHaveLength(0);
+      expect(namedUnder(rig.rightDoorPivot, node)).toHaveLength(0);
+    }
 
     const doorBefore = centerOf(rig.leftDoorPivot!);
     const hoodBefore = centerOf(hood!);
     const sillBefore = centerOf(leftSill!);
     const lightBefore = centerOf(leftWindowLight!);
     const steeringBefore = centerOf(steering!);
+    const dashBefore = centerOf(dashBridge!);
+    const carbonBefore = leftCarbon.map((piece) => centerOf(piece));
+    const handleBefore = centerOf(leftHandlePanel[0]);
     const openSign = rig.leftDoorPivot!.userData.showroomOpenSign as number;
     rig.leftDoorPivot!.rotation.y = openSign * ASSET_DOOR_MAX_OPEN_RADIANS;
     rig.leftDoorPivot!.updateWorldMatrix(true, true);
     expect(centerOf(rig.leftDoorPivot!).z).toBeGreaterThan(doorBefore.z + 0.15);
     expect(centerOf(leftSill!).z).toBeGreaterThan(sillBefore.z + 0.05);
     expect(centerOf(leftWindowLight!).z).toBeGreaterThan(lightBefore.z + 0.05);
+    for (const [index, piece] of leftCarbon.entries()) {
+      expect(centerOf(piece).z).toBeGreaterThan(carbonBefore[index].z + 0.05);
+    }
+    expect(centerOf(leftHandlePanel[0]).z).toBeGreaterThan(handleBefore.z + 0.05);
     expect(centerOf(hood!).distanceTo(hoodBefore)).toBeLessThan(0.02);
     expect(centerOf(steering!).distanceTo(steeringBefore)).toBeLessThan(0.02);
+    expect(centerOf(dashBridge!).distanceTo(dashBefore)).toBeLessThan(0.02);
 
     const wheel = rig.frontWheels[0];
     const wheelBefore = centerOf(wheel);
