@@ -511,11 +511,11 @@ export function CarShowroomScene({
           minPolarAngle={0.6}
           maxPolarAngle={1.5}
         />
-        <ShowroomAssetLoadingOverlay
-          visible={loadingOverlayVisible}
-          displayProgress={displayedLoadProgress}
-        />
       </Canvas>
+      <ShowroomAssetLoadingOverlay
+        visible={loadingOverlayVisible}
+        displayProgress={displayedLoadProgress}
+      />
     </div>
   );
 }
