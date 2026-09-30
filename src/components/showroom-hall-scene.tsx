@@ -8,8 +8,7 @@ import { SHOWROOM_GROUND_Y, ShowroomReflectiveFloor } from "@/components/showroo
 import type { ShowroomSceneModeConfig } from "@/lib/showroom-scene-modes";
 import { publicAssetPath } from "@/lib/public-asset-path";
 
-/** Folder name matches `public/models/sence`. */
-const HALL_MODEL_URL = publicAssetPath("/models/sence/car-showroom_1.glb");
+const HALL_MODEL_URL = publicAssetPath("/models/scene/car-showroom_1.glb");
 
 /**
  * The display pad is modeled along Z. Showroom cars face −X, so yaw the hall

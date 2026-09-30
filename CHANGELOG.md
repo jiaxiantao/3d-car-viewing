@@ -7,14 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-30
+
 ### Added
 
 - **Showroom lineup:** 奔驰 AMG G63 与 Jeep 牧马人排在巴博斯 G900 之前。G63 支持前门、车灯、改色、四轮和驾驶视角；牧马人支持四门、侧开尾门、车灯、改色、四轮和驾驶视角。
-- **Highway scene:** 场景模式新增「公路」。车辆停在路中央，画面包含沥青公路、两侧草地和晴空。分享链接使用 `mode=road`。
+- **Venues and lighting:** 场地与光线分开。场地为影棚（圆形展厅）、大厅（室内展台）、公路（右侧第一车道，两侧草地与天空）；光线为白天 / 夜晚。分享链接使用 `mode=studio|hall|road` 与 `light=day|night`。旧链接 `mode=day` / `mode=night` 仍按影棚读取。
+- **Presets:** 迎宾模式与试驾模式。试驾切入驾舱、启动车辆，并把场地切到公路。
 
 ### Changed
 
-- **Drive preset:** 驾驶预备模式前轮保持回正，只向前滚动。
+- **Drive preset:** 试驾模式前轮保持回正，只向前滚动。
+- **Loading:** 车模加载遮罩画在 WebGL 画布外，避免挡住场景点击。
+- **Scene assets:** 背景模型目录由 `public/models/sence/` 更正为 `public/models/scene/`。
+- **Runtime:** Next.js 16.3.6、React 19.3、Three.js 0.186、React Three Fiber 9.8.1。帧循环改用 `THREE.Timer`，路旁树木补上已移除的 specular-glossiness 材质插件。
 
 ## [0.2.0] - 2026-09-29
 

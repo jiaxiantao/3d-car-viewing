@@ -8,8 +8,7 @@ import { SHOWROOM_GROUND_Y, ShowroomReflectiveFloor } from "@/components/showroo
 import type { ShowroomSceneModeConfig } from "@/lib/showroom-scene-modes";
 import { publicAssetPath } from "@/lib/public-asset-path";
 
-/** Folder name matches `public/models/sence`. */
-const GALLERY_MODEL_URL = publicAssetPath("/models/sence/white_round_exhibition_gallery.glb");
+const GALLERY_MODEL_URL = publicAssetPath("/models/scene/white_round_exhibition_gallery.glb");
 
 const FLOOR_SLAB_MAX_THICKNESS = 0.25;
 const FLOOR_SLAB_MIN_SPAN = 8;

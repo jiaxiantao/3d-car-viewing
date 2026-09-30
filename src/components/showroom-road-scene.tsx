@@ -62,15 +62,14 @@ const ROAD_TEXTURE_NOISE_OCTAVES = 3;
  */
 export const MOUNTAIN_SEGMENTS = { across: 128, depth: 48 } as const;
 const MOUNTAIN_NOISE_OCTAVES = 4;
-/** Folder name matches `public/models/sence`. */
-const GRASS_MODEL_URL = publicAssetPath("/models/sence/realtime_grass.glb");
+const GRASS_MODEL_URL = publicAssetPath("/models/scene/realtime_grass.glb");
 /** Scattered blades in the file are under one unit tall; the upright source cards are not. */
 const GRASS_BLADE_HEIGHT = 0.7;
 const GRASS_UPRIGHT_HEIGHT = 2;
 const GRASS_BLADE_STRIDE = 4;
 /** Extra drop so the visible roots sit just under the shoulder, not on the surface. */
 const GRASS_GROUND_SINK = 0.08;
-const TREE_MODEL_URL = publicAssetPath("/models/sence/tree_animate.glb");
+const TREE_MODEL_URL = publicAssetPath("/models/scene/tree_animate.glb");
 /** Broad canopy: keep the crown beside the lanes instead of covering the car. */
 const TREE_HEIGHT = 5.2;
 

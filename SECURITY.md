@@ -4,6 +4,7 @@
 
 | Version | Supported |
 | ------- | --------- |
+| 0.3.x | Yes |
 | `main` (latest) | Yes |
 | Older tags | Best effort |
 
