@@ -14,9 +14,6 @@ export const metadata: Metadata = {
     "基于 Three.js 与 React Three Fiber 的 3D 看车交互演示：车型切换、车漆配色、车门 / 后备箱 / 车灯 / 双闪 / 启动制动、影棚 / 大厅 / 公路 / 白天 / 夜晚场景。",
   keywords: ["3D 看车", "WebGL", "Three.js", "React Three Fiber", "GLTF"],
   applicationName: "3D Car Showroom",
-  icons: {
-    icon: "/favicon.ico",
-  },
 };
 
 export const viewport: Viewport = {

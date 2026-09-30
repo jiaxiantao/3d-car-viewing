@@ -42,6 +42,9 @@ import {
   type CarShowroomSceneProps,
   type ShowroomSceneHandle,
 } from "@/components/showroom/types";
+import { installFiberFrameClock } from "@/lib/fiber-frame-clock";
+
+installFiberFrameClock();
 
 export type {
   AssetRigCapabilities,

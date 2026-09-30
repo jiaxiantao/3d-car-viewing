@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { SHOWROOM_GROUND_Y } from "@/components/showroom-environment";
+import { registerSpecularGlossiness } from "@/lib/gltf-specular-glossiness";
 import type { ShowroomLightingMode } from "@/lib/showroom-scene-modes";
 import { publicAssetPath } from "@/lib/public-asset-path";
 import {
@@ -414,7 +415,7 @@ async function applySpecularGlossinessColorMaps(
               ?.KHR_materials_pbrSpecularGlossiness;
       pending.push(
         (async () => {
-          if (extension?.diffuseTexture) {
+          if (extension?.diffuseTexture && !standard.map) {
             const texture = await gltf.parser.getDependency("texture", extension.diffuseTexture.index);
             texture.colorSpace = THREE.SRGBColorSpace;
             standard.map = texture;
@@ -552,6 +553,7 @@ function loadTreeModel() {
   if (!treeModelPromise) {
     treeModelPromise = new Promise((resolve) => {
       const loader = new GLTFLoader();
+      registerSpecularGlossiness(loader);
       loader.load(
         TREE_MODEL_URL,
         (gltf) => {

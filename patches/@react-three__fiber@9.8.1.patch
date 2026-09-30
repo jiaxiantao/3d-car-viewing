@@ -1,0 +1,39 @@
+diff --git a/dist/events-21d8cd92.cjs.dev.js b/dist/events-21d8cd92.cjs.dev.js
+index 9b43bdf7d5f4e4fa58d53e0a53954d3595569459..745b3581c9a225948c6ca82f873a7dece63c4afe 100644
+--- a/dist/events-21d8cd92.cjs.dev.js
++++ b/dist/events-21d8cd92.cjs.dev.js
+@@ -1076,7 +1076,7 @@ const createStore = (invalidate, advance) => {
+       linear: false,
+       flat: false,
+       controls: null,
+-      clock: new THREE__namespace.Clock(),
++      clock: globalThis[Symbol.for("showroom.fiberFrameClock")] ? globalThis[Symbol.for("showroom.fiberFrameClock")]() : new THREE__namespace.Clock(),
+       pointer,
+       mouse: pointer,
+       frameloop: 'always',
+diff --git a/dist/events-9ce18a08.esm.js b/dist/events-9ce18a08.esm.js
+index ea6b4c903fe1a45092eca8440397ebcef2de7341..46ee7036771391d27f3a78dc2a9ffe01c4467450 100644
+--- a/dist/events-9ce18a08.esm.js
++++ b/dist/events-9ce18a08.esm.js
+@@ -1051,7 +1051,7 @@ const createStore = (invalidate, advance) => {
+       linear: false,
+       flat: false,
+       controls: null,
+-      clock: new THREE.Clock(),
++      clock: globalThis[Symbol.for("showroom.fiberFrameClock")] ? globalThis[Symbol.for("showroom.fiberFrameClock")]() : new THREE.Clock(),
+       pointer,
+       mouse: pointer,
+       frameloop: 'always',
+diff --git a/dist/events-a816cbab.cjs.prod.js b/dist/events-a816cbab.cjs.prod.js
+index c26a227f3264c978f78d2ab7a7231ce943fe911f..e83f30aa3268ca8f3d8cd09c58a4822449089e53 100644
+--- a/dist/events-a816cbab.cjs.prod.js
++++ b/dist/events-a816cbab.cjs.prod.js
+@@ -1076,7 +1076,7 @@ const createStore = (invalidate, advance) => {
+       linear: false,
+       flat: false,
+       controls: null,
+-      clock: new THREE__namespace.Clock(),
++      clock: globalThis[Symbol.for("showroom.fiberFrameClock")] ? globalThis[Symbol.for("showroom.fiberFrameClock")]() : new THREE__namespace.Clock(),
+       pointer,
+       mouse: pointer,
+       frameloop: 'always',
