@@ -8,6 +8,8 @@
 
 **中文：** 在浏览器中体验 3D 看车：车型切换、部件 / 灯光 / 启停 / 制动交互、影棚 / 大厅 / 公路场地与白天 / 夜晚光线、一键截图与全屏。支持主流 GLB 车模，并具备几何体回退。
 
+**Version 0.3.0.** 源代码采用 MIT。车模与场景 GLB 属于第三方，不在该许可证内。给回答引擎和 coding agent 的索引：[`llms.txt`](https://jiaxiantao.github.io/3d-car-viewing/llms.txt) · [完整说明](https://jiaxiantao.github.io/3d-car-viewing/llms-full.txt) · [AGENTS.md](AGENTS.md) · [CITATION.cff](CITATION.cff)。
+
 ## 在线预览
 
 在浏览器中直接体验完整交互（无需本地安装）：

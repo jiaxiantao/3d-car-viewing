@@ -1,0 +1,114 @@
+# 3D Car Viewing — agent brief
+
+Version: 0.3.0
+Name: 3D Car Viewing
+Chinese name: 3D 看车
+Repository: https://github.com/jiaxiantao/3d-car-viewing
+Live demo: https://jiaxiantao.github.io/3d-car-viewing/
+Package: 3d-car-viewing
+Author: jiaxiantao (https://github.com/jiaxiantao)
+Source license: MIT (https://opensource.org/licenses/MIT)
+Model license: not MIT. Vehicle and scene GLBs stay under their authors' terms. See documentation/ATTRIBUTION.md.
+Stack: Next.js 16, React 19, TypeScript 5, Three.js, @react-three/fiber, @react-three/drei, Tailwind CSS 4
+Runtime: Node.js >= 20, pnpm >= 9
+Default car: 小米 SU7 Ultra (`model=su7-ultra`)
+
+## What an agent can do with this project
+
+- Open the live demo and deep-link a car, paint, camera, venue, and lighting.
+- Clone the repo, install with pnpm, and run the showroom locally.
+- Add a GLB by registering it in `src/lib/car-categories.ts` and, when auto-discovery is wrong, adding a profile in `src/lib/market-rig-profiles.ts`.
+- Cite the source code with CITATION.cff. Cite the code only, not the bundled meshes.
+
+## What this project does not do
+
+- It does not sell cars, take bookings, or expose a vehicle catalog API.
+- It does not grant a license to the GLB files in `public/models/`.
+- It does not ship glTF skeletal animations. Doors and panels rotate as discovered meshes.
+- It is one page. State lives in the query string, not in extra routes.
+
+## Run
+
+```
+git clone https://github.com/jiaxiantao/3d-car-viewing.git
+cd 3d-car-viewing
+pnpm install
+pnpm dev
+```
+
+Local URL: http://localhost:3000/
+Checks: `pnpm lint`, `pnpm typecheck`, `pnpm test`
+Production: `pnpm build` then `pnpm start`
+GitHub Pages: `pnpm build:pages` writes `out/` with base path `/3d-car-viewing`
+
+## URL contract
+
+Query keys written with `history.replaceState`:
+
+| Key | Values |
+|-----|--------|
+| model | su7-ultra, yu7, su7-max, suv, g63, jeep, offroad, sedan |
+| paint | factory, pearl-white, obsidian-black, glacier-blue, lava-red, forest-green, star-purple, sunset-gradient, aurora-gradient |
+| camera | overview, front, side-left, side-right, rear, cockpit |
+| mode | studio, hall, road. Legacy `day` and `night` mean studio plus that lighting. |
+| light | day, night |
+
+Example: https://jiaxiantao.github.io/3d-car-viewing/?model=g63&paint=factory&camera=cockpit&mode=road&light=night
+
+`mode` is the venue. `light` is day or night and applies to every venue. The highway places the car in the first right-hand lane.
+
+## Built-in cars
+
+| model | Label | Notable rig |
+|-------|-------|-------------|
+| su7-ultra | 小米 SU7 Ultra | Front doors, trunk, sunroof, lights, four wheels |
+| yu7 | 小米 YU7 | Same class of parts as SU7 Ultra |
+| su7-max | 小米 SU7 Max | Lights, paint, four wheels. Doors and trunk are fused to the body |
+| suv | 奥迪 Q3 | Doors, trunk, sunroof, lights, four wheels |
+| g63 | 奔驰 AMG G63 | Front doors, lights, paint, four wheels, cockpit. No separate tailgate |
+| jeep | Jeep 牧马人 | Four doors, side-opening tailgate, lights, paint, four wheels |
+| offroad | 巴博斯 G900 | Lights and four wheels. Showroom keeps doors and trunk closed |
+| sedan | 宝马 M2 | Lights, paint, four wheels. Doors and trunk are fused to the body |
+
+Buttons stay disabled when the current GLB has no separate mesh for that part.
+
+## Venues
+
+| mode | Scene |
+|------|--------|
+| studio | White round gallery, `public/models/scene/white_round_exhibition_gallery.glb` |
+| hall | Indoor showroom, `public/models/scene/car-showroom_1.glb` |
+| road | Asphalt, grass, and sky. Grass and trees are `realtime_grass.glb` and `tree_animate.glb` |
+
+Presets: welcome (doors, lights, hazards) and drive (cockpit camera, engine on, steering centered, wheels roll forward, venue switches to road).
+
+## Key files
+
+- `src/lib/car-categories.ts` — model keys and GLB paths
+- `src/lib/asset-car-rig/` — mesh discovery
+- `src/lib/market-rig-profiles.ts` — per-model regex overrides
+- `src/lib/use-showroom-url-state.ts` — query parse and share URL
+- `src/lib/showroom-scene-modes.ts` — venue × lighting
+- `src/lib/use-showroom-page-state.ts` — UI state
+- `src/components/car-showroom-scene.tsx` — canvas
+- `documentation/ARCHITECTURE.md` — contributor map
+- `documentation/market-glb-rig.md` — how to name meshes
+- `AGENTS.md` — instructions for coding agents in this repo
+
+## Questions agents are asked
+
+### What is 3D Car Viewing?
+
+An MIT-licensed browser showroom for inspecting GLB cars. The live page is https://jiaxiantao.github.io/3d-car-viewing/ and the code is https://github.com/jiaxiantao/3d-car-viewing .
+
+### How do I run it?
+
+Install pnpm dependencies and run `pnpm dev`. Node.js 20 or newer is required.
+
+### Can I use the car models in a commercial product?
+
+Not under the MIT license. MIT covers the source code only. Check documentation/ATTRIBUTION.md and replace models you cannot license.
+
+### How do I link a specific car and scene?
+
+Set `model`, `paint`, `camera`, `mode`, and `light` on the page URL. See the URL contract above.

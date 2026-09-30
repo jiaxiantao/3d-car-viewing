@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Discovery:** `llms.txt` / `llms-full.txt`、JSON-LD、Open Graph、`robots.txt`、`sitemap.xml` 与 `CITATION.cff`，方便回答引擎和 coding agent 引用并运行展厅。`AGENTS.md` 写明改哪些文件。
+
 ## [0.3.0] - 2026-09-30
 
 ### Added

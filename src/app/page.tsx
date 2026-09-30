@@ -5,10 +5,10 @@ import dynamic from "next/dynamic";
 import { ShowroomControlPanels } from "@/components/showroom-control-panels";
 import { ShowroomDebugPanel } from "@/components/showroom-debug-panel";
 import { ShowroomViewportChrome } from "@/components/showroom-viewport-chrome";
+import { GITHUB_REPO_URL } from "@/lib/site";
 import { useShowroomPageState } from "@/lib/use-showroom-page-state";
 
 const IS_DEV = process.env.NODE_ENV !== "production";
-const GITHUB_REPO_URL = "https://github.com/jiaxiantao/3d-car-viewing";
 
 const CarShowroomScene = dynamic(
   () => import("@/components/car-showroom-scene").then((mod) => mod.CarShowroomScene),
@@ -36,6 +36,9 @@ export default function HomePage() {
           <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
             3D 看车交互舱
           </h1>
+          <p className="mt-1 max-w-xl text-sm leading-6 text-slate-400">
+            在浏览器中切换 GLB 车模，查看车门、车灯和车漆，并在影棚、大厅与公路之间切换。源代码以 MIT 发布。
+          </p>
         </div>
         <a
           href={GITHUB_REPO_URL}

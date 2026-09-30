@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this showroom's source code, please cite it as below. The citation does not cover third-party GLB models."
+title: "3D Car Viewing"
+version: 0.3.0
+date-released: 2026-09-30
+type: software
+license: MIT
+repository-code: "https://github.com/jiaxiantao/3d-car-viewing"
+url: "https://jiaxiantao.github.io/3d-car-viewing/"
+abstract: "Browser 3D car showroom built with Next.js, React Three Fiber, and Three.js. It discovers doors, lights, and wheels on GLB cars and shares the view through URL parameters. Source code is MIT; bundled models are third-party."
+keywords:
+  - three.js
+  - react-three-fiber
+  - gltf
+  - glb
+  - car-showroom
+  - webgl
+authors:
+  - name: jiaxiantao
+    alias: jiaxiantao
+    website: "https://github.com/jiaxiantao"

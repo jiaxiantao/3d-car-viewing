@@ -1,19 +1,74 @@
 import type { Metadata, Viewport } from "next";
 
+import { siteJsonLdScript } from "@/lib/site-json-ld";
+import {
+  AUTHOR_NAME,
+  GITHUB_OWNER_URL,
+  SITE_APPLICATION_NAME,
+  SITE_ORIGIN,
+  SITE_TAGLINE,
+  SITE_TITLE,
+  absoluteSiteUrl,
+} from "@/lib/site";
+
 import "./globals.css";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-
 export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
+  metadataBase: new URL(SITE_ORIGIN),
   title: {
-    default: "3D 看车 · WebGL 交互演示",
+    default: SITE_TITLE,
     template: "%s · 3D 看车",
   },
-  description:
-    "基于 Three.js 与 React Three Fiber 的 3D 看车交互演示：车型切换、车漆配色、车门 / 后备箱 / 车灯 / 双闪 / 启动制动、影棚 / 大厅 / 公路 / 白天 / 夜晚场景。",
-  keywords: ["3D 看车", "WebGL", "Three.js", "React Three Fiber", "GLTF"],
-  applicationName: "3D Car Showroom",
+  description: SITE_TAGLINE,
+  applicationName: SITE_APPLICATION_NAME,
+  authors: [{ name: AUTHOR_NAME, url: GITHUB_OWNER_URL }],
+  creator: AUTHOR_NAME,
+  keywords: [
+    "3D 看车",
+    "3D car showroom",
+    "WebGL",
+    "Three.js",
+    "React Three Fiber",
+    "GLTF",
+    "GLB",
+    "car configurator",
+  ],
+  alternates: {
+    canonical: absoluteSiteUrl("/"),
+    types: {
+      "text/plain": absoluteSiteUrl("/llms.txt"),
+    },
+  },
+  openGraph: {
+    type: "website",
+    locale: "zh_CN",
+    url: absoluteSiteUrl("/"),
+    siteName: SITE_APPLICATION_NAME,
+    title: SITE_TITLE,
+    description: SITE_TAGLINE,
+    images: [
+      {
+        url: "/shows/car-one.png",
+        alt: "3D 看车交互舱中的小米 SU7 Ultra",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_TAGLINE,
+    images: ["/shows/car-one.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
 };
 
 export const viewport: Viewport = {
@@ -32,6 +87,7 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" className="h-full antialiased">
       <body className="relative min-h-full flex flex-col bg-[#020617] text-foreground">
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: siteJsonLdScript() }} />
         <div
           aria-hidden
           className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.16),transparent_32%),radial-gradient(circle_at_80%_20%,rgba(59,130,246,0.1),transparent_28%),linear-gradient(180deg,#020617_0%,#020817_55%,#020617_100%)]"

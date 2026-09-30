@@ -1,0 +1,26 @@
+# 3D Car Viewing
+
+> Browser 3D car showroom. Next.js, React Three Fiber, and Three.js load GLB cars, discover doors, lights, and wheels from mesh names, and restore a view from URL query parameters. Source code is MIT. Bundled GLB models are third-party and are not MIT.
+
+Version 0.3.0. Live demo: https://jiaxiantao.github.io/3d-car-viewing/ . Repository: https://github.com/jiaxiantao/3d-car-viewing . 中文名：3D 看车。
+
+## Start here
+
+- [Live demo](https://jiaxiantao.github.io/3d-car-viewing/): Interactive showroom. No install required.
+- [Agent brief](https://jiaxiantao.github.io/3d-car-viewing/llms-full.txt): Commands, URL contract, car list, and license boundary.
+- [Source repository](https://github.com/jiaxiantao/3d-car-viewing): Clone target for coding agents.
+- [Citation](https://github.com/jiaxiantao/3d-car-viewing/blob/main/CITATION.cff): Citation File Format entry for the MIT source.
+
+## Documentation
+
+- [README](https://github.com/jiaxiantao/3d-car-viewing/blob/main/README.md): Features, setup, shortcuts, and model table.
+- [AGENTS.md](https://github.com/jiaxiantao/3d-car-viewing/blob/main/AGENTS.md): Where to edit code when extending the showroom.
+- [Architecture](https://github.com/jiaxiantao/3d-car-viewing/blob/main/documentation/ARCHITECTURE.md): Load pipeline, venues, and state ownership.
+- [GLB rig guide](https://github.com/jiaxiantao/3d-car-viewing/blob/main/documentation/market-glb-rig.md): Mesh naming required for doors, lights, and wheels.
+- [Attribution](https://github.com/jiaxiantao/3d-car-viewing/blob/main/documentation/ATTRIBUTION.md): Third-party model licenses. Read this before redistributing GLBs.
+- [Changelog](https://github.com/jiaxiantao/3d-car-viewing/blob/main/CHANGELOG.md): Version history. Current release is 0.3.0.
+
+## Optional
+
+- [Technical essay](https://github.com/jiaxiantao/3d-car-viewing/blob/main/documentation/3D%E7%9C%8B%E8%BD%A6%E6%8A%80%E6%9C%AF%E5%8D%9A%E5%AE%A2.md): How rig discovery, cameras, and offline lighting are implemented.
+- [GitHub Pages setup](https://github.com/jiaxiantao/3d-car-viewing/blob/main/documentation/GITHUB_PAGES_SETUP.md): Static export and deployment.
