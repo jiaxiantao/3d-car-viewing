@@ -31,13 +31,13 @@ export default function HomePage() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-1 flex-col gap-4 px-2 pt-2 pb-4 sm:gap-5 sm:px-3 sm:pt-3 sm:pb-6 lg:px-4 lg:pt-4 lg:pb-8">
       <header className="flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/70">3D Car Showroom</p>
           <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
             3D 看车交互舱
           </h1>
-          <p className="mt-1 max-w-xl text-sm leading-6 text-slate-400">
-            在浏览器中切换 GLB 车模，查看车门、车灯和车漆，并在影棚、大厅与公路之间切换。源代码以 MIT 发布。
+          <p className="mt-1 w-max max-w-full text-xs leading-4 text-slate-400">
+            在浏览器中切换 GLB 车模，查看车门、车灯和车漆，并在影棚、大厅与公路之间切换。
           </p>
         </div>
         <a
