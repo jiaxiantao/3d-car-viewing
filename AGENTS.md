@@ -39,3 +39,7 @@ pnpm lint
 ## Checks before finishing
 
 Run `pnpm test`, `pnpm typecheck`, and `pnpm lint`. Do not commit `.env` files. Do not claim the bundled car meshes are MIT.
+
+## Cursor Cloud specific instructions
+
+`pnpm dev` serves the showroom on port 3000. Open `http://localhost:3000`. Next.js 16 blocks `/_next` dev resources, including the 3D canvas bundle, when the page host is `127.0.0.1` instead of `localhost`. No secrets or extra services are required. Install with `pnpm install --frozen-lockfile` (Node 22, pnpm 9.15.9).
