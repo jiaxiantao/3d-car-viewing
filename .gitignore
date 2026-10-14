@@ -44,6 +44,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# Temporarily moved aside while building the static Pages export
+src/app/_api_hold/
+
 # vercel
 .vercel
 

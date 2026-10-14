@@ -8,7 +8,7 @@ import {
   type ShowroomLightingMode,
   type ShowroomVenueMode,
 } from "@/lib/showroom-scene-modes";
-import { SHOWROOM_PAINT_OPTIONS } from "@/lib/showroom-paint-options";
+import { canonicalShowroomPaintId } from "@/lib/showroom-paint-options";
 
 export type ShowroomUrlState = {
   category?: CarCategoryKey;
@@ -35,10 +35,7 @@ export function parseShowroomUrlSearchParams(params: URLSearchParams): ShowroomU
 
   return {
     category: isCarCategoryKey(category) ? category : undefined,
-    paintId:
-      paintId && SHOWROOM_PAINT_OPTIONS.some((p) => p.id === paintId)
-        ? paintId
-        : undefined,
+    paintId: canonicalShowroomPaintId(paintId) ?? undefined,
     cameraPreset: cameraPreset && VALID_CAMERA_PRESETS.has(cameraPreset) ? cameraPreset : undefined,
     venue: scene.venue,
     lighting: scene.lighting,

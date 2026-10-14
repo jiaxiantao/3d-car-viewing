@@ -63,6 +63,17 @@ describe("showroom url state", () => {
     });
   });
 
+  it("keeps a custom paint hex and still drops unknown names", () => {
+    expect(parseShowroomUrlSearchParams(new URLSearchParams("paint=custom-c5c9ce")).paintId).toBe(
+      "custom-c5c9ce",
+    );
+    expect(parseShowroomUrlSearchParams(new URLSearchParams("paint=neon")).paintId).toBeUndefined();
+    expect(resolveShowroomPaint("custom-c5c9ce")).toMatchObject({
+      label: "银色",
+      primary: "#c5c9ce",
+    });
+  });
+
   it("accepts the factory paint id and treats it as the default", () => {
     const params = new URLSearchParams("model=su7-max&paint=factory&camera=overview&mode=studio");
     expect(parseShowroomUrlSearchParams(params).paintId).toBe("factory");

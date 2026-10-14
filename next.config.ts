@@ -11,6 +11,10 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: isGhPages,
   },
+  env: {
+    // Static Pages builds call the model from the browser. Dev and standalone proxy it.
+    NEXT_PUBLIC_SHOWROOM_AI_PROXY: isGhPages ? "0" : "1",
+  },
   ...(!isGhPages
     ? {
         async headers() {

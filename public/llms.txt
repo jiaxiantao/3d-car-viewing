@@ -2,7 +2,7 @@
 
 > Browser 3D car showroom. Next.js, React Three Fiber, and Three.js load GLB cars, discover doors, lights, and wheels from mesh names, and restore a view from URL query parameters. Source code is MIT. Bundled GLB models are third-party and are not MIT.
 
-Version 0.3.0. Live demo: https://jiaxiantao.github.io/3d-car-viewing/ . Repository: https://github.com/jiaxiantao/3d-car-viewing . 中文名：3D 看车。
+Version 0.4.0. Live demo: https://jiaxiantao.github.io/3d-car-viewing/ . Repository: https://github.com/jiaxiantao/3d-car-viewing . 中文名：3D 看车。
 
 ## Start here
 
@@ -18,7 +18,7 @@ Version 0.3.0. Live demo: https://jiaxiantao.github.io/3d-car-viewing/ . Reposit
 - [Architecture](https://github.com/jiaxiantao/3d-car-viewing/blob/main/documentation/ARCHITECTURE.md): Load pipeline, venues, and state ownership.
 - [GLB rig guide](https://github.com/jiaxiantao/3d-car-viewing/blob/main/documentation/market-glb-rig.md): Mesh naming required for doors, lights, and wheels.
 - [Attribution](https://github.com/jiaxiantao/3d-car-viewing/blob/main/documentation/ATTRIBUTION.md): Third-party model licenses. Read this before redistributing GLBs.
-- [Changelog](https://github.com/jiaxiantao/3d-car-viewing/blob/main/CHANGELOG.md): Version history. Current release is 0.3.0.
+- [Changelog](https://github.com/jiaxiantao/3d-car-viewing/blob/main/CHANGELOG.md): Version history. Current release is 0.4.0.
 
 ## Optional
 

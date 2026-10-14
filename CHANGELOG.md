@@ -7,9 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-14
+
 ### Added
 
+- **Remote model:** 右下角「AI 看车」面板用一句话控制车型、车漆、场地、光线和部件。本地 `pnpm dev` / `pnpm start` 经 `/api/showroom-ai` 转发；GitHub Pages 静态导出没有该接口，改为浏览器直连，模型服务需要允许跨域。密钥可写在面板（`localStorage`）或服务器变量 `AI_API_KEY`、`AI_BASE_URL`、`AI_MODEL`，不要加 `NEXT_PUBLIC_`。
+- **Custom paint:** 色卡最后一格打开取色器。目录外的颜色（例如银色）使用 `paint=custom-rrggbb`，分享链接可以还原。
 - **Discovery:** `llms.txt` / `llms-full.txt`、JSON-LD、Open Graph、`robots.txt`、`sitemap.xml` 与 `CITATION.cff`，方便回答引擎和 coding agent 引用并运行展厅。`AGENTS.md` 写明改哪些文件。
+
+### Changed
+
+- **Pages build:** `pnpm build:pages` 在静态导出期间暂时移走 `src/app/api`，构建结束后放回。
+- **Scrolling:** 页面改为即时滚动，避免拖动右侧滚动条时画面来回跳。
 
 ## [0.3.0] - 2026-09-30
 

@@ -1,6 +1,6 @@
 # 3D Car Viewing — agent brief
 
-Version: 0.3.0
+Version: 0.4.0
 Name: 3D Car Viewing
 Chinese name: 3D 看车
 Repository: https://github.com/jiaxiantao/3d-car-viewing
@@ -25,7 +25,7 @@ Default car: 小米 SU7 Ultra (`model=su7-ultra`)
 - It does not sell cars, take bookings, or expose a vehicle catalog API.
 - It does not grant a license to the GLB files in `public/models/`.
 - It does not ship glTF skeletal animations. Doors and panels rotate as discovered meshes.
-- It is one page. State lives in the query string, not in extra routes.
+- The showroom is one page. View state lives in the query string. The only extra route is `/api/showroom-ai` on `pnpm dev` and `pnpm start`. GitHub Pages has no route handlers.
 
 ## Run
 
@@ -48,7 +48,7 @@ Query keys written with `history.replaceState`:
 | Key | Values |
 |-----|--------|
 | model | su7-ultra, yu7, su7-max, suv, g63, jeep, offroad, sedan |
-| paint | factory, pearl-white, obsidian-black, glacier-blue, lava-red, forest-green, star-purple, sunset-gradient, aurora-gradient |
+| paint | factory, pearl-white, obsidian-black, glacier-blue, lava-red, forest-green, star-purple, sunset-gradient, aurora-gradient, or custom-rrggbb |
 | camera | overview, front, side-left, side-right, rear, cockpit |
 | mode | studio, hall, road. Legacy `day` and `night` mean studio plus that lighting. |
 | light | day, night |
@@ -56,6 +56,17 @@ Query keys written with `history.replaceState`:
 Example: https://jiaxiantao.github.io/3d-car-viewing/?model=g63&paint=factory&camera=cockpit&mode=road&light=night
 
 `mode` is the venue. `light` is day or night and applies to every venue. The highway places the car in the first right-hand lane.
+
+`custom-rrggbb` is a 6-digit hex without `#`. The last paint swatch opens a color picker and writes that id. Named colors that are not on the card, such as silver, also use this form.
+
+## Remote model
+
+Optional. The collapsed “AI 看车” button opens a panel that sends one sentence to an OpenAI-compatible chat completions endpoint.
+
+- `pnpm dev` and `pnpm start` proxy through `POST /api/showroom-ai`. A non-blank value saved in the panel overrides the matching server variable. Blank panel fields fall through to the server, then to `https://api.openai.com/v1` and `gpt-4o-mini`.
+- Panel settings are stored in `localStorage` under `3d-car-viewing:ai-settings`. The proxy scrubs the key from upstream error text. Public `http` URLs are rejected except localhost and private LAN addresses.
+- GitHub Pages calls the provider from the browser, so that provider must allow CORS. `pnpm build:pages` moves `src/app/api` aside during the static export and restores it afterward.
+- Server variables are `AI_API_KEY`, `AI_BASE_URL`, and `AI_MODEL`. Do not prefix them with `NEXT_PUBLIC_`.
 
 ## Built-in cars
 
@@ -89,7 +100,11 @@ Presets: welcome (doors, lights, hazards) and drive (cockpit camera, engine on, 
 - `src/lib/market-rig-profiles.ts` — per-model regex overrides
 - `src/lib/use-showroom-url-state.ts` — query parse and share URL
 - `src/lib/showroom-scene-modes.ts` — venue × lighting
+- `src/lib/showroom-paint-options.ts` — catalog paints and `custom-rrggbb`
 - `src/lib/use-showroom-page-state.ts` — UI state
+- `src/lib/showroom-ai-command.ts` — remote-model tool schema and command folding
+- `src/components/showroom-ai-panel.tsx` — assistant panel
+- `src/app/api/showroom-ai/route.ts` — same-origin proxy used outside the Pages export
 - `src/components/car-showroom-scene.tsx` — canvas
 - `documentation/ARCHITECTURE.md` — contributor map
 - `documentation/market-glb-rig.md` — how to name meshes
@@ -111,4 +126,4 @@ Not under the MIT license. MIT covers the source code only. Check documentation/
 
 ### How do I link a specific car and scene?
 
-Set `model`, `paint`, `camera`, `mode`, and `light` on the page URL. See the URL contract above.
+Set `model`, `paint`, `camera`, `mode`, and `light` on the page URL. `paint` may be `custom-rrggbb`. See the URL contract above.

@@ -10,6 +10,8 @@
 | `src/`、`public/` | 应用源码与静态资源 |
 | `out/`（本地） | `pnpm build:pages` 输出；由 Actions 上传为 Pages artifact，**不**再写入仓库 |
 
+`pnpm build:pages` 会先把 `src/app/api` 移到 `src/app/_api_hold`（已 gitignore），因为静态导出不能包含 Route Handler；构建结束后再移回。Pages 上的「AI 看车」因此改为浏览器直连模型服务，该服务需要允许跨域。服务器环境变量 `AI_API_KEY` 不会进入 Pages 包。
+
 构建完成后会执行 `scripts/prepare-gh-pages-export.mjs`，将 `_next` 重命名为 `next-static` 并写入 `.nojekyll`（兼容本地静态托管与历史分支部署约定）。
 
 ## Pages 配置（一次性）

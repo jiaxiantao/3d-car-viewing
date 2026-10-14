@@ -4,11 +4,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Live Demo](https://img.shields.io/badge/Live_Demo-在线预览-22d3ee?style=flat&logo=githubpages&logoColor=white)](https://jiaxiantao.github.io/3d-car-viewing/)
 
-**English:** Browser-based 3D car showroom built with **Next.js**, **React Three Fiber**, and **Three.js**. Switch GLB vehicles, interact with doors / lights / paint, choose a studio, hall, or highway venue with day or night lighting, save screenshots, and fall back to a procedural car when assets fail to load.
+**English:** Browser-based 3D car showroom built with **Next.js**, **React Three Fiber**, and **Three.js**. Switch GLB vehicles, interact with doors / lights / paint (including a custom color), choose a studio, hall, or highway venue with day or night lighting, optionally drive the showroom with an OpenAI-compatible model, save screenshots, and fall back to a procedural car when assets fail to load.
 
-**中文：** 在浏览器中体验 3D 看车：车型切换、部件 / 灯光 / 启停 / 制动交互、影棚 / 大厅 / 公路场地与白天 / 夜晚光线、一键截图与全屏。支持主流 GLB 车模，并具备几何体回退。
+**中文：** 在浏览器中体验 3D 看车：车型切换、部件 / 灯光 / 启停 / 制动交互、目录车漆与自定义颜色、影棚 / 大厅 / 公路场地与白天 / 夜晚光线、一句话控制展厅、一键截图与全屏。支持主流 GLB 车模，并具备几何体回退。
 
-**Version 0.3.0.** 源代码采用 MIT。车模与场景 GLB 属于第三方，不在该许可证内。给回答引擎和 coding agent 的索引：[`llms.txt`](https://jiaxiantao.github.io/3d-car-viewing/llms.txt) · [完整说明](https://jiaxiantao.github.io/3d-car-viewing/llms-full.txt) · [AGENTS.md](AGENTS.md) · [CITATION.cff](CITATION.cff)。
+**Version 0.4.0.** 源代码采用 MIT。车模与场景 GLB 属于第三方，不在该许可证内。给回答引擎和 coding agent 的索引：[`llms.txt`](https://jiaxiantao.github.io/3d-car-viewing/llms.txt) · [完整说明](https://jiaxiantao.github.io/3d-car-viewing/llms-full.txt) · [AGENTS.md](AGENTS.md) · [CITATION.cff](CITATION.cff)。
 
 ## 在线预览
 
@@ -39,12 +39,13 @@
 - **物理拟真**：怠速发动机微抖、加速 / 制动俯仰、八款车模的四轮滚动（合并缓冲会先按轮角切开）、制动时尾灯亮起、双闪频闪。奔驰 G63 可开前门；Jeep 牧马人可开四门和侧开尾门。巴博斯 G900 的车门与后备箱在展厅中关闭；SU7 Max 与宝马 M2 的门、后备箱、天窗与车身合并
 - **场地与光线**：场地和光线分开选择。场地为影棚（白色圆形展厅）、大厅（室内展台）、公路（车辆停在右侧第一车道，两侧草地与天空）。光线为白天 / 夜晚，三套场地都能切换；影棚夜晚保留地面反射
 - **模式预设**：迎宾模式开门、开灯并打开双闪；试驾模式关上车门、启动车辆并切入驾舱，前轮保持回正、只向前滚动，场地切到公路
-- **视觉**：车漆配色、多机位预设、自动环车巡检、本地 IBL 光照（无外部 HDR CDN 依赖）
+- **视觉**：目录车漆、色卡最后一格自定义取色、多机位预设、自动环车巡检、本地 IBL 光照（无外部 HDR CDN 依赖）。目录外颜色写入 `paint=custom-rrggbb`
 - **看车工具**：截图保存当前画面、一键全屏看车、键盘快捷键（移动端可展开操作提示）
+- **远程模型**：右下角「AI 看车」默认收起。展开后可填写 API Key、OpenAI 兼容接口地址和模型名，用一句话切换车型、车漆、场地和部件。面板内容存在浏览器 `localStorage`（`3d-car-viewing:ai-settings`），非空字段会覆盖服务器同名配置。`pnpm dev` / `pnpm start` 由同源 `/api/showroom-ai` 转发；GitHub Pages 没有该接口，改为浏览器直连，模型服务需要允许跨域。服务器变量是 `AI_API_KEY`、`AI_BASE_URL`、`AI_MODEL`，不要加 `NEXT_PUBLIC_`
 - **可分享深链**：车型 / 车漆 / 视角 / 场地 / 光线持久化在 URL（`mode` + `light`），使用 `replaceState` 不污染历史栈；工具栏一键复制分享链接（`C`）。旧链接 `mode=day` / `mode=night` 仍按影棚读取
 - **性能**：`AdaptiveDpr` / `AdaptiveEvents`、带宽感知 idle preload、`preserveDrawingBuffer` 截图友好
 - **无障碍**：尊重 `prefers-reduced-motion`（禁用环车巡检、减弱双闪与怠速抖）
-- **响应式**：移动端约 52vh 画布、Tabs 折叠交互区、车型按钮自适应换行
+- **响应式**：窄屏画布高度约 `58vh`（不低于 400px），`sm` 及以上为 560px（不低于 480px）。窄屏把车身和视角操作收进画布底部，宽屏放在左右侧；车型按钮自适应换行
 - **健壮性**：GLB 加载失败时回退内置几何体车模；切换车型时保留上一模型直至新资源就绪
 
 ## 快速开始
@@ -73,6 +74,9 @@ pnpm dev
 | 变量 | 说明 | 默认 |
 |------|------|------|
 | `NEXT_PUBLIC_SITE_URL` | 站点 URL（元数据 / 部署） | `http://localhost:3000` |
+| `AI_API_KEY` | 远程模型密钥。只在 Next 服务端读取；页面里填写的密钥优先 | 空 |
+| `AI_BASE_URL` | OpenAI 兼容接口根地址，不含 `/chat/completions` | `https://api.openai.com/v1` |
+| `AI_MODEL` | 远程模型名称 | `gpt-4o-mini` |
 
 复制 `.env.example` 为 `.env` 即可本地覆盖。
 
@@ -119,10 +123,12 @@ pnpm build:pages   # 输出到 out/，basePath 为 /3d-car-viewing
 ```
 ├── src/
 │   ├── app/                    # Next.js App Router（page、layout、SEO 元数据）
+│   │   └── api/showroom-ai/    # 仅 dev / standalone：远程模型同源转发
 │   ├── components/
 │   │   ├── car-showroom-scene.tsx       # R3F 展厅 Canvas 编排
 │   │   ├── car-showroom-camera.tsx      # 轨道相机与预设过渡
 │   │   ├── showroom/                    # 几何体车 / GLB 车 / 画布外加载遮罩
+│   │   ├── showroom-ai-panel.tsx        # 右下角远程模型面板
 │   │   ├── showroom-control-panels.tsx
 │   │   ├── showroom-environment.tsx     # 地面、灯光、本地 IBL
 │   │   ├── showroom-studio-gallery.tsx  # 影棚圆形展厅
@@ -136,7 +142,10 @@ pnpm build:pages   # 输出到 out/，basePath 为 /3d-car-viewing
 │       ├── showroom-scene-modes.ts      # 场地（影棚 / 大厅 / 公路）× 光线（白天 / 夜晚）
 │       ├── showroom-presets.ts          # 迎宾 / 试驾预设
 │       ├── showroom-drive.ts            # 车速积分与路景位移
-│       ├── showroom-paint-options.ts    # 车漆调色板
+│       ├── showroom-paint-options.ts    # 目录车漆与 custom-rrggbb
+│       ├── showroom-ai-command.ts       # 远程模型指令
+│       ├── showroom-ai-config.ts        # 密钥与接口地址
+│       ├── showroom-ai-client.ts        # 转发或浏览器直连
 │       ├── car-categories.ts            # 内置车型与 GLB 路径
 │       ├── use-showroom-page-state.ts   # 页面状态与交互逻辑
 │       ├── use-showroom-url-state.ts    # URL ↔ 状态双向同步、分享链接

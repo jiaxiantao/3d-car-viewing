@@ -51,8 +51,10 @@ flowchart TB
 
 | Layer | Responsibility |
 |-------|----------------|
-| `use-showroom-page-state.ts` | User-facing toggles, URL hydrate, welcome / drive presets, capability gating |
-| `page.tsx` | Layout shell: canvas, viewport chrome, control panels |
+| `use-showroom-page-state.ts` | User-facing toggles, URL hydrate, welcome / drive presets, capability gating, remote-model command application |
+| `page.tsx` | Layout shell: canvas, viewport chrome, assistant panel, control panels |
+| `showroom-ai-panel.tsx` | Collapsed assistant. Settings stay in `localStorage` |
+| `app/api/showroom-ai/route.ts` | Same-origin proxy for `pnpm dev` and `pnpm start`. Absent from the GitHub Pages export |
 | `car-showroom-scene.tsx` | WebGL lifecycle: GLTF loading, venue swap, camera, screenshot bridge |
 | `showroom/loading-overlay.tsx` | DOM progress overlay painted outside the WebGL canvas |
 | `showroom/asset-car-model.tsx` / `procedural-car-model.tsx` | Per-frame mesh animation |
@@ -88,7 +90,9 @@ The highway parks the car in the first right-hand lane. `showroom-drive.ts` slid
 
 `showroom-environment.tsx` uses Three.js `RoomEnvironment` + PMREM for reflections. No `@react-three/drei` `<Environment preset="…" />` CDN fetch — suitable for offline / air-gapped deploys.
 
-Share links store `mode` (venue) and `light` (day or night). Legacy `mode=day` and `mode=night` still resolve to the studio.
+Share links store `mode` (venue) and `light` (day or night). Legacy `mode=day` and `mode=night` still resolve to the studio. `paint` is a catalog id or `custom-rrggbb`.
+
+`pnpm build:pages` moves `src/app/api` aside while Next exports the static site, then restores it. On that export the assistant calls the model provider from the browser.
 
 ## Extension points
 

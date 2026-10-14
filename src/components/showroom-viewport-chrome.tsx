@@ -1,9 +1,14 @@
 "use client";
 
-import { useState, type FocusEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FocusEvent, type ReactNode } from "react";
 
 import type { AssetRigCapabilities, CarCameraPreset } from "@/components/car-showroom-scene";
-import { SHOWROOM_PAINT_OPTIONS } from "@/lib/showroom-paint-options";
+import {
+  SHOWROOM_PAINT_OPTIONS,
+  customPaintId,
+  isCustomPaintId,
+  resolveShowroomPaint,
+} from "@/lib/showroom-paint-options";
 import type { ShowroomPresetId } from "@/lib/showroom-presets";
 import { cn } from "@/lib/utils";
 import {
@@ -12,6 +17,91 @@ import {
   type ShowroomLightingMode,
   type ShowroomVenueMode,
 } from "@/lib/showroom-scene-modes";
+
+function CustomPaintSwatch({
+  selectedPaintId,
+  onSelectPaint,
+}: {
+  selectedPaintId: string;
+  onSelectPaint: (id: string) => void;
+}) {
+  const activeHex = isCustomPaintId(selectedPaintId)
+    ? (resolveShowroomPaint(selectedPaintId).primary ?? "#c5c9ce")
+    : null;
+  const [storedHex, setStoredHex] = useState(activeHex ?? "#c5c9ce");
+  if (activeHex && storedHex !== activeHex) {
+    setStoredHex(activeHex);
+  }
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLSpanElement>(null);
+  const shownHex = activeHex ?? storedHex;
+  const active = Boolean(activeHex);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const onPointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <span ref={rootRef} className="relative">
+      <button
+        type="button"
+        aria-pressed={active}
+        aria-expanded={open}
+        aria-label={active ? resolveShowroomPaint(selectedPaintId).label : "自定义颜色"}
+        title="自定义颜色"
+        onClick={() => setOpen((value) => !value)}
+        className={cn(
+          "relative h-7 w-7 shrink-0 rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60 sm:h-8 sm:w-8",
+          active
+            ? "scale-110 border-cyan-200 shadow-[0_0_0_2px_rgba(34,211,238,0.45)]"
+            : "border-white/25 hover:scale-105 hover:border-white/50",
+        )}
+        style={
+          active
+            ? { background: shownHex }
+            : { background: "conic-gradient(#f43f5e, #eab308, #22c55e, #0ea5e9, #a855f7, #f43f5e)" }
+        }
+      />
+      {open ? (
+        <div className="absolute bottom-full right-0 z-40 mb-2 w-44 rounded-2xl border border-white/12 bg-slate-950/95 p-3 text-left shadow-xl backdrop-blur-md">
+          <p className="text-[11px] text-slate-300">自定义颜色</p>
+          <input
+            type="color"
+            aria-label="选择车漆颜色"
+            value={shownHex}
+            onChange={(event) => {
+              const hex = event.target.value;
+              setStoredHex(hex);
+              onSelectPaint(customPaintId(hex));
+            }}
+            className="mt-2 h-10 w-full cursor-pointer rounded-lg border border-white/15 bg-transparent"
+          />
+          <p className="mt-2 font-mono text-[11px] uppercase tracking-wide text-slate-400">
+            {shownHex}
+          </p>
+        </div>
+      ) : null}
+    </span>
+  );
+}
 
 type RailButtonProps = {
   label: string;
@@ -313,6 +403,7 @@ export function ShowroomViewportChrome({
           </span>
         );
       })}
+      <CustomPaintSwatch selectedPaintId={selectedPaintId} onSelectPaint={onSelectPaint} />
     </div>
   );
 

@@ -1,8 +1,8 @@
 cff-version: 1.2.0
 message: "If you use this showroom's source code, please cite it as below. The citation does not cover third-party GLB models."
 title: "3D Car Viewing"
-version: 0.3.0
-date-released: 2026-09-30
+version: 0.4.0
+date-released: 2026-10-14
 type: software
 license: MIT
 repository-code: "https://github.com/jiaxiantao/3d-car-viewing"

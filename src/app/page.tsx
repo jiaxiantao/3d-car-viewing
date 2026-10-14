@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 
+import { ShowroomAiPanel } from "@/components/showroom-ai-panel";
 import { ShowroomControlPanels } from "@/components/showroom-control-panels";
 import { ShowroomDebugPanel } from "@/components/showroom-debug-panel";
 import { ShowroomViewportChrome } from "@/components/showroom-viewport-chrome";
@@ -37,7 +38,7 @@ export default function HomePage() {
             3D 看车交互舱
           </h1>
           <p className="mt-1 w-max max-w-full text-xs leading-4 text-slate-400">
-            在浏览器中切换 GLB 车模，查看车门、车灯和车漆，并在影棚、大厅与公路之间切换。
+            在浏览器中切换 GLB 车模，查看车门、车灯和车漆，并在影棚、大厅与公路之间切换。也可接入远程模型，用一句话控制展厅。
           </p>
         </div>
         <a
@@ -134,6 +135,8 @@ export default function HomePage() {
           </span>
         </div>
       ) : null}
+
+      <ShowroomAiPanel scene={showroom.aiScene} onApply={showroom.applyAiCommands} />
 
       <ShowroomControlPanels
         useAssetModel={showroom.useAssetModel}

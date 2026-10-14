@@ -1,6 +1,6 @@
 {
   "name": "3d-car-viewing",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Browser 3D car showroom: GLB rig discovery, doors, lights, paint, and studio, hall, or highway venues. Next.js, React Three Fiber, and Three.js. MIT source code.",
   "license": "MIT",
   "author": "jiaxiantao",
@@ -33,7 +33,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:pages": "GH_PAGES=1 NEXT_PUBLIC_SITE_URL=https://jiaxiantao.github.io/3d-car-viewing next build --webpack && node scripts/prepare-gh-pages-export.mjs",
+    "build:pages": "node scripts/build-gh-pages.mjs",
     "start": "node .next/standalone/server.js",
     "start:ci": "next start -p 3000",
     "lint": "eslint",

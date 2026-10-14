@@ -42,6 +42,7 @@ import {
   type ShowroomPresetBodyKey,
   type ShowroomPresetSnapshot,
 } from "@/lib/showroom-presets";
+import { foldShowroomCommands, type ShowroomAiScene } from "@/lib/showroom-ai-command";
 import { usePrefersReducedMotion } from "@/lib/use-prefers-reduced-motion";
 
 const VALID_CAMERA_PRESETS: CarCameraPreset[] = [
@@ -535,6 +536,117 @@ export function useShowroomPageState() {
     venue,
   }, ignoredPresetBodyKeys);
 
+  const aiScene: ShowroomAiScene = useMemo(
+    () => ({
+      model: selectedCategory,
+      paintId: selectedPaintId,
+      camera: cameraPreset,
+      venue,
+      light: lighting,
+      leftDoorOpen,
+      rightDoorOpen,
+      trunkOpen,
+      sunroofOpen,
+      lightsOn,
+      hazardOn,
+      engineOn,
+      braking,
+      autoTour: effectiveAutoTour,
+      reduceMotion,
+      speedKph,
+      steeringAngle,
+      body: {
+        leftDoor: supportsInteraction("leftDoor"),
+        rightDoor: supportsInteraction("rightDoor"),
+        trunk: supportsInteraction("trunk"),
+        sunroof: supportsInteraction("sunroof"),
+      },
+    }),
+    [
+      braking,
+      cameraPreset,
+      effectiveAutoTour,
+      speedKph,
+      steeringAngle,
+      engineOn,
+      hazardOn,
+      leftDoorOpen,
+      lighting,
+      lightsOn,
+      reduceMotion,
+      rightDoorOpen,
+      selectedCategory,
+      selectedPaintId,
+      sunroofOpen,
+      supportsInteraction,
+      trunkOpen,
+      venue,
+    ],
+  );
+
+  const applyAiCommands = useCallback(
+    (commands: unknown[]) => {
+      const result = foldShowroomCommands(commands, aiScene);
+      const patch = result.patch;
+      if (patch.model && patch.model !== selectedCategory) {
+        handleSelectCategory(patch.model);
+      }
+      if (patch.paintId !== undefined) {
+        setSelectedPaintId(patch.paintId);
+      }
+      if (patch.camera !== undefined) {
+        setCameraPreset(patch.camera);
+      }
+      if (patch.venue !== undefined) {
+        setVenue(patch.venue);
+      }
+      if (patch.lighting !== undefined) {
+        setLighting(patch.lighting);
+      }
+      if (patch.leftDoorOpen !== undefined) {
+        setLeftDoorOpen(patch.leftDoorOpen);
+      }
+      if (patch.rightDoorOpen !== undefined) {
+        setRightDoorOpen(patch.rightDoorOpen);
+      }
+      if (patch.trunkOpen !== undefined) {
+        setTrunkOpen(patch.trunkOpen);
+      }
+      if (patch.sunroofOpen !== undefined) {
+        setSunroofOpen(patch.sunroofOpen);
+      }
+      if (patch.lightsOn !== undefined) {
+        setLightsOn(patch.lightsOn);
+      }
+      if (patch.hazardOn !== undefined) {
+        setHazardOn(patch.hazardOn);
+      }
+      if (patch.engineOn !== undefined) {
+        setEngineOn(patch.engineOn);
+      }
+      if (patch.braking !== undefined) {
+        setBraking(patch.braking);
+      }
+      if (patch.autoTour !== undefined) {
+        setAutoTour(patch.autoTour);
+      }
+      if (patch.speedKph !== undefined) {
+        setSpeedKph(patch.speedKph);
+      }
+      if (patch.steeringAngle !== undefined) {
+        setSteeringAngle(patch.steeringAngle);
+      }
+      if (patch.seatDriverOffset !== undefined) {
+        setSeatDriverOffset(patch.seatDriverOffset);
+      }
+      if (patch.seatPassengerOffset !== undefined) {
+        setSeatPassengerOffset(patch.seatPassengerOffset);
+      }
+      return { applied: result.applied, skipped: result.skipped };
+    },
+    [aiScene, handleSelectCategory, selectedCategory],
+  );
+
   function resetAll() {
     setLeftDoorOpen(false);
     setRightDoorOpen(false);
@@ -629,5 +741,7 @@ export function useShowroomPageState() {
     applyDriveMode,
     activePreset,
     resetAll,
+    aiScene,
+    applyAiCommands,
   };
 }
