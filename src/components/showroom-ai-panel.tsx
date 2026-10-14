@@ -182,7 +182,7 @@ export function ShowroomAiPanel({ scene, onApply }: ShowroomAiPanelProps) {
     } catch (cause) {
       setLines((current) => current.filter((line) => line.id !== userLine.id));
       setMessage(content);
-      setError(explainAiTransportError(cause));
+      setError(explainAiTransportError(cause, usesProxy ? "proxy" : "direct"));
     } finally {
       setPending(false);
     }
@@ -207,7 +207,10 @@ export function ShowroomAiPanel({ scene, onApply }: ShowroomAiPanelProps) {
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-white">AI 看车</h2>
           <p className="mt-1 text-xs leading-5 text-slate-400">
-            用一句话控制车型、车漆、场地和部件。密钥只保存在这台浏览器里。
+            用一句话控制车型、车漆、场地和部件。只会改这辆车已经具备的操作，密钥只保存在这台浏览器里。
+            {usesProxy
+              ? ""
+              : " 当前是静态站点，浏览器会直接请求接口，该接口必须允许跨域（Access-Control-Allow-Origin）。"}
           </p>
         </div>
         <div className="flex shrink-0 gap-1.5">

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildShowroomAiSystemPrompt,
   foldShowroomCommands,
   planShowroomControl,
   readChatCompletion,
@@ -237,5 +238,19 @@ describe("resolveShowroomAiCredentials", () => {
 
   it("removes the key if a provider echoes it", () => {
     expect(scrubSecret("bad key sk-test in body", "sk-test")).toBe("bad key *** in body");
+  });
+});
+
+describe("buildShowroomAiSystemPrompt", () => {
+  it("tells the model which parts of the current car stay closed", () => {
+    const prompt = buildShowroomAiSystemPrompt(
+      scene({
+        model: "offroad",
+        wheels: false,
+        body: { leftDoor: false, rightDoor: false, trunk: false, sunroof: false },
+      }),
+    );
+    expect(prompt).toContain("巴博斯 G900不能单独打开左门、右门、后备箱、天窗");
+    expect(prompt).toContain("不要把这些部件设为打开");
   });
 });

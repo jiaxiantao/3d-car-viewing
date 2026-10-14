@@ -292,6 +292,7 @@ type ShowroomViewportChromeProps = {
   onSelectPaint: (id: string) => void;
   supportsInteraction: (key: keyof AssetRigCapabilities) => boolean;
   interactionHint: (key: keyof AssetRigCapabilities) => string | undefined;
+  capabilityNote?: string | null;
   wheelSpinHint?: string;
   helpOpen: boolean;
   onToggleHelp: () => void;
@@ -338,6 +339,7 @@ export function ShowroomViewportChrome({
   onSelectPaint,
   supportsInteraction,
   interactionHint,
+  capabilityNote,
   wheelSpinHint,
   helpOpen,
   onToggleHelp,
@@ -410,6 +412,14 @@ export function ShowroomViewportChrome({
   return (
     <div className="relative isolate">
       {children}
+
+      {capabilityNote ? (
+        <div className="pointer-events-none absolute inset-x-0 top-14 z-20 flex justify-center px-3 sm:top-16 sm:px-28">
+          <p className="max-w-xl rounded-full border border-amber-200/25 bg-slate-950/80 px-3 py-1 text-center text-[11px] leading-5 text-amber-50 shadow-lg">
+            {capabilityNote}
+          </p>
+        </div>
+      ) : null}
 
       {/* Top bar — scene + capture tools + help */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center p-2 sm:p-3">

@@ -43,6 +43,7 @@ import {
   type ShowroomPresetSnapshot,
 } from "@/lib/showroom-presets";
 import { foldShowroomCommands, type ShowroomAiScene } from "@/lib/showroom-ai-command";
+import { showroomCapabilityNote } from "@/lib/showroom-capability-note";
 import { usePrefersReducedMotion } from "@/lib/use-prefers-reduced-motion";
 
 const VALID_CAMERA_PRESETS: CarCameraPreset[] = [
@@ -157,19 +158,19 @@ export function useShowroomPageState() {
     : "几何体车模";
 
   useEffect(() => {
-    if (!useAssetModel) {
+    // Keep the first download for the car on screen. Warm the rest only after its rig is ready.
+    if (!useAssetModel || assetRigCaps === null) {
       return;
     }
     const otherUrls = CAR_CATEGORY_OPTIONS.map((item) => item.primaryUrl).filter(
       (url) => url !== selectedModelUrl,
     );
-    // Warm full prepared packages (clone + rig) so category switches stay on the main thread briefly.
     return scheduleIdleGltfPreloads(otherUrls, {
       respectNetworkConstraints: true,
       // Still preload one alternate on mobile; desktop warms all remaining models.
       currentOnly: isCoarsePointerMobile(),
     });
-  }, [selectedModelUrl, useAssetModel]);
+  }, [assetRigCaps, selectedModelUrl, useAssetModel]);
 
   const handleToggleAssetModel = useCallback(() => {
     setAllGlbFailed(false);
@@ -292,6 +293,18 @@ export function useShowroomPageState() {
     unsupportedInteractionLabels.length > 0
       ? `${blockedInteractionNote}当前 GLB 的「${unsupportedInteractionLabels.join("、")}」无法单独开合（按钮已禁用）。车灯、双闪、启动与整车动态仍可用。${wheelSwitchAdvice}`
       : blockedInteractionNote || null;
+
+  const capabilityNote =
+    useAssetModel && assetRigCaps
+      ? showroomCapabilityNote({
+          modelLabel: activeCategory.label,
+          leftDoor: supportsInteraction("leftDoor"),
+          rightDoor: supportsInteraction("rightDoor"),
+          trunk: supportsInteraction("trunk"),
+          sunroof: supportsInteraction("sunroof"),
+          wheels: assetRigCaps.wheels,
+        })
+      : null;
 
   const wheelSpinUnavailable = useAssetModel && assetRigCaps ? !assetRigCaps.wheels : false;
   const wheelSpinHint = wheelSpinUnavailable
@@ -555,6 +568,7 @@ export function useShowroomPageState() {
       reduceMotion,
       speedKph,
       steeringAngle,
+      wheels: assetRigCaps ? assetRigCaps.wheels : true,
       body: {
         leftDoor: supportsInteraction("leftDoor"),
         rightDoor: supportsInteraction("rightDoor"),
@@ -563,6 +577,7 @@ export function useShowroomPageState() {
       },
     }),
     [
+      assetRigCaps,
       braking,
       cameraPreset,
       effectiveAutoTour,
@@ -729,6 +744,7 @@ export function useShowroomPageState() {
     supportsInteraction,
     interactionHint,
     unsupportedInteractionNote,
+    capabilityNote,
     wheelSpinUnavailable,
     wheelSpinHint,
     sceneState,

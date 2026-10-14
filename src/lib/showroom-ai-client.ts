@@ -25,13 +25,28 @@ export type ShowroomAiRequest = {
   settings: ShowroomAiCredentialInput;
 };
 
-export function explainAiTransportError(error: unknown): string {
+function isUnreachable(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const message = error.message;
+  return (
+    message === "Failed to fetch" ||
+    message === "Load failed" ||
+    message.includes("NetworkError") ||
+    message.includes("Failed to fetch")
+  );
+}
+
+export function explainAiTransportError(error: unknown, mode: "direct" | "proxy" = "direct"): string {
   if (error instanceof Error && error.message.trim()) {
     if (error.name === "TimeoutError" || error.name === "AbortError") {
       return "模型请求超时，请稍后再试。";
     }
-    if (error.message === "Failed to fetch" || error.message.includes("NetworkError")) {
-      return "无法连接模型接口。若是在线静态站点，该接口需要允许浏览器跨域；本地 pnpm dev 会经本站转发。";
+    if (isUnreachable(error)) {
+      return mode === "proxy"
+        ? "连不上本站的模型转发。请确认 pnpm dev 或 pnpm start 正在运行。"
+        : "连不上模型接口。静态站点不能代发请求，请确认接口允许浏览器跨域（Access-Control-Allow-Origin），并且地址和密钥正确。";
     }
     return error.message;
   }
@@ -54,7 +69,7 @@ export async function postChatCompletion(
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch (error) {
-    throw new Error(scrubSecret(explainAiTransportError(error), credentials.apiKey));
+    throw new Error(scrubSecret(explainAiTransportError(error, "direct"), credentials.apiKey));
   }
 
   const text = await response.text();

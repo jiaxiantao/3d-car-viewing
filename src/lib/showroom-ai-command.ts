@@ -25,6 +25,7 @@ import {
   type ShowroomPresetId,
   type ShowroomPresetSnapshot,
 } from "@/lib/showroom-presets";
+import { showroomCapabilityNote } from "@/lib/showroom-capability-note";
 import {
   SHOWROOM_LIGHTING_OPTIONS,
   SHOWROOM_VENUE_OPTIONS,
@@ -168,6 +169,8 @@ export type ShowroomAiScene = {
   reduceMotion: boolean;
   speedKph: number;
   steeringAngle: number;
+  /** False when the wheels are fused to the body. Omitted means they can spin. */
+  wheels?: boolean;
   body: ShowroomAiBodyAvailability;
 };
 
@@ -260,6 +263,7 @@ export function coerceShowroomAiScene(value: unknown): ShowroomAiScene | null {
     braking: Boolean(raw.braking),
     autoTour: Boolean(raw.autoTour),
     reduceMotion: Boolean(raw.reduceMotion),
+    wheels: raw.wheels !== false,
     speedKph: typeof raw.speedKph === "number" && Number.isFinite(raw.speedKph) ? raw.speedKph : 0,
     steeringAngle:
       typeof raw.steeringAngle === "number" && Number.isFinite(raw.steeringAngle)
@@ -759,13 +763,30 @@ function catalogLines(): string {
   return `车型：${cars}。车漆：${paints}。视角：${cameras}。场地：${venues}。光线：${lights}。模式：welcome（迎宾）、drive（试驾）、reset（恢复默认）。`;
 }
 
+function capabilitySentence(scene: ShowroomAiScene): string {
+  const label = CAR_CATEGORIES[scene.model].label;
+  const limits = showroomCapabilityNote({
+    modelLabel: label,
+    leftDoor: scene.body.leftDoor,
+    rightDoor: scene.body.rightDoor,
+    trunk: scene.body.trunk,
+    sunroof: scene.body.sunroof,
+    wheels: scene.wheels !== false,
+  });
+  if (limits) {
+    return `${limits}不要把这些部件设为打开，也不要改用别的车型或别的动作代替，直接说明做不到。`;
+  }
+  return `${label}的左门、右门、后备箱和天窗都可以单独打开。`;
+}
+
 export function buildShowroomAiSystemPrompt(scene: ShowroomAiScene): string {
   return [
     "你是浏览器 3D 看车展厅的控制器。",
     "用户要求改画面时，调用 control_showroom，只填写用户提到的字段，并用一句中文说明结果。",
     "画面已经处于目标状态时不要重复设置。色卡里有的车漆用 paint 填 id。色卡里没有的颜色用 customColor 填 #RRGGBB，不要改成最接近的色卡。",
     "只使用展厅里已有的车型、视角、场地、光线和部件。车漆可以是色卡或自定义色值。不要编造续航、价格或配置。",
-    "当前车型不可开的部件不要设为打开。用户只是打招呼或询问与操作无关的问题时，不要改画面。",
+    capabilitySentence(scene),
+    "用户只是打招呼或询问与操作无关的问题时，不要改画面。",
     catalogLines(),
     `当前画面：${JSON.stringify(scene)}`,
   ].join("\n");

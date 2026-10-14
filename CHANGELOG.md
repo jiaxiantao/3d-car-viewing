@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Loading:** 当前车模的部件识别完成之前，不再空闲预加载其他车型。加载遮罩写明车型名称；某一辆失败时，画布上说明正在改试下一辆。
+- **Screenshots:** 截图改为渲染后立即复制当前帧，WebGL 绘图缓冲不再常驻。
+- **Capabilities:** 不能单独打开的部件会显示在画布上，并写进远程模型的提示，避免用别的动作代替。静态站点连不上模型接口时，面板说明需要允许跨域。
+
 ## [0.4.0] - 2026-10-14
 
 ### Added

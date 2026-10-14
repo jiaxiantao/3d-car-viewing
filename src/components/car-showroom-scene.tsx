@@ -12,7 +12,7 @@ import {
   releaseDisplayedScene,
   retainDisplayedScene,
 } from "@/lib/gltf-scene-cache";
-import { CAR_CATEGORIES, DEFAULT_CAR_CATEGORY_KEY } from "@/lib/car-categories";
+import { CAR_CATEGORIES, carCategoryForModelUrl, DEFAULT_CAR_CATEGORY_KEY } from "@/lib/car-categories";
 import { getOrbitDistanceLimits } from "@/lib/showroom-camera";
 import {
   ShowroomHeadlightSpotlights,
@@ -75,10 +75,24 @@ function ShowroomSceneControlBridge({
           invalidate();
           advance(performance.now() / 1000);
         } catch {
-          gl.render(scene, camera);
+          // advance can throw before the renderer is ready; render once below.
         }
+        gl.render(scene, camera);
+        const source = gl.domElement;
+        if (source.width === 0 || source.height === 0) {
+          return null;
+        }
+        // Copy pixels in this turn. The WebGL buffer is not preserved between frames.
+        const copy = document.createElement("canvas");
+        copy.width = source.width;
+        copy.height = source.height;
+        const context = copy.getContext("2d");
+        if (!context) {
+          return null;
+        }
+        context.drawImage(source, 0, 0);
         return new Promise<Blob | null>((resolve) => {
-          gl.domElement.toBlob((blob) => resolve(blob), "image/png");
+          copy.toBlob((blob) => resolve(blob), "image/png");
         });
       },
       requestFullscreen: async () => {
@@ -129,6 +143,7 @@ export function CarShowroomScene({
   const [assetLoadState, setAssetLoadState] = useState<AssetLoadState>("idle");
   const [useGeometricFallback, setUseGeometricFallback] = useState(false);
   const [loadProgress, setLoadProgress] = useState(0);
+  const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
   const controlsRef = useRef(null);
   const driveSpeedRef = useRef(0);
   const displayedRootRef = useRef<THREE.Object3D | null>(null);
@@ -275,6 +290,7 @@ export function CarShowroomScene({
         displayedRootRef.current = null;
       }
       queueMicrotask(() => {
+        setFallbackNotice(null);
         setAssetLoadState("idle");
         setUseGeometricFallback(false);
         setAssetScene(null);
@@ -292,6 +308,7 @@ export function CarShowroomScene({
     );
 
     queueMicrotask(() => {
+      setFallbackNotice(null);
       const firstUrl = candidateUrls[0];
       const warm = Boolean(firstUrl && isShowroomModelPrepared(firstUrl));
       // Warm packages swap instantly — keep previous caps/scene to avoid UI flicker.
@@ -362,8 +379,16 @@ export function CarShowroomScene({
         setAssetLoadState("ready");
         onAssetRigCapabilities?.(rig.capabilities);
         onAssetRigDebug?.(rig.debug);
+        setFallbackNotice(null);
         onAssetModelResolved?.(url);
       } catch {
+        if (!active) {
+          return;
+        }
+        const failed = carCategoryForModelUrl(url);
+        setFallbackNotice(
+          failed ? `${failed.label} 加载失败，正在改试下一辆车模。` : "这辆车模加载失败，正在改试下一辆。",
+        );
         await tryLoad(index + 1);
       }
     };
@@ -392,7 +417,13 @@ export function CarShowroomScene({
       {useAssetModel && assetLoadState === "error" ? (
         <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center px-4">
           <p className="rounded-full border border-amber-400/30 bg-amber-950/80 px-3 py-1 text-xs text-amber-100">
-            所有 GLB 车模加载失败，已切换为几何体车模
+            所有 GLB 车模加载失败，已切换为几何体车模。几何体车的车门、后备箱、天窗和车灯都可以操作。
+          </p>
+        </div>
+      ) : fallbackNotice ? (
+        <div className="pointer-events-none absolute inset-x-0 top-16 z-30 flex justify-center px-4">
+          <p className="rounded-full border border-amber-400/30 bg-amber-950/80 px-3 py-1 text-center text-xs text-amber-100">
+            {fallbackNotice}
           </p>
         </div>
       ) : null}
@@ -400,7 +431,7 @@ export function CarShowroomScene({
         className="h-full w-full"
         shadows={{ type: THREE.PCFShadowMap }}
         dpr={[1, 1.75]}
-        gl={{ preserveDrawingBuffer: true, antialias: true }}
+        gl={{ antialias: true, preserveDrawingBuffer: false }}
       >
         <ShowroomSceneControlBridge handleRef={controlHandleRef} containerRef={containerRef} />
         <AdaptiveDpr pixelated={false} />
@@ -518,6 +549,7 @@ export function CarShowroomScene({
       <ShowroomAssetLoadingOverlay
         visible={loadingOverlayVisible}
         displayProgress={displayedLoadProgress}
+        modelLabel={carCategoryForModelUrl(modelUrl)?.label}
       />
     </div>
   );

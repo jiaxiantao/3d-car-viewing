@@ -90,6 +90,7 @@ export default function HomePage() {
         onSelectPaint={showroom.setSelectedPaintId}
         supportsInteraction={showroom.supportsInteraction}
         interactionHint={showroom.interactionHint}
+        capabilityNote={showroom.capabilityNote}
         wheelSpinHint={showroom.wheelSpinHint}
         helpOpen={showroom.shortcutsOpen}
         onToggleHelp={() => showroom.setShortcutsOpen((open) => !open)}

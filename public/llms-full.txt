@@ -65,7 +65,8 @@ Optional. The collapsed “AI 看车” button opens a panel that sends one sent
 
 - `pnpm dev` and `pnpm start` proxy through `POST /api/showroom-ai`. A non-blank value saved in the panel overrides the matching server variable. Blank panel fields fall through to the server, then to `https://api.openai.com/v1` and `gpt-4o-mini`.
 - Panel settings are stored in `localStorage` under `3d-car-viewing:ai-settings`. The proxy scrubs the key from upstream error text. Public `http` URLs are rejected except localhost and private LAN addresses.
-- GitHub Pages calls the provider from the browser, so that provider must allow CORS. `pnpm build:pages` moves `src/app/api` aside during the static export and restores it afterward.
+- GitHub Pages calls the provider from the browser, so that provider must allow CORS (`Access-Control-Allow-Origin`). The assistant panel says so when the browser cannot reach the provider. `pnpm build:pages` moves `src/app/api` aside during the static export and restores it afterward.
+- The prompt includes which doors, trunk, sunroof, and wheels the current car can move. Unavailable parts stay closed.
 - Server variables are `AI_API_KEY`, `AI_BASE_URL`, and `AI_MODEL`. Do not prefix them with `NEXT_PUBLIC_`.
 
 ## Built-in cars

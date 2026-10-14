@@ -13,9 +13,11 @@ const LOADER_OVERLAY_STYLES = `
 export function ShowroomAssetLoadingOverlay({
   visible,
   displayProgress,
+  modelLabel,
 }: {
   visible: boolean;
   displayProgress: number;
+  modelLabel?: string;
 }) {
   if (!visible) {
     return null;
@@ -63,7 +65,7 @@ export function ShowroomAssetLoadingOverlay({
           }}
         />
         <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: "#f1f5f9" }}>
-          正在加载车模资源…
+          {modelLabel ? `正在加载${modelLabel}…` : "正在加载车模资源…"}
         </p>
         <div
           style={{
@@ -96,7 +98,9 @@ export function ShowroomAssetLoadingOverlay({
             />
           )}
         </div>
-        <p style={{ margin: 0, fontSize: 12, color: "#94a3b8" }}>{percent}%</p>
+        <p style={{ margin: 0, fontSize: 12, color: "#94a3b8" }}>
+          {percent}% · 这辆车加载完就可以操作
+        </p>
       </div>
     </div>
   );

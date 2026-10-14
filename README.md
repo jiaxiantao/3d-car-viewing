@@ -43,7 +43,7 @@
 - **看车工具**：截图保存当前画面、一键全屏看车、键盘快捷键（移动端可展开操作提示）
 - **远程模型**：右下角「AI 看车」默认收起。展开后可填写 API Key、OpenAI 兼容接口地址和模型名，用一句话切换车型、车漆、场地和部件。面板内容存在浏览器 `localStorage`（`3d-car-viewing:ai-settings`），非空字段会覆盖服务器同名配置。`pnpm dev` / `pnpm start` 由同源 `/api/showroom-ai` 转发；GitHub Pages 没有该接口，改为浏览器直连，模型服务需要允许跨域。服务器变量是 `AI_API_KEY`、`AI_BASE_URL`、`AI_MODEL`，不要加 `NEXT_PUBLIC_`
 - **可分享深链**：车型 / 车漆 / 视角 / 场地 / 光线持久化在 URL（`mode` + `light`），使用 `replaceState` 不污染历史栈；工具栏一键复制分享链接（`C`）。旧链接 `mode=day` / `mode=night` 仍按影棚读取
-- **性能**：`AdaptiveDpr` / `AdaptiveEvents`、带宽感知 idle preload、`preserveDrawingBuffer` 截图友好
+- **性能**：`AdaptiveDpr` / `AdaptiveEvents`、当前车模就绪后才空闲预加载其余车型、截图时复制当前帧（平时不保留 WebGL 绘图缓冲）
 - **无障碍**：尊重 `prefers-reduced-motion`（禁用环车巡检、减弱双闪与怠速抖）
 - **响应式**：窄屏画布高度约 `58vh`（不低于 400px），`sm` 及以上为 560px（不低于 480px）。窄屏把车身和视角操作收进画布底部，宽屏放在左右侧；车型按钮自适应换行
 - **健壮性**：GLB 加载失败时回退内置几何体车模；切换车型时保留上一模型直至新资源就绪
