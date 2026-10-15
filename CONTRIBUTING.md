@@ -12,9 +12,9 @@ Thank you for considering a contribution to **3d-car-viewing**!
 ## Development setup
 
 ```bash
-pnpm install
+pnpm install   # or: yarn install
 cp .env.example .env   # optional
-pnpm dev
+pnpm dev       # or: yarn dev
 ```
 
 ## Quality checks (required before PR)

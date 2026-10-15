@@ -53,7 +53,7 @@
 ### 环境要求
 
 - [Node.js](https://nodejs.org/) 20+
-- [pnpm](https://pnpm.io/) 9+
+- [pnpm](https://pnpm.io/) 9.15.9，或 [Yarn Classic](https://classic.yarnpkg.com/) 1.22+
 
 ### 安装与开发
 
@@ -64,6 +64,15 @@ pnpm install
 cp .env.example .env   # 可选，见下方环境变量
 pnpm dev
 ```
+
+也可以用 Yarn 1.22 安装同一套依赖：
+
+```bash
+yarn install
+yarn dev
+```
+
+Yarn 不会读取 pnpm 的 `patchedDependencies`。安装结束后会运行 `scripts/apply-fiber-patch.mjs`，把同一份 `@react-three/fiber@9.8.1` 补丁写进 `node_modules`。CI、Docker 和 GitHub Pages 仍使用 pnpm 9.15.9。项目未设置 `packageManager`，否则 Yarn 1.22 会拒绝安装。Corepack 如果把 `pnpm` 解析成 10 或更高版本，会忽略 `package.json` 里的 pnpm 补丁配置，这时请改用 pnpm 9.15.9，或直接 `yarn install`。
 
 浏览器打开 [http://localhost:3000](http://localhost:3000)。
 

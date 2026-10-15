@@ -32,7 +32,7 @@ Default car: 小米 SU7 Ultra (`model=su7-ultra`)
 ```
 git clone https://github.com/jiaxiantao/3d-car-viewing.git
 cd 3d-car-viewing
-pnpm install
+pnpm install   # or: yarn install
 pnpm dev
 ```
 

@@ -21,7 +21,7 @@ Machine-readable index for answer engines: `public/llms.txt` and `public/llms-fu
 ## Commands
 
 ```bash
-pnpm install
+pnpm install   # yarn install also works (Yarn Classic 1.22+)
 pnpm dev
 pnpm test
 pnpm typecheck

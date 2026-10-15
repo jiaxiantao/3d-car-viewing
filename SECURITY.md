@@ -40,4 +40,4 @@ Out of scope:
 ## Safe defaults
 
 - Do not commit `.env` files or API keys.
-- Run `pnpm install` only from this repository's lockfile in CI and production builds.
+- Install from this repository's lockfile: `pnpm install --frozen-lockfile` or `yarn install --frozen-lockfile`.

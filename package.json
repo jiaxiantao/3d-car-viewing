@@ -28,9 +28,10 @@
   ],
   "engines": {
     "node": ">=20",
-    "pnpm": ">=9"
+    "yarn": ">=1.22.0 <2"
   },
   "scripts": {
+    "postinstall": "node scripts/apply-fiber-patch.mjs",
     "dev": "next dev",
     "build": "next build",
     "build:pages": "node scripts/build-gh-pages.mjs",
@@ -44,7 +45,7 @@
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",
-    "@react-three/fiber": "^9.8.1",
+    "@react-three/fiber": "9.8.1",
     "clsx": "^2.1.1",
     "next": "16.3.6",
     "react": "19.3.0",
@@ -69,7 +70,6 @@
     "typescript": "^5",
     "vitest": "^5.0.1"
   },
-  "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcf2531",
   "pnpm": {
     "patchedDependencies": {
       "@react-three/fiber@9.8.1": "patches/@react-three__fiber@9.8.1.patch"

@@ -17,7 +17,7 @@ importers:
         specifier: ^10.7.9
         version: 10.7.9(@react-three/fiber@9.8.1(patch_hash=xtursd6crj7flly725l3nr5fwu)(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(three@0.186.1))(@types/react@19.3.0)(@types/three@0.186.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(three@0.186.1)
       '@react-three/fiber':
-        specifier: ^9.8.1
+        specifier: 9.8.1
         version: 9.8.1(patch_hash=xtursd6crj7flly725l3nr5fwu)(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(three@0.186.1)
       clsx:
         specifier: ^2.1.1
